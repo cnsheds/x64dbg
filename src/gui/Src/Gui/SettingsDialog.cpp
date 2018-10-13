@@ -84,6 +84,7 @@ void SettingsDialog::LoadSettings()
     settings.guiNoForegroundWindow = true;
     settings.guiDisableAutoComplete = false;
     settings.guiAsciiAddressDumpMode = false;
+    settings.guiShowInfoWindow = true;
 
     //Events tab
     GetSettingBool("Events", "SystemBreakpoint", &settings.eventSystemBreakpoint);
@@ -241,6 +242,7 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Gui", "ShowExitConfirmation", &settings.guiShowExitConfirmation);
     GetSettingBool("Gui", "DisableAutoComplete", &settings.guiDisableAutoComplete);
     GetSettingBool("Gui", "AsciiAddressDumpMode", &settings.guiAsciiAddressDumpMode);
+    GetSettingBool("Gui", "ShowInfoWindow", &settings.guiShowInfoWindow);
     ui->chkFpuRegistersLittleEndian->setChecked(settings.guiFpuRegistersLittleEndian);
     ui->chkSaveColumnOrder->setChecked(settings.guiSaveColumnOrder);
     ui->chkNoCloseDialog->setChecked(settings.guiNoCloseDialog);
@@ -252,6 +254,7 @@ void SettingsDialog::LoadSettings()
     ui->chkShowExitConfirmation->setChecked(settings.guiShowExitConfirmation);
     ui->chkDisableAutoComplete->setChecked(settings.guiDisableAutoComplete);
     ui->chkAsciiAddressDumpMode->setChecked(settings.guiAsciiAddressDumpMode);
+    ui->chkShowInfoWindow->setChecked(settings.guiShowInfoWindow);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -392,6 +395,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Gui", "ShowExitConfirmation", settings.guiShowExitConfirmation);
     BridgeSettingSetUint("Gui", "DisableAutoComplete", settings.guiDisableAutoComplete);
     BridgeSettingSetUint("Gui", "AsciiAddressDumpMode", settings.guiAsciiAddressDumpMode);
+    BridgeSettingSetUint("Gui", "ShowInfoWindow", settings.guiShowInfoWindow);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -900,4 +904,9 @@ void SettingsDialog::on_chkQueryProcessCookie_toggled(bool checked)
 void SettingsDialog::on_chkQueryWorkingSet_toggled(bool checked)
 {
     settings.miscQueryWorkingSet = checked;
+}
+
+void SettingsDialog::on_chkShowInfoWindow_toggled(bool checked)
+{
+    settings.guiShowInfoWindow = checked;
 }

@@ -180,6 +180,11 @@ CPUStack* CPUWidget::getStackWidget()
     return mStack;
 }
 
+RegistersView* CPUWidget::getRegisterWidget()
+{
+    return mGeneralRegs;
+}
+
 void CPUWidget::splitterMoved(int pos, int index)
 {
     Q_UNUSED(pos);

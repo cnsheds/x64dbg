@@ -438,6 +438,9 @@ void HexDump::mousePressEvent(QMouseEvent* event)
                             emit selectionUpdated();
                         }
 
+                        duint addr = rvaToVa(getSelectionStart());
+                        emit showSelectInfo(addr, 1);
+
                         mGuiState = HexDump::MultiRowsSelectionState;
 
                         updateViewport();
@@ -770,6 +773,30 @@ void HexDump::getColumnRichText(int col, dsint rva, RichTextPainter::List & rich
             curData.text.replace('\v', "\\v");
             curData.text.replace('\n', "\\n");
             curData.text.replace('\r', "\\r");
+            richText.push_back(curData);
+        }
+        else if(desc.data.byteMode == AsciiByte && desc.data.itemSize == Byte)
+        {
+            QTextCodec* tCodec = QTextCodec::codecForName("System");
+            wchar_t wstr[4] = {0};
+            int len = 0;
+            for(wI = 0; wI < wBufferByteCount; wI++)
+            {
+                if(wData[wI] < 0x20 || wData[wI] == 0x7F || wData[wI] == 0xFF)
+                    wData[wI] = mNullReplace.toLatin1();
+                else if(wData[wI] > 0x7F)
+                {
+                    wstr[0] = 0;
+                    QString strtmp = tCodec->toUnicode(QByteArray((const char*)wData+wI, 2));
+                    len = strtmp.toWCharArray(wstr);
+                    wstr[len] = 0;
+                    if (wstr[0] != 0)
+                        wI++;
+                    else
+                        wData[wI] = mNullReplace.toLatin1();
+                }
+            }
+            curData.text = tCodec->toUnicode(QByteArray((const char*)wData, wBufferByteCount));
             richText.push_back(curData);
         }
         else

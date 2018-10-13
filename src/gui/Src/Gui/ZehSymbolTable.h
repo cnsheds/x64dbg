@@ -9,7 +9,9 @@ class ZehSymbolTable : public AbstractStdTable
 public:
     ZehSymbolTable(QWidget* parent = nullptr);
 
+    void updateColors() override;
     QString getCellContent(int r, int c) override;
+    QColor getSpecialColor(int r, int c) override;
     bool isValidIndex(int r, int c) override;
     void sortRows(int column, bool ascending) override;
 
@@ -26,7 +28,7 @@ private:
     QString trImport;
     QString trExport;
     QString trSymbol;
-
+    QColor  mBkColorOfImport;
     enum
     {
         ColAddr,

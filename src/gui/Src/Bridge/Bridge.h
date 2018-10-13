@@ -137,6 +137,7 @@ signals:
     void displayWarning(QString title, QString text);
     void registerScriptLang(SCRIPTTYPEINFO* info);
     void unregisterScriptLang(int id);
+    void registerAutoComplete(SCRIPTTYPEINFO* info);
     void focusDisasm();
     void focusDump();
     void focusStack();

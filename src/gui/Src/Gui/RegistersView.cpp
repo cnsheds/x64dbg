@@ -14,6 +14,7 @@
 #include "SelectFields.h"
 #include "MiscUtil.h"
 #include "ldconvert.h"
+#include "InfoDialog.h"
 
 int RegistersView::getEstimateHeight()
 {
@@ -1708,6 +1709,9 @@ void RegistersView::mousePressEvent(QMouseEvent* event)
             }
             else
                 mSelected = r;
+
+            duint regValue = *(duint*)registerValue(&wRegDumpStruct, mSelected);
+            emit showSelectInfo(regValue, 0);
             emit refresh();
         }
         else

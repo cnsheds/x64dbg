@@ -733,7 +733,15 @@ void CPUDump::hexCodepageSlot()
     dDesc.itemSize = Byte;
     dDesc.byteMode = AsciiByte;
     wColDesc.data = dDesc;
-    appendDescriptor(0, codepage, false, wColDesc);
+    appendDescriptor(8 + charwidth * 16, codepage, false, wColDesc);
+
+    wColDesc.isData = false; //empty column
+    wColDesc.itemCount = 0;
+    wColDesc.separator = 0;
+    dDesc.itemSize = Byte;
+    dDesc.byteMode = AsciiByte;
+    wColDesc.data = dDesc;
+    appendDescriptor(0, "", false, wColDesc);
 
     reloadData();
 }
@@ -765,7 +773,15 @@ void CPUDump::hexLastCodepageSlot()
     dDesc.itemSize = Byte;
     dDesc.byteMode = AsciiByte;
     wColDesc.data = dDesc;
-    appendDescriptor(0, allCodecs.at(lastCodepage), false, wColDesc);
+    appendDescriptor(8 + charwidth * 16, allCodecs.at(lastCodepage), false, wColDesc);
+
+    wColDesc.isData = false; //empty column
+    wColDesc.itemCount = 0;
+    wColDesc.separator = 0;
+    dDesc.itemSize = Byte;
+    dDesc.byteMode = AsciiByte;
+    wColDesc.data = dDesc;
+    appendDescriptor(0, "", false, wColDesc);
 
     reloadData();
 }

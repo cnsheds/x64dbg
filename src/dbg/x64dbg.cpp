@@ -28,6 +28,7 @@
 #include "stringformat.h"
 #include "yara/yara.h"
 #include "dbghelp_safe.h"
+#include "types.h"
 
 static MESSAGE_STACK* gMsgStack = 0;
 static HANDLE hCommandLoopThread = 0;
@@ -383,8 +384,8 @@ static void registercommands()
     dbgcmdnew("scriptdll,dllscript", cbScriptDll, false); //execute a script DLL
 
     //gui
-    dbgcmdnew("disasm,dis,d", cbDebugDisasm, true); //doDisasm
-    dbgcmdnew("dump", cbDebugDump, true); //dump at address
+    dbgcmdnew("disasm,dis", cbDebugDisasm, true); //doDisasm
+    dbgcmdnew("dump,d", cbDebugDump, true); //dump at address
     dbgcmdnew("sdump", cbDebugStackDump, true); //dump at stack address
     dbgcmdnew("memmapdump", cbDebugMemmapdump, true);
     dbgcmdnew("graph", cbInstrGraph, true); //graph function
@@ -726,6 +727,7 @@ extern "C" DLL_EXPORT const char* _dbg_dbginit()
     strcpy_s(info.name, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Script DLL")));
     info.execute = DbgScriptDllExec;
     GuiRegisterScriptLanguage(&info);
+    RegisterTypeAutoComplete();
     dputs(QT_TRANSLATE_NOOP("DBG", "Starting command loop..."));
     hCommandLoopThread = CreateThread(nullptr, 0, DbgCommandLoopThread, nullptr, 0, nullptr);
     char plugindir[deflen] = "";

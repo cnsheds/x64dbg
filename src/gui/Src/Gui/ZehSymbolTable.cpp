@@ -44,6 +44,13 @@ ZehSymbolTable::ZehSymbolTable(QWidget* parent)
     Initialize();
 }
 
+void ZehSymbolTable::updateColors()
+{
+    AbstractStdTable::updateColors();
+
+    mBkColorOfImport = ConfigColor("SymbolImportBackgroundColor");
+}
+
 QString ZehSymbolTable::getCellContent(int r, int c)
 {
     QMutexLocker lock(&mMutex);
@@ -74,6 +81,19 @@ QString ZehSymbolTable::getCellContent(int r, int c)
     default:
         return QString();
     }
+}
+
+QColor ZehSymbolTable::getSpecialColor(int r, int c)
+{
+    QMutexLocker lock(&mMutex);
+    if(!isValidIndex(r, c))
+        return QString();
+    SymbolInfoWrapper info;
+    DbgGetSymbolInfo(&mData.at(r), &info);
+    if(info->type == sym_import)
+        return mBkColorOfImport;
+    else
+        return QColor("#000000");
 }
 
 bool ZehSymbolTable::isValidIndex(int r, int c)

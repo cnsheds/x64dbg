@@ -97,6 +97,8 @@ private slots:
     void on_chkQueryProcessCookie_toggled(bool checked);
     void on_chkQueryWorkingSet_toggled(bool checked);
 
+    void on_chkShowInfoWindow_toggled(bool checked);
+
 private:
     //enums
     enum CalcType
@@ -185,6 +187,7 @@ private:
         bool guiShowExitConfirmation;
         bool guiDisableAutoComplete;
         bool guiAsciiAddressDumpMode;
+        bool guiShowInfoWindow;
         //Misc Tab
         bool miscSetJIT;
         bool miscSetJITAuto;

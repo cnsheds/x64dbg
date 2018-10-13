@@ -18,6 +18,7 @@ QString AbstractStdTable::paintContent(QPainter* painter, dsint rowBase, int row
     bool isaddr = DbgIsDebugging() && getRowCount() > 0 && col == mAddressColumn;
     bool wIsSelected = isSelected(rowBase, rowOffset);
     QString text = getCellContent(rowBase + rowOffset, col);
+    QColor colorSpecial = getSpecialColor(rowBase + rowOffset, col);
 
     duint wVA = isaddr ? duint(text.toULongLong(&isaddr, 16)) : 0;
     auto wIsTraced = isaddr && DbgFunctions()->GetTraceRecordHitCount(wVA) != 0;
@@ -36,6 +37,11 @@ QString AbstractStdTable::paintContent(QPainter* painter, dsint rowBase, int row
     else if(wIsTraced)
     {
         lineBackgroundColor = mTracedBackgroundColor;
+        isBackgroundColorSet = true;
+    }
+    else if(colorSpecial != QColor("#000000"))
+    {
+        lineBackgroundColor = colorSpecial;
         isBackgroundColorSet = true;
     }
     else
@@ -701,6 +707,11 @@ void AbstractStdTable::deleteAllColumns()
     setRowCount(0);
     AbstractTableView::deleteAllColumns();
     mCopyTitles.clear();
+}
+
+QColor AbstractStdTable::getSpecialColor(int r, int c)
+{
+    return QColor(0, 0, 0);
 }
 
 void AbstractStdTable::copyLineSlot()

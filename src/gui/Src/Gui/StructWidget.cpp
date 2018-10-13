@@ -17,7 +17,8 @@ Q_DECLARE_METATYPE(TypeDescriptor)
 
 StructWidget::StructWidget(QWidget* parent) :
     QWidget(parent),
-    ui(new Ui::StructWidget)
+    ui(new Ui::StructWidget),
+    mAutoCompleteInfo(nullptr)
 {
     ui->setupUi(this);
     ui->treeWidget->setStyleSheet("QTreeWidget { color: #000000; background-color: #FFF8F0; alternate-background-color: #DCD9CF; }");
@@ -28,6 +29,7 @@ StructWidget::StructWidget(QWidget* parent) :
     connect(Config(), SIGNAL(colorsUpdated()), this, SLOT(colorsUpdatedSlot()));
     connect(Config(), SIGNAL(fontsUpdated()), this, SLOT(fontsUpdatedSlot()));
     connect(Config(), SIGNAL(shortcutsUpdated()), this, SLOT(shortcutsUpdatedSlot()));
+    connect(Bridge::getBridge(), SIGNAL(registerAutoComplete(SCRIPTTYPEINFO*)), this, SLOT(registerAutoComplete(SCRIPTTYPEINFO*)));
     colorsUpdatedSlot();
     fontsUpdatedSlot();
     setupContextMenu();
@@ -198,6 +200,7 @@ void StructWidget::visitSlot()
     //TODO: replace with a list to pick from
     LineEditDialog mLineEdit(this);
     mLineEdit.setWindowTitle(tr("Type to visit"));
+    mLineEdit.setAutoComplete(mAutoCompleteInfo);
     if(mLineEdit.exec() != QDialog::Accepted || !mLineEdit.editText.length())
         return;
     if(!mGotoDialog)
@@ -257,4 +260,18 @@ void StructWidget::changeAddrSlot()
 void StructWidget::refreshSlot()
 {
     typeUpdateWidget();
+}
+
+void StructWidget::registerAutoComplete(SCRIPTTYPEINFO* info)
+{
+    // Must be valid pointer
+    if(!info || info->id != 107)
+    {
+        Bridge::getBridge()->setResult(0);
+        return;
+    }
+
+    mAutoCompleteInfo = info;
+
+    Bridge::getBridge()->setResult(1);
 }

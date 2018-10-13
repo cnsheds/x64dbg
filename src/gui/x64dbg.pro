@@ -79,6 +79,7 @@ SOURCES += \
     Src/Gui/MainWindow.cpp \
     Src/Gui/CPUWidget.cpp \
     Src/Gui/CommandLineEdit.cpp \
+    Src/Gui/AutoCompleteEdit.cpp \
     Src/BasicView/Disassembly.cpp \
     Src/BasicView/HexDump.cpp \
     Src/BasicView/AbstractTableView.cpp \
@@ -184,16 +185,19 @@ SOURCES += \
     Src/Tracer/TraceFileReader.cpp \
     Src/Tracer/TraceFileSearch.cpp \
     Src/Gui/MultiItemsSelectWindow.cpp \
+    Src/Utils/pugixml/pugixml.cpp \
+    Src/Utils/RvaInfo.cpp \
+    Src/Gui/InfoDialog.cpp \
     Src/BasicView/AbstractStdTable.cpp \
     Src/Gui/ZehSymbolTable.cpp \
     Src/BasicView/StdSearchListView.cpp
-
 
 HEADERS += \
     Src/main.h \
     Src/Gui/MainWindow.h \
     Src/Gui/CPUWidget.h \
     Src/Gui/CommandLineEdit.h \
+    Src/Gui/AutoCompleteEdit.h \
     Src/BasicView/Disassembly.h \
     Src/BasicView/HexDump.h \
     Src/BasicView/AbstractTableView.h \
@@ -306,11 +310,14 @@ HEADERS += \
     Src/Tracer/TraceFileReaderInternal.h \
     Src/Tracer/TraceFileSearch.h \
     Src/Gui/MultiItemsSelectWindow.h \
+    Src/Utils/pugixml/pugiconfig.hpp \
+    Src/Utils/pugixml/pugixml.hpp \
+    Src/Utils/RvaInfo.h \
+    Src/Gui/InfoDialog.h \
     Src/BasicView/AbstractStdTable.h \
     Src/Gui/ZehSymbolTable.h \
     Src/BasicView/AbstractSearchList.h \
     Src/BasicView/StdSearchListView.h
-    
 
 FORMS += \
     Src/Gui/MainWindow.ui \
@@ -347,9 +354,10 @@ FORMS += \
     Src/Gui/CustomizeMenuDialog.ui \
     Src/Gui/StructWidget.ui \
     Src/Gui/SimpleTraceDialog.ui \
+    Src/Gui/InfoDialog.ui \
     Src/Gui/MessagesBreakpoints.ui \
     Src/Gui/AboutDialog.ui \
-    Src/Gui/ComboBoxDialog.ui
+    Src/Gui/ComboBoxDialog.ui 
 
 ##
 ## Libraries

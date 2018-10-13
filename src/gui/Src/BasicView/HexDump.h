@@ -142,6 +142,7 @@ public:
 
 signals:
     void selectionUpdated();
+    void showSelectInfo(uint64 addr, int nWidget);
 
 public slots:
     void printDumpAt(dsint parVA);

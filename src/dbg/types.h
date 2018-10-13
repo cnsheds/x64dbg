@@ -104,6 +104,7 @@ namespace Types
         void Clear(const std::string & owner = "");
         bool RemoveType(const std::string & type);
         void Enum(std::vector<Summary> & typeList) const;
+        void Enum(std::string & kind, std::vector<Summary> & typeList) const;
 
     private:
         std::unordered_map<Primitive, int> primitivesizes;
@@ -129,6 +130,7 @@ namespace Types
     };
 };
 
+void RegisterTypeAutoComplete();
 bool AddType(const std::string & owner, const std::string & type, const std::string & name);
 bool AddStruct(const std::string & owner, const std::string & name);
 bool AddUnion(const std::string & owner, const std::string & name);

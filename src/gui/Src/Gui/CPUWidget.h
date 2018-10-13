@@ -38,6 +38,7 @@ public:
     CPUMultiDump* getDumpWidget();
     CPUStack* getStackWidget();
     CPUInfoBox* getInfoBoxWidget();
+    RegistersView* getRegisterWidget();
 
 protected:
     CPUSideBar* mSideBar;

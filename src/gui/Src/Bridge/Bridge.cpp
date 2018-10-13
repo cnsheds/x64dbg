@@ -639,7 +639,11 @@ void* Bridge::processMessage(GUIMSG type, void* param1, void* param2)
     case GUI_REGISTER_SCRIPT_LANG:
     {
         BridgeResult result;
-        emit registerScriptLang((SCRIPTTYPEINFO*)param1);
+        SCRIPTTYPEINFO* info = (SCRIPTTYPEINFO*)param1;
+        if(info->id < 100)
+            emit registerScriptLang(info);
+        else
+            emit registerAutoComplete(info);
         result.Wait();
     }
     break;

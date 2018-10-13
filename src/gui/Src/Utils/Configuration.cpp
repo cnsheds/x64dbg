@@ -241,6 +241,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultColors.insert("BreakpointSummaryStringColor", QColor("#008000"));
 
     defaultColors.insert("PatchRelocatedByteHighlightColor", QColor("#0000DD"));
+    defaultColors.insert("SymbolImportBackgroundColor", QColor("#EDF7ED"));
 
     //bool settings
     QMap<QString, bool> disassemblyBool;
@@ -324,6 +325,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     addWindowPosConfig(guiUint, "EntropyDialog");
     addWindowPosConfig(guiUint, "HexEditDialog");
     addWindowPosConfig(guiUint, "WordEditDialog");
+    addWindowPosConfig(guiUint, "InfoDialog");
     defaultUints.insert("Gui", guiUint);
 
     //uint settings
@@ -356,7 +358,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultUints.insert("TabOrder", tabOrderUint);
 
     //font settings
-    QFont font("Lucida Console", 8, QFont::Normal, false);
+    QFont font("Lucida Console", 9, QFont::Normal, false);
     defaultFonts.insert("AbstractTableView", font);
     defaultFonts.insert("Disassembly", font);
     defaultFonts.insert("HexDump", font);
@@ -364,7 +366,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultFonts.insert("Registers", font);
     defaultFonts.insert("HexEdit", font);
     defaultFonts.insert("Application", QApplication::font());
-    defaultFonts.insert("Log", QFont("Courier New", 8, QFont::Normal, false));
+    defaultFonts.insert("Log", QFont("Courier New", 9, QFont::Normal, false));
 
     // hotkeys settings
     defaultShortcuts.insert("FileOpen", Shortcut({tr("File"), tr("Open")}, "F3", true));

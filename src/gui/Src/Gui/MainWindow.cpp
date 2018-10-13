@@ -53,6 +53,7 @@
 #include "AboutDialog.h"
 #include "UpdateChecker.h"
 #include "Tracer/TraceBrowser.h"
+#include "InfoDialog.h"
 
 QString MainWindow::windowTitle = "";
 
@@ -231,6 +232,10 @@ MainWindow::MainWindow(QWidget* parent)
     mWidgetList.push_back(WidgetInfo(mSnowmanView, "SnowmanTab"));
     mWidgetList.push_back(WidgetInfo(mHandlesView, "HandlesTab"));
     mWidgetList.push_back(WidgetInfo(mTraceBrowser, "TraceTab"));
+
+    // InfoDialog
+    mInfoDialog = new InfoDialog(this);
+    mInfoDialog->SetCpuWidget(mCpuWidget);
 
     // If LoadSaveTabOrder disabled, load tabs in default order
     if(!ConfigBool("Gui", "LoadSaveTabOrder"))
@@ -1448,6 +1453,15 @@ void MainWindow::patchWindow()
     GuiUpdatePatches();
     mPatchDialog->showNormal();
     mPatchDialog->setFocus();
+}
+
+void MainWindow::InfoWindow()
+{
+    if(!DbgIsDebugging())
+    {
+        return;
+    }
+    mInfoDialog->showNormal();
 }
 
 void MainWindow::displayComments()

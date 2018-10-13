@@ -30,11 +30,13 @@ public slots:
     void typeClear();
     void typeUpdateWidget();
     void dbgStateChangedSlot(DBGSTATE state);
+    void registerAutoComplete(SCRIPTTYPEINFO* info);
 
 private:
     Ui::StructWidget* ui;
     MenuBuilder* mMenuBuilder;
     GotoDialog* mGotoDialog = nullptr;
+    SCRIPTTYPEINFO* mAutoCompleteInfo;
 
     void setupColumns();
     void setupContextMenu();

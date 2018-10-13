@@ -21,7 +21,7 @@
    <item>
     <layout class="QVBoxLayout" name="verticalLayout">
      <item>
-      <widget class="QLineEdit" name="textEdit"/>
+      <widget class="AutoCompleteEdit" name="textEdit"/>
      </item>
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout">

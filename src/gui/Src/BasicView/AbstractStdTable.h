@@ -44,6 +44,7 @@ public:
     virtual QString getCellContent(int r, int c) = 0;
     virtual bool isValidIndex(int r, int c) = 0;
     virtual void sortRows(int column, bool ascending) = 0;
+    virtual QColor getSpecialColor(int r, int c);
 
     //context menu helpers
     void setupCopyMenu(QMenu* copyMenu);

@@ -314,5 +314,6 @@
         <file>images/breakpoint_memory_read.png</file>
         <file>images/lib.png</file>
         <file>images/names.png</file>
+		<file>images/btn_close.png</file>
     </qresource>
 </RCC>

@@ -9,6 +9,8 @@
 using namespace Types;
 
 static TypeManager typeManager;
+static SCRIPTTYPEINFO info_struct_autoComplete;
+void cb_StructAutoComplete(const char* text, char** entries, int* entryCount);
 
 TypeManager::TypeManager()
 {
@@ -34,6 +36,11 @@ TypeManager::TypeManager()
     p("ptr,void*", Pointer, sizeof(void*));
     p("char*,const char*", PtrString, sizeof(char*));
     p("wchar_t*,const wchar_t*", PtrWString, sizeof(wchar_t*));
+
+    strcpy(info_struct_autoComplete.name, "TypeAutoComplete");
+    info_struct_autoComplete.id = 107;
+    info_struct_autoComplete.execute = nullptr;
+    info_struct_autoComplete.completeCommand = cb_StructAutoComplete;
 }
 
 bool TypeManager::AddType(const std::string & owner, const std::string & type, const std::string & name)
@@ -295,6 +302,19 @@ void TypeManager::Enum(std::vector<Summary> & typeList) const
     });
 }
 
+void TypeManager::Enum(std::string & kind, std::vector<Summary> & typeList) const
+{
+    typeList.clear();
+    if(kind == "typedef")
+        enumType(types, typeList);
+    else if(kind == "struct")
+        enumType(structs, typeList);
+    else if(kind == "union")
+        enumType(structs, typeList);
+    else if(kind == "function")
+        enumType(functions, typeList);
+}
+
 template<typename K, typename V>
 static bool mapContains(const std::unordered_map<K, V> & map, const K & k)
 {
@@ -399,6 +419,31 @@ bool TypeManager::visitMember(const Member & root, Visitor & visitor) const
         return visitor.visitBack(root);
     }
     return false;
+}
+
+void cb_StructAutoComplete(const char* text, char** entries, int* entryCount)
+{
+    std::vector<TypeManager::Summary> _list;
+    typeManager.Enum(std::string("struct"), _list);
+
+    int count = 0;
+    for(auto & summary : _list)
+    {
+        if(count >= *entryCount)
+            break;
+        if(-1 != StringUtils::iFind(summary.name, text))
+        {
+            entries[count] = (char*)BridgeAlloc(summary.name.length() + 1);
+            strcpy(entries[count++], summary.name.c_str());
+        }
+    }
+
+    *entryCount = count;
+}
+
+void RegisterTypeAutoComplete()
+{
+    GuiRegisterScriptLanguage(&info_struct_autoComplete);
 }
 
 bool AddType(const std::string & owner, const std::string & type, const std::string & name)

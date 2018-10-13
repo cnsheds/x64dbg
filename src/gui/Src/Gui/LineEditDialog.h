@@ -27,6 +27,7 @@ public:
     void ForceSize(unsigned int size);
     void setFpuMode();
     void selectAllText();
+    void setAutoComplete(void* info);
 
 private slots:
     void on_textEdit_textChanged(const QString & arg1);

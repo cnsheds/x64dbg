@@ -34,6 +34,7 @@ class SimpleTraceDialog;
 class MRUList;
 class UpdateChecker;
 class TraceBrowser;
+class InfoDialog;
 
 namespace Ui
 {
@@ -121,6 +122,7 @@ public slots:
     void runExpression();
     void getStrWindow(const QString title, QString* text);
     void patchWindow();
+    void InfoWindow();
     void displayComments();
     void displayLabels();
     void displayBookmarks();
@@ -185,7 +187,7 @@ private:
     UpdateChecker* mUpdateChecker;
     DebugStatusLabel* mStatusLabel;
     LogStatusLabel* mLastLogLabel;
-
+    InfoDialog* mInfoDialog;
     TimeWastedCounter* mTimeWastedCounter;
 
     QString mWindowMainTitle;

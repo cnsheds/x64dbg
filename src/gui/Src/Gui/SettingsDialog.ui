@@ -33,7 +33,7 @@
       <bool>true</bool>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>5</number>
      </property>
      <widget class="QWidget" name="tabEvents">
       <attribute name="title">
@@ -710,6 +710,13 @@
         <widget class="QCheckBox" name="chkAsciiAddressDumpMode">
          <property name="text">
           <string>Show ASCII/Unicode in address dump mode</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="chkShowInfoWindow">
+         <property name="text">
+          <string>Show selection InfoWindow</string>
          </property>
         </widget>
        </item>

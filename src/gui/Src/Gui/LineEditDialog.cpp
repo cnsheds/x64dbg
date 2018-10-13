@@ -24,6 +24,11 @@ void LineEditDialog::selectAllText()
     ui->textEdit->selectAll();
 }
 
+void LineEditDialog::setAutoComplete(void* info)
+{
+    ui->textEdit->setAutoComplete((SCRIPTTYPEINFO*)info);
+}
+
 void LineEditDialog::setCursorPosition(int position)
 {
     ui->textEdit->setCursorPosition(position);

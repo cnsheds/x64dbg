@@ -1,0 +1,61 @@
+#ifndef INFODIALOG_H
+#define INFODIALOG_H
+
+#include <QDialog>
+#include "Imports.h"
+#include "Bridge.h"
+#include "RvaInfo.h"
+
+namespace Ui
+{
+    class InfoDialog;
+}
+class CPUWidget;
+class InfoDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit InfoDialog(QWidget* parent = 0);
+    ~InfoDialog();
+    void SetCpuWidget(CPUWidget*);
+    void paintEvent(QPaintEvent* event);
+
+signals:
+    void showSelectInfo(uint64 addr, int nWidget);
+
+protected:
+    CPUWidget* pCpuWidget;
+
+    void mouseMoveEvent(QMouseEvent* e);
+    void mouseReleaseEvent(QMouseEvent*);
+    void mousePressEvent(QMouseEvent* e);
+    void wheelEvent(QWheelEvent* event);
+
+    void SetButtonStyle(QPushButton* button, QString imgsrc, int CutSec);
+    void UpdateInfo(uint64 value);
+
+private slots:
+    void showSelectInfoSlot(uint64 addr, int nWidget);
+
+    void on_btn_close_clicked();
+    void on_checkHex_toggled(bool checked);
+    void on_checkBE_toggled(bool checked);
+    void SaveRVAName();
+    void setDbgMainModule(QString file);
+
+private:
+    CRvaInfo m_rvaInfo;
+    Ui::InfoDialog* ui;
+    bool mDragWindow;
+    QPoint mMousePoint;
+    uint64 m_lastValue;
+    int m_initAlpha;
+
+    boolean m_bHex16Value;
+    int mcontPaintEvent;
+    QString mDbgBaseFilename;
+    QString mDbgModuleRVAFilename;
+};
+
+#endif // INFODIALOG_H

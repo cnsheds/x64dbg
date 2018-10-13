@@ -134,6 +134,7 @@ public slots:
 
 signals:
     void refresh();
+    void showSelectInfo(uint64 addr, int nWidget);
 
 protected:
     // events

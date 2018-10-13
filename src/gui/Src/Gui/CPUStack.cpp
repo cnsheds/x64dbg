@@ -504,6 +504,23 @@ void CPUStack::contextMenuEvent(QContextMenuEvent* event)
     wMenu.exec(event->globalPos());
 }
 
+void CPUStack::mousePressEvent(QMouseEvent* event)
+{
+    HexDump::mousePressEvent(event);
+    if(event->button() != Qt::LeftButton || !DbgIsDebugging())
+        return;
+
+    switch(getColumnIndexFromX(event->x()))
+    {
+    case 1: //address
+    {
+        duint addr = rvaToVa(getInitialSelection());
+        emit showSelectInfo(addr, 2);
+    }
+    break;
+    }
+}
+
 void CPUStack::mouseDoubleClickEvent(QMouseEvent* event)
 {
     if(event->button() != Qt::LeftButton || !DbgIsDebugging())
