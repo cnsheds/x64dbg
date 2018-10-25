@@ -325,9 +325,9 @@ void InfoDialog::UpdateInfo(uint64 value)
         ui->edit_int->setText(showText);
         showText.sprintf("%X", _dword);
         ui->edit_uint->setText(showText);
-        showText = QString::number(_float, 'g', 13);
+        showText.sprintf("%.7g", _float);
         ui->edit_float->setText(showText);
-        showText = QString::number(_Double, 'g', 13);
+        showText.sprintf("%.13g", _Double);
         ui->edit_double->setText(showText);
         showText.sprintf("%s(%X)", SignedToHex((signed short)_word).toStdString().c_str(), _word);
         ui->edit_short->setText(showText);
@@ -340,9 +340,9 @@ void InfoDialog::UpdateInfo(uint64 value)
         ui->edit_int->setText(showText);
         showText.sprintf("%u", _dword);
         ui->edit_uint->setText(showText);
-        showText = QString::number(_float, 'g', 13);
+        showText.sprintf("%.7g", _float);
         ui->edit_float->setText(showText);
-        showText = QString::number(_Double, 'g', 13);
+        showText.sprintf("%.13g", _Double);
         ui->edit_double->setText(showText);
         showText.sprintf("%d(%u)", (signed short)_word, _word);
         ui->edit_short->setText(showText);
