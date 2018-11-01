@@ -33,6 +33,7 @@ private:
     {
         ColAddr,
         ColType,
+        ColOrdinal,
         ColDecorated,
         ColUndecorated
     };
