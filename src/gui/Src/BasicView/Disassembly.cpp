@@ -134,7 +134,7 @@ void Disassembly::updateColors()
     mConditionalTruePen = QPen(mConditionalJumpLineTrueColor);
     mConditionalFalsePen = QPen(mConditionalJumpLineFalseColor);
 
-    CapstoneTokenizer::UpdateColors();
+    ZydisTokenizer::UpdateColors();
     mDisasm->UpdateConfig();
 }
 
@@ -496,9 +496,9 @@ QString Disassembly::paintContent(QPainter* painter, dsint rowBase, int rowOffse
         RichTextPainter::List richText;
         auto & token = mInstBuffer[rowOffset].tokens;
         if(mHighlightToken.text.length())
-            CapstoneTokenizer::TokenToRichText(token, richText, &mHighlightToken);
+            ZydisTokenizer::TokenToRichText(token, richText, &mHighlightToken);
         else
-            CapstoneTokenizer::TokenToRichText(token, richText, 0);
+            ZydisTokenizer::TokenToRichText(token, richText, 0);
         int xinc = 4;
         RichTextPainter::paintRichText(painter, x + loopsize, y, getColumnWidth(col) - loopsize, getRowHeight(), xinc, richText, mFontMetrics);
         token.x = x + loopsize + xinc;
@@ -578,9 +578,9 @@ QString Disassembly::paintContent(QPainter* painter, dsint rowBase, int rowOffse
         {
             char brief[MAX_STRING_SIZE] = "";
             QString mnem;
-            for(const CapstoneTokenizer::SingleToken & token : mInstBuffer.at(rowOffset).tokens.tokens)
+            for(const ZydisTokenizer::SingleToken & token : mInstBuffer.at(rowOffset).tokens.tokens)
             {
-                if(token.type != CapstoneTokenizer::TokenType::Space && token.type != CapstoneTokenizer::TokenType::Prefix)
+                if(token.type != ZydisTokenizer::TokenType::Space && token.type != ZydisTokenizer::TokenType::Prefix)
                 {
                     mnem = token.text;
                     break;
@@ -690,9 +690,9 @@ duint Disassembly::getDisassemblyPopupAddress(int mousex, int mousey)
     int rowOffset = getIndexOffsetFromY(transY(mousey));
     if(rowOffset < mInstBuffer.size())
     {
-        CapstoneTokenizer::SingleToken token;
+        ZydisTokenizer::SingleToken token;
         auto & instruction = mInstBuffer.at(rowOffset);
-        if(CapstoneTokenizer::TokenFromX(instruction.tokens, token, mousex, mFontMetrics))
+        if(ZydisTokenizer::TokenFromX(instruction.tokens, token, mousex, mFontMetrics))
         {
             duint addr = token.value.value;
             bool isCodePage = DbgFunctions()->MemIsCodePage(addr, false);
@@ -729,30 +729,30 @@ void Disassembly::mousePressEvent(QMouseEvent* event)
             int rowOffset = getIndexOffsetFromY(transY(event->y()));
             if(rowOffset < mInstBuffer.size())
             {
-                CapstoneTokenizer::SingleToken token;
-                if(CapstoneTokenizer::TokenFromX(mInstBuffer.at(rowOffset).tokens, token, event->x(), mFontMetrics))
+                ZydisTokenizer::SingleToken token;
+                if(ZydisTokenizer::TokenFromX(mInstBuffer.at(rowOffset).tokens, token, event->x(), mFontMetrics))
                 {
-                    if(CapstoneTokenizer::IsHighlightableToken(token))
+                    if(ZydisTokenizer::IsHighlightableToken(token))
                     {
-                        if(!CapstoneTokenizer::TokenEquals(&token, &mHighlightToken) || event->button() == Qt::RightButton)
+                        if(!ZydisTokenizer::TokenEquals(&token, &mHighlightToken) || event->button() == Qt::RightButton)
                             mHighlightToken = token;
                         else
-                            mHighlightToken = CapstoneTokenizer::SingleToken();
+                            mHighlightToken = ZydisTokenizer::SingleToken();
                     }
                     else if(!mPermanentHighlightingMode)
                     {
-                        mHighlightToken = CapstoneTokenizer::SingleToken();
+                        mHighlightToken = ZydisTokenizer::SingleToken();
                     }
                 }
                 else if(!mPermanentHighlightingMode)
                 {
-                    mHighlightToken = CapstoneTokenizer::SingleToken();
+                    mHighlightToken = ZydisTokenizer::SingleToken();
                 }
             }
         }
         else if(!mPermanentHighlightingMode)
         {
-            mHighlightToken = CapstoneTokenizer::SingleToken();
+            mHighlightToken = ZydisTokenizer::SingleToken();
         }
         if(!mPermanentHighlightingMode)
             return;
@@ -1411,110 +1411,6 @@ Instruction_t Disassembly::DisassembleAt(dsint rva)
         return Instruction_t();
 
     return mDisasm->DisassembleAt((byte_t*)wBuffer.data(), wBuffer.size(), base, rva);
-
-    /* Zydis<->Capstone diff logic.
-     * TODO: Remove once transition is completed.
-
-    auto zy_instr = mDisasm->DisassembleAt((byte_t*)wBuffer.data(), wBuffer.size(), base, rva);
-    auto cs_instr = mCsDisasm->DisassembleAt((byte_t*)wBuffer.data(), wBuffer.size(), base, rva);
-
-    if(zy_instr.tokens.tokens != cs_instr.tokens.tokens)
-    {
-        if(zy_instr.instStr.startsWith("lea"))  // cs scales lea mem op incorrectly
-            goto _exit;
-        if(cs_instr.instStr.startsWith("movabs"))  // cs uses non-standard movabs mnem
-            goto _exit;
-        if(cs_instr.instStr.startsWith("lock") || cs_instr.instStr.startsWith("rep"))  // cs includes prefix in mnem
-            goto _exit;
-        if(cs_instr.instStr.startsWith('j') && cs_instr.length == 4)  // cs has AMD style handling of 66 branches
-            goto _exit;
-        if(cs_instr.instStr.startsWith("prefetchw"))  // cs uses m8 (AMD/intel doc), zy m512
-            goto _exit;                               // (doesn't matter, prefetch doesn't really have a size)
-        if(cs_instr.instStr.startsWith("xchg"))  // cs/zy print operands in different order (doesn't make any diff)
-            goto _exit;
-        if(cs_instr.instStr.startsWith("rdpmc") ||
-                cs_instr.instStr.startsWith("in") ||
-                cs_instr.instStr.startsWith("out") ||
-                cs_instr.instStr.startsWith("sti") ||
-                cs_instr.instStr.startsWith("cli") ||
-                cs_instr.instStr.startsWith("iret")) // cs assumes priviliged, zydis doesn't (CPL is configurable for those)
-            goto _exit;
-        if(cs_instr.instStr.startsWith("sal"))  // cs says sal, zydis say shl (both correct)
-            goto _exit;
-        if(cs_instr.instStr.startsWith("xlat"))  // cs uses xlatb form, zydis xlat m8 form (both correct)
-            goto _exit;
-        if(cs_instr.instStr.startsWith("lcall") ||
-                cs_instr.instStr.startsWith("ljmp") ||
-                cs_instr.instStr.startsWith("retf")) // cs uses "f" mnem-suffic, zydis has seperate "far" token
-            goto _exit;
-        if(cs_instr.instStr.startsWith("movsxd"))  // cs has wrong operand size (32) for 0x63 variant (e.g. "63646566")
-            goto _exit;
-        if(cs_instr.instStr.startsWith('j') && (cs_instr.dump[0] & 0x40) == 0x40)  // cs honors rex.w on jumps, truncating the
-            goto _exit;                                                         // target address to 32 bit (must be ignored)
-        if(cs_instr.instStr.startsWith("enter"))  // cs has wrong operand size (32)
-            goto _exit;
-        if(cs_instr.instStr.startsWith("wait"))  // cs says wait, zy says fwait (both ok)
-            goto _exit;
-        if(cs_instr.dump.length() > 2 &&   // cs ignores segment prefixes if followed by branch hints
-                (cs_instr.dump[1] == '\x2e' ||
-                 cs_instr.dump[2] == '\x3e'))
-            goto _exit;
-        if(QRegExp("mov .s,.*").exactMatch(cs_instr.instStr) ||
-                cs_instr.instStr.startsWith("str") ||
-                QRegExp("pop .s").exactMatch(cs_instr.instStr)) // cs claims it's priviliged (it's not)
-            goto _exit;
-        if(QRegExp("l[defgs]s.*").exactMatch(cs_instr.instStr))  // cs allows LES (and friends) in 64 bit mode (invalid)
-            goto _exit;
-        if(QRegExp("f[^ ]+ st0.*").exactMatch(zy_instr.instStr))  // zy prints excplitic st0, cs omits (both ok)
-            goto _exit;
-        if(cs_instr.instStr.startsWith("fstp"))  // CS reports 3 operands but only prints 2 ... wat.
-            goto _exit;
-        if(cs_instr.instStr.startsWith("fnstsw"))  // CS reports wrong 32 bit operand size (is 16)
-            goto _exit;
-        if(cs_instr.instStr.startsWith("popaw")) // CS prints popaw, zydis popa (both ok)
-            goto _exit;
-        if(cs_instr.instStr.startsWith("lsl")) // CS thinks the 2. operand is 32 bit (it's 16)
-            goto _exit;
-        if(QRegExp("mov [cd]r\\d").exactMatch(cs_instr.instStr)) // CS fails to reject bad DR/CRs (that #UD, like dr4)
-            goto _exit;
-        if(QRegExp("v?comi(ps|pd|ss|sd).*").exactMatch(zy_instr.instStr)) // CS has wrong operand size
-            goto _exit;
-        if(QRegExp("v?cmp(ps|pd|ss|sd).*").exactMatch(zy_instr.instStr)) // CS uses pseudo-op notation, Zy prints cond as imm (both ok)
-            goto _exit;
-        if(cs_instr.dump.length() > 2 &&
-            cs_instr.dump[0] == '\x0f' &&
-            (cs_instr.dump[1] == '\x1a' || cs_instr.dump[1] == '\x1b')) // CS doesn't support MPX
-            goto _exit;
-
-        auto insn_hex = cs_instr.dump.toHex().toStdString();
-        auto cs = cs_instr.instStr.toStdString();
-        auto zy = zy_instr.instStr.toStdString();
-
-        for(auto zy_it = zy_instr.tokens.tokens.begin(), cs_it = cs_instr.tokens.tokens.begin()
-                ; zy_it != zy_instr.tokens.tokens.end() && cs_it != cs_instr.tokens.tokens.end()
-                ; ++zy_it, ++cs_it)
-        {
-            Zydis zd;
-            zd.Disassemble(0, (unsigned char*)zy_instr.dump.data(), zy_instr.length);
-
-            auto zy_tok_text = zy_it->text.toStdString();
-            auto cs_tok_text = cs_it->text.toStdString();
-
-            if(zy_tok_text == "bnd")  // cs doesn't support BND prefix
-                goto _exit;
-            if(zy_it->value.size != cs_it->value.size)  // imm sizes in CS are completely broken
-                goto _exit;
-
-            if(!(*zy_it == *cs_it))
-                __debugbreak();
-        }
-
-        //__debugbreak();
-    }
-
-    _exit:
-    return zy_instr;
-    */
 }
 
 /**
@@ -1976,7 +1872,7 @@ void Disassembly::disassembleAt(dsint parVA, dsint parCIP)
 void Disassembly::disassembleClear()
 {
     mHighlightingMode = false;
-    mHighlightToken = CapstoneTokenizer::SingleToken();
+    mHighlightToken = ZydisTokenizer::SingleToken();
     historyClear();
     mMemPage->setAttributes(0, 0);
     mDisasm->getEncodeMap()->setMemoryRegion(0);
@@ -2134,7 +2030,7 @@ void Disassembly::unfold(dsint rva)
     }
 }
 
-bool Disassembly::hightlightToken(const CapstoneTokenizer::SingleToken & token)
+bool Disassembly::hightlightToken(const ZydisTokenizer::SingleToken & token)
 {
     mHighlightToken = token;
     mHighlightingMode = false;
