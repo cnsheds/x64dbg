@@ -47,6 +47,8 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 # Generate debug symbols in release mode
 QMAKE_CXXFLAGS_RELEASE += -Zi   # Compiler
 QMAKE_LFLAGS_RELEASE += /DEBUG  # Linker
+QMAKE_LFLAGS_WINDOWS_DLL = /SUBSYSTEM:WINDOWS,5.01
+QMAKE_CXXFLAGS += /D_USING_V110_SDK71_
 
 # Build as a library
 DEFINES += BUILD_LIB NOMINMAX
