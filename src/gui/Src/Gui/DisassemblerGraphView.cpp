@@ -1946,6 +1946,7 @@ void DisassemblerGraphView::loadCurrentGraph()
     if(ConfigBool("Gui", "GraphZoomMode"))
     {
         graphZoomMode = true;
+        drawOverview = false;
         setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
         setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     }
@@ -2142,7 +2143,7 @@ void DisassemblerGraphView::setupContextMenu()
 
     auto breakpointMenu = new BreakpointMenu(this, getActionHelperFuncs(), [this]()
     {
-        return zoomActionHelper() != 0;
+        return zoomActionHelper();
     });
     breakpointMenu->build(mMenuBuilder);
 
@@ -2345,6 +2346,8 @@ void DisassemblerGraphView::shortcutsUpdatedSlot()
 
 void DisassemblerGraphView::toggleOverviewSlot()
 {
+    if(graphZoomMode)
+        return;
     drawOverview = !drawOverview;
     if(onlySummary)
     {
