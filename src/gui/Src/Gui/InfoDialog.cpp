@@ -8,6 +8,7 @@
 #include "CPUDump.h"
 #include "CPUStack.h"
 
+//=============================================================
 InfoDialog::InfoDialog(QWidget* parent)
     : QDialog(parent),
       ui(new Ui::InfoDialog)
@@ -16,6 +17,7 @@ InfoDialog::InfoDialog(QWidget* parent)
     m_lastValue = 0;
     mcontPaintEvent = 0;
     m_initAlpha = 230;
+    m_bTime64 = false;
 
     ui->setupUi(this);
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint
@@ -31,22 +33,23 @@ InfoDialog::InfoDialog(QWidget* parent)
     setAutoFillBackground(true);
     setWindowOpacity(0.9);     //   背景和元素都设置透明效果
 
-    QString editSytle = "background:transparent;border-width:1;border-style:outset";
-    editSytle += ";border-color:rgba(0,0,0,90)";
+    QString editSytle = "QLineEdit{background:transparent;border-width:1;border-style:outset";
+    editSytle += ";border-color:rgba(0,0,0,90)}";
 
     ui->edit_rva->setStyleSheet(editSytle);
     ui->edit_module->setStyleSheet(editSytle);
     ui->edit_char->setStyleSheet(editSytle);
     ui->edit_int->setStyleSheet(editSytle);
-    ui->edit_uint->setStyleSheet(editSytle);
     ui->edit_float->setStyleSheet(editSytle);
     ui->edit_double->setStyleSheet(editSytle);
     ui->edit_short->setStyleSheet(editSytle);
     ui->edit_timet->setStyleSheet(editSytle);
-    ui->edit_time64->setStyleSheet(editSytle);
+    ui->edit_variant->setStyleSheet(editSytle);
     ui->edit_cstr->setStyleSheet(editSytle);
     ui->edit_ustr->setStyleSheet(editSytle);
     ui->edit_utf8->setStyleSheet(editSytle);
+
+    ui->label_timet->installEventFilter(this);
 
     connect(ui->edit_rva, SIGNAL(returnPressed()), this, SLOT(SaveRVAName()));
     connect(Bridge::getBridge(), SIGNAL(addRecentFile(QString)), this, SLOT(setDbgMainModule(QString)));
@@ -146,8 +149,8 @@ void InfoDialog::paintEvent(QPaintEvent* event)
         QString text("F");
         QFontMetrics fm = painter.fontMetrics();
         int charWidth = fm.width(text);
-        int wndHeight = ui->edit_rva->height() * 12 + ui->widget_title->height() + 3;
-        setFixedSize(charWidth * 34, wndHeight);
+        int wndHeight = ui->edit_rva->height() * 11 + ui->widget_title->height() + 3;
+        setFixedSize(charWidth * 35, wndHeight);
         mcontPaintEvent++;
     }
 }
@@ -319,27 +322,23 @@ void InfoDialog::UpdateInfo(uint64 value)
 
     if(m_bHex16Value)
     {
-        showText.sprintf("%s(%X)", SignedToHex((signed char)_byte).toStdString().c_str(), _byte);
+        showText.sprintf("%s(%X)", SignedToHex((signed char)_byte).toLocal8Bit().constData(), _byte);
         ui->edit_char->setText(showText);
-        showText.sprintf("%s", SignedToHex(_dword).toStdString().c_str());
+        showText.sprintf("%s(%X)", SignedToHex(_dword).toLocal8Bit().constData(), _dword);
         ui->edit_int->setText(showText);
-        showText.sprintf("%X", _dword);
-        ui->edit_uint->setText(showText);
         showText.sprintf("%.7g", _float);
         ui->edit_float->setText(showText);
         showText.sprintf("%.13g", _Double);
         ui->edit_double->setText(showText);
-        showText.sprintf("%s(%X)", SignedToHex((signed short)_word).toStdString().c_str(), _word);
+        showText.sprintf("%s(%X)", SignedToHex((signed short)_word).toLocal8Bit().constData(), _word);
         ui->edit_short->setText(showText);
     }
     else
     {
         showText.sprintf("%d(%u)", (signed char)_byte, _byte);
         ui->edit_char->setText(showText);
-        showText.sprintf("%d", _dword);
+        showText.sprintf("%d(%u)", _dword, _dword);
         ui->edit_int->setText(showText);
-        showText.sprintf("%u", _dword);
-        ui->edit_uint->setText(showText);
         showText.sprintf("%.7g", _float);
         ui->edit_float->setText(showText);
         showText.sprintf("%.13g", _Double);
@@ -348,7 +347,17 @@ void InfoDialog::UpdateInfo(uint64 value)
         ui->edit_short->setText(showText);
     }
 
-    struct tm* ptm = _gmtime32((__time32_t*)&_dword);
+    struct tm* ptm = nullptr;
+    if (!m_bTime64)
+    {
+        ptm = _gmtime32((__time32_t*)&_dword);
+        ui->label_timet->setText("time_t:");
+    }else
+    {
+        ptm = _gmtime64((__time64_t*)&value);
+        ui->label_timet->setText("time64:");
+    }
+
     if(ptm)
     {
         /* format: YYYY/MM/DD HH24:MI:SS */
@@ -360,17 +369,186 @@ void InfoDialog::UpdateInfo(uint64 value)
     else
         ui->edit_timet->setText("");
 
-    struct tm* p64tm = _gmtime64((__time64_t*)&value);
-    if(p64tm)
-    {
-        /* format: YYYY/MM/DD HH24:MI:SS */
-        showText.sprintf("%04d/%02d/%02d %02d:%02d:%02d",
-                         1900 + p64tm->tm_year, p64tm->tm_mon, p64tm->tm_mday,
-                         p64tm->tm_hour, p64tm->tm_min, p64tm->tm_sec);
-        ui->edit_time64->setText("");
+    ui->edit_variant->setText(GetVariant(value));
+}
+
+rstring InfoDialog::GetVariant(uint64 value)
+{
+    VARTYPE varType = (VARTYPE)value;
+    rstring strRet;
+    switch (varType & VT_TYPEMASK) {
+    case VT_EMPTY:
+        strRet = "VT_EMPTY";
+        break;
+    case VT_NULL:
+        strRet = "VT_NULL";
+        break;
+    case VT_I2:
+        strRet = "VT_I2";
+        break;
+    case VT_I4:
+        strRet = "VT_I4";
+        break;
+    case VT_R4:
+        strRet = "VT_R4";
+        break;
+    case VT_R8:
+        strRet = "VT_R8";
+        break;
+    case VT_CY:
+        strRet = "VT_CY";
+        break;
+    case VT_DATE:
+        strRet = "VT_DATE";
+        break;
+    case VT_BSTR:
+        strRet = "VT_BSTR";
+        break;
+    case VT_DISPATCH:
+        strRet = "VT_DISPATCH";
+        break;
+    case VT_ERROR:
+        strRet = "VT_ERROR";
+        break;
+    case VT_BOOL:
+        strRet = "VT_BOOL";
+        break;
+    case VT_VARIANT:
+        strRet = "VT_VARIANT";
+        break;
+    case VT_UNKNOWN:
+        strRet = "VT_UNKNOWN";
+        break;
+    case VT_DECIMAL:
+        strRet = "VT_DECIMAL";
+        break;
+    case VT_I1:
+        strRet = "VT_I1";
+        break;
+    case VT_UI1:
+        strRet = "VT_UI1";
+        break;
+    case VT_UI2:
+        strRet = "VT_UI2";
+        break;
+    case VT_UI4:
+        strRet = "VT_UI4";
+        break;
+    case VT_I8:
+        strRet = "VT_I8";
+        break;
+    case VT_UI8:
+        strRet = "VT_UI8";
+        break;
+    case VT_INT:
+        strRet = "VT_INT";
+        break;
+    case VT_UINT:
+        strRet = "VT_UINT";
+        break;
+    case VT_VOID:
+        strRet = "VT_VOID";
+        break;
+    case VT_HRESULT:
+        strRet = "VT_HRESULT";
+        break;
+    case VT_PTR:
+        strRet = "VT_PTR";
+        break;
+    case VT_SAFEARRAY:
+        strRet = "VT_SAFEARRAY";
+        break;
+    case VT_CARRAY:
+        strRet = "VT_CARRAY";
+        break;
+    case VT_USERDEFINED:
+        strRet = "VT_USERDEFINED";
+        break;
+    case VT_LPSTR:
+        strRet = "VT_LPSTR";
+        break;
+    case VT_LPWSTR:
+        strRet = "VT_LPWSTR";
+        break;
+    case VT_RECORD:
+        strRet = "VT_RECORD";
+        break;
+    case VT_INT_PTR:
+        strRet = "VT_INT_PTR";
+        break;
+    case VT_UINT_PTR:
+        strRet = "VT_UINT_PTR";
+        break;
+    case VT_FILETIME:
+        strRet = "VT_FILETIME";
+        break;
+    case VT_BLOB:
+        strRet = "VT_BLOB";
+        break;
+    case VT_STREAM:
+        strRet = "VT_STREAM";
+        break;
+    case VT_STORAGE:
+        strRet = "VT_STORAGE";
+        break;
+    case VT_STREAMED_OBJECT:
+        strRet = "VT_STREAMED_OBJECT";
+        break;
+    case VT_STORED_OBJECT:
+        strRet = "VT_STORED_OBJECT";
+        break;
+    case VT_BLOB_OBJECT:
+        strRet = "VT_BLOB_OBJECT";
+        break;
+    case VT_CF:
+        strRet = "VT_CF";
+        break;
+    case VT_CLSID:
+        strRet = "VT_CLSID";
+        break;
+    case VT_VERSIONED_STREAM:
+        strRet = "VT_VERSIONED_STREAM";
+        break;
+    case VT_BSTR_BLOB:
+        strRet = "VT_BSTR_BLOB";
+        break;
     }
-    else
-        ui->edit_time64->setText("");
+
+    if (!strRet.isEmpty())
+    {
+        switch (varType & 0xF000) {
+        case VT_VECTOR:
+            strRet.insert(0, "VT_VECTOR|");
+            break;
+        case VT_ARRAY:
+            strRet.insert(0, "VT_ARRAY|");
+            break;
+        case VT_BYREF:
+            strRet.insert(0, "VT_BYREF|");
+            break;
+        case VT_RESERVED:
+            strRet.insert(0, "VT_RESERVED|");
+            break;
+        }
+    }
+
+    return strRet;
+}
+
+bool InfoDialog::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == ui->label_timet) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            m_bTime64 = !m_bTime64;
+            UpdateInfo(m_lastValue);
+            return true;
+        } else {
+            return false;
+        }
+    } else {
+        // pass the event on to the parent class
+        return QDialog::eventFilter(obj, event);
+    }
 }
 
 void InfoDialog::on_btn_close_clicked()

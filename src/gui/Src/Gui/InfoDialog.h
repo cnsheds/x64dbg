@@ -11,6 +11,8 @@ namespace Ui
     class InfoDialog;
 }
 class CPUWidget;
+
+
 class InfoDialog : public QDialog
 {
     Q_OBJECT
@@ -34,6 +36,9 @@ protected:
 
     void SetButtonStyle(QPushButton* button, QString imgsrc, int CutSec);
     void UpdateInfo(uint64 value);
+    rstring GetVariant(uint64 value);
+
+    bool eventFilter(QObject *obj, QEvent *ev);
 
 private slots:
     void showSelectInfoSlot(uint64 addr, int nWidget);
@@ -52,6 +57,7 @@ private:
     uint64 m_lastValue;
     int m_initAlpha;
 
+    bool m_bTime64;
     boolean m_bHex16Value;
     int mcontPaintEvent;
     QString mDbgBaseFilename;

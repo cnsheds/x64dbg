@@ -65,13 +65,15 @@ int CRvaInfo::SaveRVAInfo(rstring filepath)
         }
     }
 
-    return doc.save_file(filepath.toStdString().c_str());
+    std::string sfilepath = filepath.toLocal8Bit().constData();
+    return doc.save_file(sfilepath.c_str());
 }
 
 int CRvaInfo::LoadRVAInfo(rstring filepath)
 {
     xml_document doc;
-    xml_parse_result result = doc.load_file(filepath.toStdString().c_str());
+    std::string sfilepath = filepath.toLocal8Bit().constData();
+    xml_parse_result result = doc.load_file(sfilepath.c_str());
     if(result.status != status_ok)
         return 1;
 

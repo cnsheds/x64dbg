@@ -201,10 +201,16 @@
       <property name="spacing">
        <number>0</number>
       </property>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label">
+      <item row="7" column="1">
+       <widget class="QLineEdit" name="edit_double"/>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="edit_module"/>
+      </item>
+      <item row="9" column="0">
+       <widget class="QLabel" name="label_timet">
         <property name="text">
-         <string>RVA:</string>
+         <string>time_t:</string>
         </property>
         <property name="textFormat">
          <enum>Qt::AutoText</enum>
@@ -213,12 +219,6 @@
          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
         </property>
        </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="edit_rva"/>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="edit_module"/>
       </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label_2">
@@ -233,10 +233,10 @@
         </property>
        </widget>
       </item>
-      <item row="4" column="0">
-       <widget class="QLabel" name="label_5">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
         <property name="text">
-         <string>UInt:</string>
+         <string>RVA:</string>
         </property>
         <property name="textFormat">
          <enum>Qt::AutoText</enum>
@@ -245,6 +245,12 @@
          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
         </property>
        </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QLineEdit" name="edit_float"/>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="edit_char"/>
       </item>
       <item row="2" column="0">
        <widget class="QLabel" name="label_3">
@@ -259,96 +265,13 @@
         </property>
        </widget>
       </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_4">
-        <property name="text">
-         <string>Int:</string>
-        </property>
-        <property name="textFormat">
-         <enum>Qt::AutoText</enum>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1">
-       <widget class="QLineEdit" name="edit_int"/>
-      </item>
-      <item row="2" column="1">
-       <widget class="QLineEdit" name="edit_char"/>
-      </item>
-      <item row="6" column="1">
-       <widget class="QLineEdit" name="edit_double"/>
-      </item>
-      <item row="5" column="1">
-       <widget class="QLineEdit" name="edit_float"/>
-      </item>
-      <item row="4" column="1">
-       <widget class="QLineEdit" name="edit_uint"/>
-      </item>
-      <item row="5" column="0">
-       <widget class="QLabel" name="label_6">
-        <property name="text">
-         <string>Float:</string>
-        </property>
-        <property name="textFormat">
-         <enum>Qt::AutoText</enum>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item row="6" column="0">
-       <widget class="QLabel" name="label_7">
-        <property name="text">
-         <string>Double:</string>
-        </property>
-        <property name="textFormat">
-         <enum>Qt::AutoText</enum>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item row="7" column="1">
-       <widget class="QLineEdit" name="edit_short"/>
-      </item>
-      <item row="8" column="1">
+      <item row="9" column="1">
        <widget class="QLineEdit" name="edit_timet"/>
       </item>
-      <item row="8" column="0">
-       <widget class="QLabel" name="label_9">
-        <property name="text">
-         <string>time_t:</string>
-        </property>
-        <property name="textFormat">
-         <enum>Qt::AutoText</enum>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item row="7" column="0">
-       <widget class="QLabel" name="label_8">
-        <property name="text">
-         <string>Short:</string>
-        </property>
-        <property name="textFormat">
-         <enum>Qt::AutoText</enum>
-        </property>
-        <property name="alignment">
-         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-        </property>
-       </widget>
-      </item>
-      <item row="9" column="0">
+      <item row="10" column="0">
        <widget class="QLabel" name="label_10">
         <property name="text">
-         <string>time64:</string>
+         <string>Variant:</string>
         </property>
         <property name="textFormat">
          <enum>Qt::AutoText</enum>
@@ -358,23 +281,7 @@
         </property>
        </widget>
       </item>
-      <item row="9" column="1">
-       <widget class="QLineEdit" name="edit_time64"/>
-      </item>
-      <item row="11" column="1">
-       <widget class="QLineEdit" name="edit_ustr"/>
-      </item>
-      <item row="12" column="1">
-       <widget class="QLineEdit" name="edit_utf8"/>
-      </item>
-      <item row="10" column="1">
-       <widget class="QLineEdit" name="edit_cstr">
-        <property name="styleSheet">
-         <string notr="true"/>
-        </property>
-       </widget>
-      </item>
-      <item row="10" column="0">
+      <item row="11" column="0">
        <widget class="QLabel" name="label_11">
         <property name="text">
          <string>String:</string>
@@ -387,7 +294,78 @@
         </property>
        </widget>
       </item>
-      <item row="11" column="0">
+      <item row="13" column="1">
+       <widget class="QLineEdit" name="edit_utf8"/>
+      </item>
+      <item row="11" column="1">
+       <widget class="QLineEdit" name="edit_cstr">
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel" name="label_4">
+        <property name="text">
+         <string>Int:</string>
+        </property>
+        <property name="textFormat">
+         <enum>Qt::AutoText</enum>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="edit_rva"/>
+      </item>
+      <item row="7" column="0">
+       <widget class="QLabel" name="label_7">
+        <property name="text">
+         <string>Double:</string>
+        </property>
+        <property name="textFormat">
+         <enum>Qt::AutoText</enum>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QLineEdit" name="edit_int"/>
+      </item>
+      <item row="6" column="0">
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>Float:</string>
+        </property>
+        <property name="textFormat">
+         <enum>Qt::AutoText</enum>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="12" column="1">
+       <widget class="QLineEdit" name="edit_ustr"/>
+      </item>
+      <item row="13" column="0">
+       <widget class="QLabel" name="label_13">
+        <property name="text">
+         <string>UTF-8:</string>
+        </property>
+        <property name="textFormat">
+         <enum>Qt::AutoText</enum>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item row="12" column="0">
        <widget class="QLabel" name="label_12">
         <property name="text">
          <string>Unicode:</string>
@@ -400,10 +378,16 @@
         </property>
        </widget>
       </item>
-      <item row="12" column="0">
-       <widget class="QLabel" name="label_13">
+      <item row="10" column="1">
+       <widget class="QLineEdit" name="edit_variant"/>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLineEdit" name="edit_short"/>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_8">
         <property name="text">
-         <string>UTF-8:</string>
+         <string>Short:</string>
         </property>
         <property name="textFormat">
          <enum>Qt::AutoText</enum>
@@ -436,12 +420,10 @@
   <tabstop>edit_module</tabstop>
   <tabstop>edit_char</tabstop>
   <tabstop>edit_int</tabstop>
-  <tabstop>edit_uint</tabstop>
   <tabstop>edit_float</tabstop>
   <tabstop>edit_double</tabstop>
-  <tabstop>edit_short</tabstop>
   <tabstop>edit_timet</tabstop>
-  <tabstop>edit_time64</tabstop>
+  <tabstop>edit_variant</tabstop>
   <tabstop>edit_cstr</tabstop>
   <tabstop>edit_ustr</tabstop>
   <tabstop>edit_utf8</tabstop>
