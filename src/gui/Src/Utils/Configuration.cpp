@@ -324,7 +324,6 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     addWindowPosConfig(guiUint, "EditBreakpointDialog");
     addWindowPosConfig(guiUint, "BrowseDialog");
     addWindowPosConfig(guiUint, "FavouriteTools");
-    addWindowPosConfig(guiUint, "EntropyDialog");
     addWindowPosConfig(guiUint, "HexEditDialog");
     addWindowPosConfig(guiUint, "WordEditDialog");
     addWindowPosConfig(guiUint, "InfoDialog");
@@ -484,7 +483,6 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultShortcuts.insert("ActionToggleFunction", Shortcut({tr("Actions"), tr("Toggle Function")}, "Shift+F"));
     defaultShortcuts.insert("ActionToggleArgument", Shortcut({tr("Actions"), tr("Toggle Argument")}, "Shift+A"));
     defaultShortcuts.insert("ActionAssemble", Shortcut({tr("Actions"), tr("Assemble")}, "Space"));
-    defaultShortcuts.insert("ActionYara", Shortcut({tr("Actions"), tr("Yara")}, "Ctrl+Y"));
     defaultShortcuts.insert("ActionSetNewOriginHere", Shortcut({tr("Actions"), tr("Set New Origin Here")}, "Ctrl+*"));
     defaultShortcuts.insert("ActionGotoOrigin", Shortcut({tr("Actions"), tr("Goto Origin")}, "*"));
     defaultShortcuts.insert("ActionGotoPrevious", Shortcut({tr("Actions"), tr("Goto Previous")}, "-"));
@@ -516,7 +514,6 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultShortcuts.insert("ActionAllocateMemory", Shortcut({tr("Actions"), tr("Allocate Memory")}, ""));
     defaultShortcuts.insert("ActionFreeMemory", Shortcut({tr("Actions"), tr("Free Memory")}, ""));
     defaultShortcuts.insert("ActionSyncWithExpression", Shortcut({tr("Actions"), tr("Sync With Expression")}, ""));
-    defaultShortcuts.insert("ActionEntropy", Shortcut({tr("Actions"), tr("Entropy")}, ""));
     defaultShortcuts.insert("ActionCopyAllRegisters", Shortcut({tr("Actions"), tr("Copy All Registers")}, ""));
     defaultShortcuts.insert("ActionMarkAsUser", Shortcut({tr("Actions"), tr("Mark As User Module")}, ""));
     defaultShortcuts.insert("ActionMarkAsSystem", Shortcut({tr("Actions"), tr("Mark As System Module")}, ""));

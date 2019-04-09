@@ -26,7 +26,6 @@
 #include "expressionfunctions.h"
 #include "formatfunctions.h"
 #include "stringformat.h"
-#include "yara/yara.h"
 #include "dbghelp_safe.h"
 #include "types.h"
 
@@ -276,8 +275,6 @@ static void registercommands()
     dbgcmdnew("refstr,strref", cbInstrRefStr, true); //find string references
     dbgcmdnew("reffunctionpointer", cbInstrRefFuncionPointer, true); //find function pointers
     dbgcmdnew("modcallfind", cbInstrModCallFind, true); //find intermodular calls
-    dbgcmdnew("yara", cbInstrYara, true); //yara test command
-    dbgcmdnew("yaramod", cbInstrYaramod, true); //yara rule on module
     dbgcmdnew("setmaxfindresult,findsetmaxresult", cbInstrSetMaxFindResult, false); //set the maximum number of occurences found
     dbgcmdnew("guidfind,findguid", cbInstrGUIDFind, true); //find GUID references TODO: undocumented
 
@@ -649,9 +646,6 @@ extern "C" DLL_EXPORT const char* _dbg_dbginit()
     //#endif //ENABLE_MEM_TRACE
     dputs(QT_TRANSLATE_NOOP("DBG", "Initializing Zydis..."));
     Zydis::GlobalInitialize();
-    dputs(QT_TRANSLATE_NOOP("DBG", "Initializing Yara..."));
-    if(yr_initialize() != ERROR_SUCCESS)
-        return "Failed to initialize Yara!";
     dputs(QT_TRANSLATE_NOOP("DBG", "Getting directory information..."));
 
     strcpy_s(scriptDllDir, szProgramDir);
@@ -780,7 +774,6 @@ extern "C" DLL_EXPORT void _dbg_dbgexitsignal()
     dputs(QT_TRANSLATE_NOOP("DBG", "Cleaning up allocated data..."));
     cmdfree();
     varfree();
-    yr_finalize();
     Zydis::GlobalFinalize();
     dputs(QT_TRANSLATE_NOOP("DBG", "Cleaning up wait objects..."));
     waitdeinitialize();
