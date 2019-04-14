@@ -21,7 +21,7 @@
 
 static bool dosignedcalc = false;
 
-#define  MAX_TMP_PARAM  5
+#define  MAX_TMP_PARAM  9
 static std::string tmpFuncParams[MAX_TMP_PARAM + 1];
 /**
 \brief Returns whether we do signed or unsigned calculations.

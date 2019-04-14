@@ -286,7 +286,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     insertMenuBuilderBools(&guiBool, "CallStackView", 50); //CallStackView
     insertMenuBuilderBools(&guiBool, "ThreadView", 50); //Thread
     insertMenuBuilderBools(&guiBool, "CPUStack", 50); //Stack
-    insertMenuBuilderBools(&guiBool, "SourceView", 10); //Source
+    insertMenuBuilderBools(&guiBool, "SourceView", 50); //Source
     insertMenuBuilderBools(&guiBool, "DisassemblerGraphView", 50); //Graph
     insertMenuBuilderBools(&guiBool, "XrefBrowseDialog", 10); //XrefBrowseDialog
     insertMenuBuilderBools(&guiBool, "StructWidget", 8); //StructWidget
@@ -317,6 +317,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     AbstractTableView::setupColumnConfigDefaultValue(guiUint, "LocalVarsView", 3);
     AbstractTableView::setupColumnConfigDefaultValue(guiUint, "Module", 4);
     AbstractTableView::setupColumnConfigDefaultValue(guiUint, "Symbol", 5);
+    AbstractTableView::setupColumnConfigDefaultValue(guiUint, "SourceView", 4);
     guiUint.insert("SIMDRegistersDisplayMode", 0);
     addWindowPosConfig(guiUint, "AssembleDialog");
     addWindowPosConfig(guiUint, "AttachDialog");

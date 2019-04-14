@@ -49,7 +49,9 @@ public:
 
     //context menu helpers
     void setupCopyMenu(QMenu* copyMenu);
+    void setupCopyColumnMenu(QMenu* copyMenu);
     void setupCopyMenu(MenuBuilder* copyMenu);
+    void setupCopyColumnMenu(MenuBuilder* copyMenu);
     void setCopyMenuOnly(bool bSet, bool bDebugOnly = true);
 
     //draw helpers

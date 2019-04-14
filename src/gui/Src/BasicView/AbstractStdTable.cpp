@@ -908,6 +908,11 @@ void AbstractStdTable::setupCopyMenu(QMenu* copyMenu)
     //Copy->Separator
     copyMenu->addSeparator();
     //Copy->ColName
+    setupCopyColumnMenu(copyMenu);
+}
+
+void AbstractStdTable::setupCopyColumnMenu(QMenu* copyMenu)
+{
     for(int i = 0; i < getColumnCount(); i++)
     {
         if(!getCellContent(getInitialSelection(), i).length()) //skip empty cells
@@ -943,6 +948,11 @@ void AbstractStdTable::setupCopyMenu(MenuBuilder* copyMenu)
     //Copy->Separator
     copyMenu->addSeparator();
     //Copy->ColName
+    setupCopyColumnMenu(copyMenu);
+}
+
+void AbstractStdTable::setupCopyColumnMenu(MenuBuilder* copyMenu)
+{
     copyMenu->addBuilder(new MenuBuilder(this, [this](QMenu * menu)
     {
         for(int i = 0; i < getColumnCount(); i++)
