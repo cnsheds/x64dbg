@@ -62,6 +62,18 @@ namespace Exprfunc
             return 0;
     }
 
+    duint modisexport(duint addr)
+    {
+        SHARED_ACQUIRE(LockModules);
+        auto info = ModInfoFromAddr(addr);
+        if(info)
+        {
+            duint rva = addr - info->base;
+            return info->findExport(rva) ? 1 : 0;
+        }
+        return 0;
+    }
+
     static duint selstart(int hWindow)
     {
         SELECTIONDATA selection;
@@ -271,6 +283,12 @@ namespace Exprfunc
         unsigned char disasmData[256];
         MemRead(readStart, disasmData, sizeof(disasmData));
         return readStart + disasmback(disasmData, 0, sizeof(disasmData), addr - readStart, 1);
+    }
+
+    duint disiscallsystem(duint addr)
+    {
+        duint dest = disbranchdest(addr);
+        return dest && (modsystem(dest) || modsystem(disbranchdest(dest)));
     }
 
     duint trenabled(duint addr)
