@@ -528,11 +528,33 @@ void DebugUpdateGui(duint disasm_addr, bool stack)
     GuiUpdateSideBar();
 }
 
+void bringToForeground(HWND hwnd)
+{
+	if (IsIconic(hwnd))
+		ShowWindow(hwnd, SW_RESTORE);
+
+	SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+	SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+	SetForegroundWindow(hwnd);
+}
+
 void GuiSetDebugStateAsync(DBGSTATE state)
 {
     GuiSetDebugStateFast(state);
     static TaskThread_<decltype(&GuiSetDebugState), DBGSTATE> GuiSetDebugStateTask(&GuiSetDebugState, 300);
     GuiSetDebugStateTask.WakeUp(state);
+    if (state == paused)
+    {
+		HWND hdbgWnd = GuiGetWindowHandle();
+		FLASHWINFO _flashInfo;
+		_flashInfo.cbSize = sizeof(FLASHWINFO);
+		_flashInfo.hwnd = hdbgWnd;
+		_flashInfo.dwFlags = FLASHW_TRAY | FLASHW_TIMERNOFG;
+		_flashInfo.dwTimeout = 0;
+		_flashInfo.uCount = _UI32_MAX;
+		FlashWindowEx(&_flashInfo);
+		bringToForeground(hdbgWnd);
+    }
 }
 
 void DebugUpdateGuiAsync(duint disasm_addr, bool stack)

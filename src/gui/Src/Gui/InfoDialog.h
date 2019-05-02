@@ -58,6 +58,7 @@ private:
     int m_initAlpha;
 
     bool m_bTime64;
+    bool m_bInt64;
     boolean m_bHex16Value;
     int mcontPaintEvent;
     QString mDbgBaseFilename;

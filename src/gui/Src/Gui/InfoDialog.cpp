@@ -18,6 +18,7 @@ InfoDialog::InfoDialog(QWidget* parent)
     mcontPaintEvent = 0;
     m_initAlpha = 230;
     m_bTime64 = false;
+    m_bInt64 = false;
 
     ui->setupUi(this);
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint
@@ -50,6 +51,7 @@ InfoDialog::InfoDialog(QWidget* parent)
     ui->edit_utf8->setStyleSheet(editSytle);
 
     ui->label_timet->installEventFilter(this);
+    ui->label_int->installEventFilter(this);
 
     connect(ui->edit_rva, SIGNAL(returnPressed()), this, SLOT(SaveRVAName()));
     connect(Bridge::getBridge(), SIGNAL(addRecentFile(QString)), this, SLOT(setDbgMainModule(QString)));
@@ -166,17 +168,17 @@ void InfoDialog::showSelectInfoSlot(uint64 addr, int nWidget)
     UpdateInfo(value);
 }
 
-QString SignedToHex(int value)
+QString SignedToHex(int64 value)
 {
     QString strret;
     if(value < 0)
     {
-        int uvalue = abs(value);
+        int64 uvalue = abs(value);
         strret = "-";
-        strret += QString().sprintf("%X", uvalue);
+        strret += QString().sprintf("%llX", uvalue);
     }
     else
-        strret = QString().sprintf("%X", value);
+        strret = QString().sprintf("%llX", value);
 
     return strret;
 }
@@ -224,7 +226,7 @@ void InfoDialog::UpdateInfo(uint64 value)
 {
     duint rva = 0, base = 0;
     char String[260] = { 0 };
-    wchar_t Unicode[260] = { 0 };
+    ushort Unicode[260] = { 0 };
 
     QString showText;
     m_lastValue = value;
@@ -291,12 +293,21 @@ void InfoDialog::UpdateInfo(uint64 value)
 #endif
     if(bread)
     {
-        wcscpy_s(Unicode, 256, (wchar_t*)String);
-        QString strUTF8 = QString(String).toUtf8();
-        std::string czString = WChar2Ansi(Unicode);
-        ui->edit_cstr->setText(String);
-        ui->edit_ustr->setText(czString.c_str());
-        ui->edit_utf8->setText(strUTF8);
+        wcscpy_s((wchar_t*)Unicode, 256, (wchar_t*)String);
+
+        QString localStr, utf8str, utf16str;
+        QTextCodec::setCodecForLocale(QTextCodec::codecForName("System"));
+        localStr = QString::fromLocal8Bit(String);
+        utf8str = QString::fromUtf8(String);
+        QTextCodec::setCodecForLocale(nullptr);
+        utf16str = QString::fromUtf16(Unicode);
+
+        ui->edit_cstr->setText(localStr);
+        ui->edit_ustr->setText(utf16str);
+        ui->edit_utf8->setText(utf8str);
+        ui->edit_cstr->setCursorPosition(1);
+        ui->edit_ustr->setCursorPosition(1);
+        ui->edit_utf8->setCursorPosition(1);
     }
     else
     {
@@ -320,12 +331,25 @@ void InfoDialog::UpdateInfo(uint64 value)
     _float = *(float*)&_dword;
     _Double = *(double*)&value;
 
+    if (m_bInt64)
+    {
+        ui->label_int->setText("Int64:");
+    }
+    else
+    {
+        ui->label_int->setText("Int:");
+    }
+
     if(m_bHex16Value)
     {
         showText.sprintf("%s(%X)", SignedToHex((signed char)_byte).toLocal8Bit().constData(), _byte);
         ui->edit_char->setText(showText);
-        showText.sprintf("%s(%X)", SignedToHex(_dword).toLocal8Bit().constData(), _dword);
+        if (m_bInt64)
+            showText.sprintf("%s(%llX)", SignedToHex(value).toLocal8Bit().constData(), value);
+        else
+            showText.sprintf("%s(%X)", SignedToHex((int)_dword).toLocal8Bit().constData(), _dword);
         ui->edit_int->setText(showText);
+        ui->edit_int->setCursorPosition(1);
         showText.sprintf("%.7g", _float);
         ui->edit_float->setText(showText);
         showText.sprintf("%.13g", _Double);
@@ -337,8 +361,12 @@ void InfoDialog::UpdateInfo(uint64 value)
     {
         showText.sprintf("%d(%u)", (signed char)_byte, _byte);
         ui->edit_char->setText(showText);
-        showText.sprintf("%d(%u)", _dword, _dword);
+        if (m_bInt64)
+            showText.sprintf("%lld(%llu)", value, value);
+        else
+            showText.sprintf("%d(%u)", _dword, _dword);
         ui->edit_int->setText(showText);
+        ui->edit_int->setCursorPosition(1);
         showText.sprintf("%.7g", _float);
         ui->edit_float->setText(showText);
         showText.sprintf("%.13g", _Double);
@@ -540,6 +568,15 @@ bool InfoDialog::eventFilter(QObject *obj, QEvent *event)
     if (obj == ui->label_timet) {
         if (event->type() == QEvent::MouseButtonPress) {
             m_bTime64 = !m_bTime64;
+            UpdateInfo(m_lastValue);
+            return true;
+        } else {
+            return false;
+        }
+    } else if (obj == ui->label_int)
+    {
+        if (event->type() == QEvent::MouseButtonPress) {
+            m_bInt64 = !m_bInt64;
             UpdateInfo(m_lastValue);
             return true;
         } else {
