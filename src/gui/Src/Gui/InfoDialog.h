@@ -22,17 +22,18 @@ public:
     ~InfoDialog();
     void SetCpuWidget(CPUWidget*);
     void paintEvent(QPaintEvent* event);
+    void disconnectCpuWidget();
 
 signals:
     void showSelectInfo(uint64 addr, int nWidget);
 
-protected:
-    CPUWidget* pCpuWidget;
 
+protected:
     void mouseMoveEvent(QMouseEvent* e);
     void mouseReleaseEvent(QMouseEvent*);
     void mousePressEvent(QMouseEvent* e);
     void wheelEvent(QWheelEvent* event);
+
 
     void SetButtonStyle(QPushButton* button, QString imgsrc, int CutSec);
     void UpdateInfo(uint64 value);
@@ -42,6 +43,7 @@ protected:
 
 private slots:
     void showSelectInfoSlot(uint64 addr, int nWidget);
+    void dbgStateChanged(DBGSTATE state);
 
     void on_btn_close_clicked();
     void on_checkHex_toggled(bool checked);
@@ -57,6 +59,7 @@ private:
     uint64 m_lastValue;
     int m_initAlpha;
 
+    CPUWidget* pCpuWidget;
     bool m_bTime64;
     bool m_bInt64;
     boolean m_bHex16Value;

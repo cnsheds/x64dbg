@@ -11,20 +11,20 @@
 //=============================================================
 InfoDialog::InfoDialog(QWidget* parent)
     : QDialog(parent),
-      ui(new Ui::InfoDialog)
+      ui(new Ui::InfoDialog),
+      m_lastValue(0),
+      m_initAlpha(230),
+      m_bTime64(false),
+      m_bInt64(false),
+      m_bHex16Value(false),
+      mcontPaintEvent(0)
 {
-    m_bHex16Value = false;
-    m_lastValue = 0;
-    mcontPaintEvent = 0;
-    m_initAlpha = 230;
-    m_bTime64 = false;
-    m_bInt64 = false;
-
     ui->setupUi(this);
+
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint
                    | Qt::FramelessWindowHint
                    | Qt::MSWindowsFixedSizeDialogHint);
-
+    setModal(false); //non-modal window
     adjustSize();
 
     QPalette pl = palette();
@@ -55,6 +55,7 @@ InfoDialog::InfoDialog(QWidget* parent)
 
     connect(ui->edit_rva, SIGNAL(returnPressed()), this, SLOT(SaveRVAName()));
     connect(Bridge::getBridge(), SIGNAL(addRecentFile(QString)), this, SLOT(setDbgMainModule(QString)));
+    connect(Bridge::getBridge(), SIGNAL(dbgStateChanged(DBGSTATE)), this, SLOT(dbgStateChanged(DBGSTATE)));
 
     SetButtonStyle(ui->btn_close, ":/icons/images/btn_close.png", 3);
     Config()->setupWindowPos(this);
@@ -62,6 +63,8 @@ InfoDialog::InfoDialog(QWidget* parent)
 
 InfoDialog::~InfoDialog()
 {
+    ui->label_timet->removeEventFilter(this);
+    ui->label_int->removeEventFilter(this);
     Config()->saveWindowPos(this);
     delete ui;
 }
@@ -115,6 +118,16 @@ void InfoDialog::wheelEvent(QWheelEvent* event)
     setWindowOpacity((float)m_initAlpha / 255);
 }
 
+void InfoDialog::dbgStateChanged(DBGSTATE state)
+{
+    if(state == stopped)
+    {
+        disconnect(Bridge::getBridge(), SIGNAL(addRecentFile(QString)), this, SLOT(setDbgMainModule(QString)));
+        disconnectCpuWidget();
+        hide();
+    }
+}
+
 void InfoDialog::setDbgMainModule(QString filepath)
 {
     mDbgBaseFilename = filepath;
@@ -142,6 +155,22 @@ void InfoDialog::SetCpuWidget(CPUWidget* cpuWidget)
     }
 }
 
+void InfoDialog::disconnectCpuWidget()
+{
+    RegistersView* pGeneralRegs = pCpuWidget->getRegisterWidget();
+    disconnect((QObject*)pGeneralRegs, SIGNAL(showSelectInfo(uint64, int)), this, SLOT(showSelectInfoSlot(uint64, int)));
+    CPUStack* pStackWidget = pCpuWidget->getStackWidget();
+    disconnect((QObject*)pStackWidget, SIGNAL(showSelectInfo(uint64, int)), this, SLOT(showSelectInfoSlot(uint64, int)));
+
+    CPUMultiDump* pMultiDump = pCpuWidget->getDumpWidget();
+    for(int i = 0; i < pMultiDump->getMaxCPUTabs(); i++)
+    {
+        CPUDump* current = qobject_cast<CPUDump*>(pMultiDump->widget(i));
+        disconnect((QObject*)current, SIGNAL(showSelectInfo(uint64, int)), this, SLOT(showSelectInfoSlot(uint64, int)));
+    }
+    pCpuWidget = nullptr;
+}
+
 void InfoDialog::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
@@ -160,6 +189,22 @@ void InfoDialog::paintEvent(QPaintEvent* event)
 void InfoDialog::showSelectInfoSlot(uint64 addr, int nWidget)
 {
     uint64 value = addr;
+    if (!isVisible())
+    {
+        duint bShowInfoWindow = true;
+        BridgeSettingGetUint("Gui", "ShowInfoWindow", &bShowInfoWindow);
+        if(!bShowInfoWindow)
+            return;
+
+        if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
+        {
+            m_rvaInfo.LoadRVAInfo(mDbgModuleRVAFilename);
+            showNormal();
+        }else {
+            return;
+        }
+    }
+
     if(nWidget == 1)    //Dump
         DbgMemRead(addr, &value, 8);
     else if(nWidget == 2)   //Stack
@@ -181,24 +226,6 @@ QString SignedToHex(int64 value)
         strret = QString().sprintf("%llX", value);
 
     return strret;
-}
-
-std::string WChar2Ansi(LPCWSTR pwszSrc)
-{
-    int nLen = WideCharToMultiByte(CP_ACP, 0, pwszSrc, -1, NULL, 0, NULL, NULL);
-
-    if(nLen <= 0) return std::string("");
-
-    char* pszDst = new char[nLen];
-    if(NULL == pszDst) return std::string("");
-
-    WideCharToMultiByte(CP_ACP, 0, pwszSrc, -1, pszDst, nLen, NULL, NULL);
-    pszDst[nLen - 1] = 0;
-
-    std::string strTemp(pszDst);
-    delete[] pszDst;
-
-    return strTemp;
 }
 
 void InfoDialog::SaveRVAName()
@@ -231,17 +258,6 @@ void InfoDialog::UpdateInfo(uint64 value)
     QString showText;
     m_lastValue = value;
     DWORD _oDword = (DWORD)value;
-
-    duint bShowInfoWindow = true;
-    BridgeSettingGetUint("Gui", "ShowInfoWindow", &bShowInfoWindow);
-    if(!bShowInfoWindow)
-        return;
-
-    if(!isVisible() && (GetAsyncKeyState(VK_CONTROL) & 0x8000))
-    {
-        m_rvaInfo.LoadRVAInfo(mDbgModuleRVAFilename);
-        showNormal();
-    }
 
     showText = ToHexString(value);
     ui->label_addr->setText(showText);

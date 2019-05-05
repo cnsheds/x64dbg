@@ -533,9 +533,9 @@ void bringToForeground(HWND hwnd)
 	if (IsIconic(hwnd))
 		ShowWindow(hwnd, SW_RESTORE);
 
-	SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-	SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-	SetForegroundWindow(hwnd);
+// 	SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+// 	SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+// 	SetForegroundWindow(hwnd);
 }
 
 void GuiSetDebugStateAsync(DBGSTATE state)
