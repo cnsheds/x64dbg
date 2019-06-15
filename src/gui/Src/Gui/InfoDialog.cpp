@@ -51,7 +51,11 @@ InfoDialog::InfoDialog(QWidget* parent)
     ui->edit_utf8->setStyleSheet(editSytle);
 
     ui->label_timet->installEventFilter(this);
-    ui->label_int->installEventFilter(this);
+    ui->label_int->installEventFilter(this);    
+    installEventFilter(this);
+
+    m_lastRvaname.clear();
+    m_lastRva = 0;
 
     connect(ui->edit_rva, SIGNAL(returnPressed()), this, SLOT(SaveRVAName()));
     connect(Bridge::getBridge(), SIGNAL(addRecentFile(QString)), this, SLOT(setDbgMainModule(QString)));
@@ -230,19 +234,18 @@ QString SignedToHex(int64 value)
 
 void InfoDialog::SaveRVAName()
 {
-    saddr rva = (saddr)ui->edit_rva->userData(1980);
-    if(rva == 0)
+    if(m_lastRva == 0)
         return;
 
     QString strRVA = ui->edit_rva->text();
     QString strModule = ui->edit_module->text();
     if(strRVA.indexOf("[") != -1)
         return;
-    int modulename_off = (int)ui->edit_module->userData(1980);
+    int modulename_off = m_lastRvaname.length();
     if(modulename_off > 0)
         strModule = strModule.mid(modulename_off + 1);
 
-    if(m_rvaInfo.AddRVAInfo(rva, strModule, strRVA))
+    if(m_rvaInfo.AddRVAInfo(m_lastRva, strModule, strRVA))
     {
         m_rvaInfo.SaveRVAInfo(mDbgModuleRVAFilename);
         UpdateInfo(m_lastValue);
@@ -264,7 +267,7 @@ void InfoDialog::UpdateInfo(uint64 value)
 
     base = DbgFunctions()->ModBaseFromAddr(value);
 
-    ui->edit_module->setUserData(1980, (QObjectUserData*)0);
+    m_lastRvaname.clear();
     char modname[MAX_MODULE_SIZE] = "";
     if(base && DbgFunctions()->ModNameFromAddr(value, modname, true))
     {
@@ -276,7 +279,7 @@ void InfoDialog::UpdateInfo(uint64 value)
         QString rvaName = m_rvaInfo.GetRVAname(rva, modname);
         if(rvaName.length() > 0)
         {
-            ui->edit_module->setUserData(1980, (QObjectUserData*)rvaName.length());
+            m_lastRvaname = rvaName;
             rvaName += "!";
             rvaName += modname;
             ui->edit_module->setText(rvaName);
@@ -298,7 +301,7 @@ void InfoDialog::UpdateInfo(uint64 value)
         showText = ToHexString(rva);
 
     ui->edit_rva->setText(showText);
-    ui->edit_rva->setUserData(1980, (QObjectUserData*)rva);
+    m_lastRva = rva;
 
     memset(String, 0, sizeof(String));
     bool bread = false;
@@ -581,7 +584,19 @@ rstring InfoDialog::GetVariant(uint64 value)
 
 bool InfoDialog::eventFilter(QObject *obj, QEvent *event)
 {
-    if (obj == ui->label_timet) {
+    QDialog *pDialog = qobject_cast<QDialog *>(obj);
+    if (pDialog != NULL)
+    {
+        if (event->type() == QEvent::KeyPress)
+        {
+            QKeyEvent *pKeyEvent = static_cast<QKeyEvent*>(event);
+            if (pKeyEvent->key() == Qt::Key_Escape)
+            {
+                return true;
+            }
+        }
+    }
+    else if (obj == ui->label_timet) {
         if (event->type() == QEvent::MouseButtonPress) {
             m_bTime64 = !m_bTime64;
             UpdateInfo(m_lastValue);
@@ -598,10 +613,10 @@ bool InfoDialog::eventFilter(QObject *obj, QEvent *event)
         } else {
             return false;
         }
-    } else {
-        // pass the event on to the parent class
-        return QDialog::eventFilter(obj, event);
     }
+
+    // pass the event on to the parent class
+    return QDialog::eventFilter(obj, event);
 }
 
 void InfoDialog::on_btn_close_clicked()

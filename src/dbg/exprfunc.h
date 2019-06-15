@@ -72,6 +72,13 @@ namespace Exprfunc
     duint argset(duint index, duint value);
 
     duint bpgoto(duint cip);
+
+    duint exfirstchance();
+    duint exaddr();
+    duint excode();
+    duint exflags();
+    duint exinfocount();
+    duint exinfo(duint index);
     duint MatchStrA(duint src, duint patstr);
     duint MatchStrW(duint src, duint patstr);
 }

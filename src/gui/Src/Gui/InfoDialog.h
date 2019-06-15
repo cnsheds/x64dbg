@@ -59,6 +59,8 @@ private:
     uint64 m_lastValue;
     int m_initAlpha;
 
+    QString m_lastRvaname;
+    uint64 m_lastRva;
     CPUWidget* pCpuWidget;
     bool m_bTime64;
     bool m_bInt64;

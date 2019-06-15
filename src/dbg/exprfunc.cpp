@@ -431,6 +431,38 @@ namespace Exprfunc
         return cip;
     }
 
+    duint exfirstchance()
+    {
+        return getLastExceptionInfo().dwFirstChance;
+    }
+
+    duint exaddr()
+    {
+        return (duint)getLastExceptionInfo().ExceptionRecord.ExceptionAddress;
+    }
+
+    duint excode()
+    {
+        return getLastExceptionInfo().ExceptionRecord.ExceptionCode;
+    }
+
+    duint exflags()
+    {
+        return getLastExceptionInfo().ExceptionRecord.ExceptionFlags;
+    }
+
+    duint exinfocount()
+    {
+        return getLastExceptionInfo().ExceptionRecord.NumberParameters;
+    }
+
+    duint exinfo(duint index)
+    {
+        if(index >= 16)
+            return 0;
+        return getLastExceptionInfo().ExceptionRecord.ExceptionInformation[index];
+    }
+
     duint MatchStrA(duint src, duint patstr)
     {
         const int MAX_SIZE = 300;
