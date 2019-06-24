@@ -87,7 +87,6 @@ public slots:
     void displaySourceViewWidget();
     void displayReferencesWidget();
     void displayThreadsWidget();
-    void displaySnowmanWidget();
     void displayVariables();
     void displayGraphWidget();
     void displayRunTrace();
@@ -103,7 +102,7 @@ public slots:
     void setLastException(unsigned int exceptionCode);
     void findStrings();
     void findModularCalls();
-    void addMenuToList(QWidget* parent, QMenu* menu, int hMenu, int hParentMenu = -1);
+    void addMenuToList(QWidget* parent, QMenu* menu, GUIMENUTYPE hMenu, int hParentMenu = -1);
     void addMenu(int hMenu, QString title);
     void addMenuEntry(int hMenu, QString title);
     void addSeparator(int hMenu);
@@ -145,7 +144,7 @@ public slots:
     void addQWidgetTab(QWidget* qWidget);
     void showQWidgetTab(QWidget* qWidget);
     void closeQWidgetTab(QWidget* qWidget);
-    void executeOnGuiThread(void* cbGuiThread);
+    void executeOnGuiThread(void* cbGuiThread, void* userdata);
     void tabMovedSlot(int from, int to);
     void chkSaveloadTabSavedOrderStateChangedSlot(bool state);
     void dbgStateChangedSlot(DBGSTATE state);
@@ -178,7 +177,6 @@ private:
     ThreadView* mThreadView;
     PatchDialog* mPatchDialog;
     CalculatorDialog* mCalculatorDialog;
-    QWidget* mSnowmanView;
     HandlesView* mHandlesView;
     NotesManager* mNotesManager;
     DisassemblerGraphView* mGraphView;
@@ -247,6 +245,7 @@ private:
     QString nestedMenuDescription(const MenuInfo* menu);
     QString nestedMenuEntryDescription(const MenuEntryInfo & entry);
     void clearMenuHelper(int hMenu);
+    void clearMenuImpl(int hMenu, bool erase);
 
     bool bCanClose;
     MainWindowCloseThread* mCloseThread;

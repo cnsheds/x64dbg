@@ -567,6 +567,9 @@ void AppearanceDialog::colorInfoListInit()
     colorInfoListAppend(tr("Breakpoint Summary Strings"), "BreakpointSummaryStringColor", "");
     colorInfoListAppend(tr("Patch located in relocation region"), "PatchRelocatedByteHighlightColor", "");
     colorInfoListAppend(tr("Import Item background"), "SymbolImportBackgroundColor", "");
+    colorInfoListAppend(tr("Symbol Unloaded Text"), "SymbolUnloadedTextColor", "");
+    colorInfoListAppend(tr("Symbol Loading Text"), "SymbolLoadingTextColor", "");
+    colorInfoListAppend(tr("Symbol Loaded Text"), "SymbolLoadedTextColor", "");
 
 
     //dev helper
