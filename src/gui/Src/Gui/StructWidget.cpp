@@ -267,11 +267,11 @@ void StructWidget::registerAutoComplete(SCRIPTTYPEINFO* info)
     // Must be valid pointer
     if(!info || info->id != 107)
     {
-        Bridge::getBridge()->setResult(0);
+        Bridge::getBridge()->setResult(BridgeResult::RegisterScriptLang, 0);
         return;
     }
 
     mAutoCompleteInfo = info;
 
-    Bridge::getBridge()->setResult(1);
+    Bridge::getBridge()->setResult(BridgeResult::RegisterScriptLang, 1);
 }
