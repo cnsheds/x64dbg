@@ -9,6 +9,7 @@
 #include <QVBoxLayout>
 #include <QProcess>
 #include <QFileDialog>
+#include <QStringList>
 
 enum
 {
@@ -446,7 +447,7 @@ void SymbolView::moduleSelectionChanged(int index)
     mSymbolSearchList->mList->setTableOffset(0);
     mSymbolSearchList->mList->reloadData();
     if(!mSymbolList->isSearchBoxLocked())
-        mSymbolList->mSearchBox->setText("");
+        mSymbolList->clearFilter();
     else
         mSymbolList->refreshSearchList();
 
@@ -550,7 +551,7 @@ void SymbolView::symbolSelectModule(duint base)
         {
             mModuleList->stdList()->setSingleSelection(i);
             mModuleList->stdSearchList()->hide(); //This could be described as a hack, but you could also say it's like wiping sandpaper over your new white Tesla.
-            mModuleList->mSearchBox->clear();
+            mModuleList->clearFilter();
             break;
         }
     }
@@ -636,7 +637,10 @@ void SymbolView::moduleBrowse()
     char szModPath[MAX_PATH] = "";
     if(DbgFunctions()->ModPathFromAddr(modbase, szModPath, _countof(szModPath)))
     {
-        QProcess::startDetached(QString("%1/explorer.exe").arg(QProcessEnvironment::systemEnvironment().value("windir")), QStringList({QString("/select,"), QString(szModPath)}));
+        QStringList arguments;
+        arguments << QString("/select,");
+        arguments << QString(szModPath);
+        QProcess::startDetached(QString("%1/explorer.exe").arg(QProcessEnvironment::systemEnvironment().value("windir")), arguments);
     }
 }
 
@@ -773,7 +777,8 @@ void SymbolView::moduleSetParty()
     duint modbase = DbgValFromString(mModuleList->mCurList->getCellContent(mModuleList->mCurList->getInitialSelection(), ColBase).toUtf8().constData());
     party = DbgFunctions()->ModGetParty(modbase);
     QString mLineEditeditText;
-    if(SimpleInputBox(this, tr("Mark the party of the module as"), QString::number(party), mLineEditeditText, tr("0 is user module, 1 is system module."), &DIcon("bookmark.png")))
+    QIcon bookmark = DIcon("bookmark.png");
+    if(SimpleInputBox(this, tr("Mark the party of the module as"), QString::number(party), mLineEditeditText, tr("0 is user module, 1 is system module."), &bookmark))
     {
         bool ok;
         party = mLineEditeditText.toInt(&ok);
