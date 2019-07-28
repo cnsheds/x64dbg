@@ -7,6 +7,7 @@
 #include "CPUMultiDump.h"
 #include "CPUDump.h"
 #include "CPUStack.h"
+#include <QDesktopWidget>
 
 //=============================================================
 InfoDialog::InfoDialog(QWidget* parent)
@@ -203,6 +204,15 @@ void InfoDialog::showSelectInfoSlot(uint64 addr, int nWidget)
         if (GetAsyncKeyState(VK_CONTROL) & 0x8000)
         {
             m_rvaInfo.LoadRVAInfo(mDbgModuleRVAFilename);
+            QRect screenGeometry = QApplication::desktop()->screenGeometry();
+            QPoint self_pos = this->pos();
+            int nx = self_pos.x();
+            int ny = self_pos.y();
+            if (this->pos().x() + 60 > screenGeometry.width())
+                nx = screenGeometry.width() - this->width() - 80;
+            if (this->pos().y() + 60 > screenGeometry.height() )
+                ny = screenGeometry.height() - this->height() - 60;
+            move(nx, ny);
             showNormal();
         }else {
             return;

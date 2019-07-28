@@ -112,6 +112,8 @@ public:
     bool getAllowPainting() const;
     void setAllowPainting(bool allow);
 
+    void setNoSaveConfig(bool nosave);
+
     // UI customization
     void loadColumnFromConfig(const QString & viewName);
     void saveColumnToConfig();
@@ -205,6 +207,7 @@ private:
     bool mShouldReload;
     bool mDrawDebugOnly;
     bool mAllowPainting;
+    bool mNoSaveCfg;
 
     static int mMouseWheelScrollDelta;
     ScrollBar64 mScrollBarAttributes;

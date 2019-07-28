@@ -30,7 +30,8 @@ void AbstractTableScrollBar::leaveEvent(QEvent* event)
 AbstractTableView::AbstractTableView(QWidget* parent)
     : QAbstractScrollArea(parent),
       mFontMetrics(nullptr),
-      mDisassemblyPopup(nullptr)
+      mDisassemblyPopup(nullptr),
+      mNoSaveCfg(false)
 {
     // Class variable initialization
     mTableOffset = 0;
@@ -105,7 +106,7 @@ AbstractTableView::~AbstractTableView()
 
 void AbstractTableView::closeSlot()
 {
-    if(ConfigBool("Gui", "SaveColumnOrder"))
+    if(!mNoSaveCfg && ConfigBool("Gui", "SaveColumnOrder"))
         saveColumnToConfig();
 }
 
@@ -1210,6 +1211,11 @@ void AbstractTableView::setDrawDebugOnly(bool value)
 void AbstractTableView::setAllowPainting(bool allow)
 {
     mAllowPainting = allow;
+}
+
+void AbstractTableView::setNoSaveConfig(bool nosave)
+{
+    mNoSaveCfg = nosave;
 }
 
 bool AbstractTableView::getAllowPainting() const

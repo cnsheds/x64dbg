@@ -58,6 +58,7 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="manifest.xml" />
+    <None Include="..\..\qt5_qt_namespace.natvis" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\bug32.ico">

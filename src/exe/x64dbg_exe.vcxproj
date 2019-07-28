@@ -42,6 +42,7 @@
     <ResourceCompile Include="Strings.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\qt5_qt_namespace.natvis" />
     <None Include="..\bug.ico" />
     <None Include="manifest.xml" />
   </ItemGroup>

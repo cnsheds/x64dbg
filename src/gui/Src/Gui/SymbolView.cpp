@@ -90,6 +90,7 @@ public:
         mList->setAddressColumn(0);
         mList->setAddressLabel(false);
         mSearchList = new ZehSymbolTable();
+        mSearchList->setNoSaveConfig(true);
         mSearchList->setAddressColumn(0);
         mSearchList->setAddressLabel(false);
     }
@@ -163,7 +164,10 @@ SymbolView::SymbolView(QWidget* parent) : QWidget(parent), ui(new Ui::SymbolView
     mSymbolList->mSearchStartCol = 1;
 
     // Create module list
-    mModuleList = new StdSearchListView(this, true, false, new StdTableSearchList(new ModuleStdTable(), new ModuleStdTable()));
+    ModuleStdTable* pTabList = new ModuleStdTable();
+    ModuleStdTable* pSearchTabList = new ModuleStdTable();
+    pSearchTabList->setNoSaveConfig(true);
+    mModuleList = new StdSearchListView(this, true, false, new StdTableSearchList(pTabList, pSearchTabList));
     mModuleList->setSearchStartCol(ColBase);
     mModuleList->enableMultiSelection(true);
     mModuleList->setAddressColumn(ColBase, true);
