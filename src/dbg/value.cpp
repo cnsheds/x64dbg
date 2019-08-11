@@ -1711,7 +1711,7 @@ bool valfromstring_noexpr(const char* string, duint* value, bool silent, bool ba
         return false;
 
     if(string[0] == '['
-            || (string[0] == '#' && isdigit(string[1]) && string[2] == ':')
+            || (string[0] == 's' && isdigit(string[1]) && string[2] == ':')
             || (isdigitduint(string[0]) && string[1] == ':' && string[2] == '[')
             || (string[1] == 's' && (string[0] == 'c' || string[0] == 'd' || string[0] == 'e' || string[0] == 'f' || string[0] == 'g' || string[0] == 's') && string[2] == ':' && string[3] == '[') //memory location
             || strstr(string, "byte:[")
@@ -1741,7 +1741,7 @@ bool valfromstring_noexpr(const char* string, duint* value, bool silent, bool ba
             if(new_size < read_size)
                 read_size = new_size;
         }
-        else if(string[0] == '#' && string[2] == ':')
+        else if(string[0] == 's' && string[2] == ':')
         {
             int ipos = string[1] - '0';
             if(ipos > MAX_TMP_PARAM) ipos = MAX_TMP_PARAM;
