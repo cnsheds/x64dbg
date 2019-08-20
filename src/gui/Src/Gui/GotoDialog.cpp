@@ -30,6 +30,7 @@ GotoDialog::GotoDialog(QWidget* parent, bool allowInvalidExpression, bool allowI
     {
         return mCompletionText;
     }, completer));
+    completer->setCaseSensitivity(Config()->getBool("Gui", "CaseSensitiveAutoComplete") ? Qt::CaseSensitive : Qt::CaseInsensitive);
     if(!Config()->getBool("Gui", "DisableAutoComplete"))
         ui->editExpression->setCompleter(completer);
     validRangeStart = 0;

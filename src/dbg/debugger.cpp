@@ -70,6 +70,8 @@ static char szDebuggeeInitializationScript[MAX_PATH] = "";
 static WString gInitExe, gInitCmd, gInitDir, gDllLoader;
 static CookieQuery cookie;
 static bool bDatabaseLoaded = false;
+static duint exceptionDispatchAddr = 0;
+static bool bPausedOnException = false;
 char szProgramDir[MAX_PATH] = "";
 char szFileName[MAX_PATH] = "";
 char szSymbolCachePath[MAX_PATH] = "";
@@ -1190,7 +1192,7 @@ void cbStep()
     {
         if(bTraceRecordEnabledDuringTrace)
             _dbg_dbgtraceexecute(CIP);
-        (bRepeatIn ? StepIntoWow64 : StepOver)((void*)cbStep);
+        (bRepeatIn ? StepIntoWow64 : StepOverWrapper)((void*)cbStep);
     }
 }
 
@@ -1214,7 +1216,7 @@ static void cbRtrFinalStep(bool checkRepeat = false)
         wait(WAITID_RUN);
     }
     else
-        StepOver((void*)cbRtrStep);
+        StepOverWrapper((void*)cbRtrStep);
 }
 
 void cbRtrStep()
@@ -1243,15 +1245,15 @@ void cbRtrStep()
             if(cp.Disassemble(cip, data) && cp.IsRet())
                 cbRtrFinalStep(true);
             else
-                StepOver((void*)cbRtrStep);
+                StepOverWrapper((void*)cbRtrStep);
         }
         else
         {
-            StepOver((void*)cbRtrStep);
+            StepOverWrapper((void*)cbRtrStep);
         }
     }
     else
-        StepOver((void*)cbRtrStep);
+        StepOverWrapper((void*)cbRtrStep);
 }
 
 static void cbTraceUniversalConditionalStep(duint cip, bool bStepInto, void(*callback)(), bool forceBreakTrace)
@@ -1300,7 +1302,7 @@ static void cbTraceUniversalConditionalStep(duint cip, bool bStepInto, void(*cal
             _dbg_dbgtraceexecute(cip);
         if(switchCondition) //switch (invert) the step type once
             bStepInto = !bStepInto;
-        (bStepInto ? StepIntoWow64 : StepOver)((void*)callback);
+        (bStepInto ? StepIntoWow64 : StepOverWrapper)((void*)callback);
     }
 }
 
@@ -1733,9 +1735,13 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
         }
     }
 
-    //process cookie
-    if(settingboolget("Misc", "QueryProcessCookie") && ModNameFromAddr(duint(base), modname, true) && scmp(modname, "ntdll.dll"))
-        cookie.HandleNtdllLoad();
+    if(ModNameFromAddr(duint(base), modname, true) && scmp(modname, "ntdll.dll"))
+    {
+        if(settingboolget("Misc", "QueryProcessCookie"))
+            cookie.HandleNtdllLoad();
+        if(settingboolget("Misc", "TransparentExceptionStepping"))
+            exceptionDispatchAddr = DbgValFromString("ntdll:KiUserExceptionDispatcher");
+    }
 
     dprintf(QT_TRANSLATE_NOOP("DBG", "DLL Loaded: %p %s\n"), base, DLLDebugFileName);
 
@@ -1896,7 +1902,9 @@ static void cbException(EXCEPTION_DEBUG_INFO* ExceptionData)
         BREAKPOINT bp;
         if(BpGet(ExceptionCode, BPEXCEPTION, nullptr, &bp) && bp.enabled && ((bp.titantype == 1 && ExceptionData->dwFirstChance) || (bp.titantype == 2 && !ExceptionData->dwFirstChance) || bp.titantype == 3))
         {
+            bPausedOnException = true;
             cbGenericBreakpoint(BPEXCEPTION, ExceptionData);
+            bPausedOnException = false;
             return;
         }
     }
@@ -1926,6 +1934,7 @@ static void cbException(EXCEPTION_DEBUG_INFO* ExceptionData)
             DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), true);
             //lock
             lock(WAITID_RUN);
+            bPausedOnException = true;
             // Plugin callback
             PLUG_CB_PAUSEDEBUG pauseInfo = { nullptr };
             plugincbcall(CB_PAUSEDEBUG, &pauseInfo);
@@ -1933,6 +1942,7 @@ static void cbException(EXCEPTION_DEBUG_INFO* ExceptionData)
             dbgsetskipexceptions(false);
             plugincbcall(CB_EXCEPTION, &callbackInfo);
             wait(WAITID_RUN);
+            bPausedOnException = false;
             return;
         }
         SetContextDataEx(hActiveThread, UE_CIP, (duint)ExceptionData->ExceptionRecord.ExceptionAddress);
@@ -1981,6 +1991,7 @@ static void cbException(EXCEPTION_DEBUG_INFO* ExceptionData)
     DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), true);
     //lock
     lock(WAITID_RUN);
+    bPausedOnException = true;
     // Plugin callback
     PLUG_CB_PAUSEDEBUG pauseInfo = { nullptr };
     plugincbcall(CB_PAUSEDEBUG, &pauseInfo);
@@ -1988,6 +1999,7 @@ static void cbException(EXCEPTION_DEBUG_INFO* ExceptionData)
     dbgsetskipexceptions(false);
     plugincbcall(CB_EXCEPTION, &callbackInfo);
     wait(WAITID_RUN);
+    bPausedOnException = false;
 }
 
 static void cbDebugEvent(DEBUG_EVENT* DebugEvent)
@@ -2854,7 +2866,26 @@ void StepIntoWow64(LPVOID traceCallBack)
         }
     }
 #endif //_WIN64
-    StepInto(traceCallBack);
+    if(bPausedOnException && exceptionDispatchAddr && !IsBPXEnabled(exceptionDispatchAddr))
+    {
+        SetBPX(exceptionDispatchAddr, UE_SINGLESHOOT, traceCallBack);
+    }
+    else
+    {
+        StepInto(traceCallBack);
+    }
+}
+
+void StepOverWrapper(LPVOID traceCallBack)
+{
+    if(bPausedOnException && exceptionDispatchAddr && !IsBPXEnabled(exceptionDispatchAddr))
+    {
+        SetBPX(exceptionDispatchAddr, UE_SINGLESHOOT, traceCallBack);
+    }
+    else
+    {
+        StepOver(traceCallBack);
+    }
 }
 
 bool dbgisdepenabled()

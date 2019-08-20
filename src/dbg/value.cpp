@@ -1455,7 +1455,6 @@ bool valapifromstring(const char* name, duint* value, int* value_size, bool prin
         else
         {
             strncpy_s(modname, name, _TRUNCATE);
-            modname[apiname - name] = 0;
         }
         apiname++;
         if(!strlen(apiname))

@@ -97,6 +97,7 @@ private slots:
     void on_chkUseLocalHelpFile_toggled(bool checked);
     void on_chkQueryProcessCookie_toggled(bool checked);
     void on_chkQueryWorkingSet_toggled(bool checked);
+    void on_chkTransparentExceptionStepping_toggled(bool checked);
 
     void on_chkShowInfoWindow_toggled(bool checked);
 
@@ -199,6 +200,7 @@ private:
         bool miscUseLocalHelpFile;
         bool miscQueryProcessCookie;
         bool miscQueryWorkingSet;
+        bool miscTransparentExceptionStepping;
     };
 
     //variables

@@ -99,10 +99,6 @@ bool SymbolSourceDIA::cancelLoading()
     return true;
 }
 
-void SymbolSourceDIA::loadPDBAsync()
-{
-}
-
 template<size_t Count>
 static bool startsWith(const char* str, const char(&prefix)[Count])
 {
@@ -257,12 +253,12 @@ bool SymbolSourceDIA::loadSourceLinesAsync()
     std::vector<DiaLineInfo_t> lines;
     std::map<DWORD, String> files;
 
-    if(!pdb.enumerateLineNumbers(0, uint32_t(_imageSize), lines, files))
+    if(!pdb.enumerateLineNumbers(0, uint32_t(_imageSize), lines, files, _requiresShutdown))
         return false;
 
     if(files.size() == 1)
     {
-        GuiSymbolLogAdd(StringUtils::sprintf("[%p, %s] Since there is only one file, attempting line overflow detection..\n", _imageBase, _modname.c_str()).c_str());
+        GuiSymbolLogAdd(StringUtils::sprintf("[%p, %s] Since there is only one file, attempting line overflow detection (%ums)..\n", _imageBase, _modname.c_str(), GetTickCount() - lineLoadStart).c_str());
 
         // This is a super hack to adjust for the (undocumented) limit of 16777215 lines (unsigned 24 bits maximum).
         // It is unclear at this point if yasm/coff/link/pdb is causing this issue.
@@ -271,6 +267,9 @@ bool SymbolSourceDIA::loadSourceLinesAsync()
         uint32_t maxLine = 0, maxRva = 0, lineOverflows = 0;
         for(auto & line : lines)
         {
+            if(_requiresShutdown)
+                return false;
+
             uint32_t overflowValue = 0x1000000 * (lineOverflows + 1) - 1; //0xffffff, 0x1ffffff, 0x2ffffff, etc
             if((line.lineNumber & 0xfffff0) == 0 && (maxLine & 0xfffffff0) == (overflowValue & 0xfffffff0))  // allow 16 lines of play, perhaps there is a label/comment on line 0xffffff+1
             {
@@ -294,6 +293,7 @@ bool SymbolSourceDIA::loadSourceLinesAsync()
 
     _linesData.reserve(lines.size());
     _sourceFiles.reserve(files.size());
+
     for(const auto & line : lines)
     {
         if(_requiresShutdown)
@@ -477,85 +477,29 @@ bool SymbolSourceDIA::findSourceLineInfo(const std::string & file, int line, Lin
     return true;
 }
 
-//http://en.cppreference.com/w/cpp/algorithm/lower_bound
-template<class ForwardIt, class T, class Compare = std::less<>>
-ForwardIt binary_find(ForwardIt first, ForwardIt last, const T & value, Compare comp = {})
-{
-    // Note: BOTH type T and the type after ForwardIt is dereferenced
-    // must be implicitly convertible to BOTH Type1 and Type2, used in Compare.
-    // This is stricter than lower_bound requirement (see above)
-
-    first = std::lower_bound(first, last, value, comp);
-    return first != last && !comp(value, *first) ? first : last;
-}
-
 bool SymbolSourceDIA::findSymbolByName(const std::string & name, SymbolInfo & symInfo, bool caseSensitive)
 {
     ScopedSpinLock lock(_lockSymbols);
     if(!_symbolsLoaded)
         return false;
 
-    NameIndex find;
-    find.name = name.c_str();
-    auto found = binary_find(_symNameMap.begin(), _symNameMap.end(), find);
-    if(found != _symNameMap.end())
-    {
-        do
-        {
-            if(find.cmp(*found, find, caseSensitive) == 0)
-            {
-                symInfo = _symData.at(found->index);
-                return true;
-            }
-            ++found;
-        }
-        while(found != _symNameMap.end() && find.cmp(find, *found, false) == 0);
-    }
-    return false;
+    NameIndex found;
+    if(!NameIndex::findByName(_symNameMap, name, found, caseSensitive))
+        return false;
+    symInfo = _symData[found.index];
+    return true;
 }
 
 bool SymbolSourceDIA::findSymbolsByPrefix(const std::string & prefix, const std::function<bool(const SymbolInfo &)> & cbSymbol, bool caseSensitive)
 {
-    struct PrefixCmp
-    {
-        PrefixCmp(size_t n) : n(n) { }
-
-        bool operator()(const NameIndex & a, const NameIndex & b)
-        {
-            return cmp(a, b, false) < 0;
-        }
-
-        int cmp(const NameIndex & a, const NameIndex & b, bool caseSensitive)
-        {
-            return (caseSensitive ? strncmp : _strnicmp)(a.name, b.name, n);
-        }
-
-    private:
-        size_t n;
-    } prefixCmp(prefix.size());
-
     ScopedSpinLock lock(_lockSymbols);
     if(!_symbolsLoaded)
         return false;
 
-    NameIndex find;
-    find.name = prefix.c_str();
-    auto found = binary_find(_symNameMap.begin(), _symNameMap.end(), find, prefixCmp);
-    if(found == _symNameMap.end())
-        return false;
-
-    bool result = false;
-    for(; found != _symNameMap.end() && prefixCmp.cmp(find, *found, false) == 0; ++found)
+    return NameIndex::findByPrefix(_symNameMap, prefix, [this, &cbSymbol](const NameIndex & index)
     {
-        if(!caseSensitive || prefixCmp.cmp(find, *found, true) == 0)
-        {
-            result = true;
-            if(!cbSymbol(_symData.at(found->index)))
-                break;
-        }
-    }
-
-    return result;
+        return cbSymbol(_symData[index.index]);
+    }, caseSensitive);
 }
 
 std::string SymbolSourceDIA::loadedSymbolPath() const
