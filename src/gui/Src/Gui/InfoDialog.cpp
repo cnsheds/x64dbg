@@ -127,8 +127,8 @@ void InfoDialog::dbgStateChanged(DBGSTATE state)
 {
     if(state == stopped)
     {
-        disconnect(Bridge::getBridge(), SIGNAL(addRecentFile(QString)), this, SLOT(setDbgMainModule(QString)));
-        disconnectCpuWidget();
+        //disconnect(Bridge::getBridge(), SIGNAL(addRecentFile(QString)), this, SLOT(setDbgMainModule(QString)));
+        //disconnectCpuWidget();
         hide();
     }
 }
