@@ -280,7 +280,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     guiBool.insert("NoCloseDialog", false);
     guiBool.insert("PidInHex", true);
     guiBool.insert("SidebarWatchLabels", true);
-    guiBool.insert("LoadSaveTabOrder", false);
+    guiBool.insert("LoadSaveTabOrder", true);
     guiBool.insert("ShowGraphRva", false);
     guiBool.insert("GraphZoomMode", false);
     guiBool.insert("ShowExitConfirmation", true);
