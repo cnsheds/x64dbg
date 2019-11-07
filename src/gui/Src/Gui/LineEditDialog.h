@@ -27,11 +27,12 @@ public:
     void ForceSize(unsigned int size);
     void setFpuMode();
     void selectAllText();
-    void setAutoComplete(void* info);
 
 private slots:
-    void on_textEdit_textChanged(const QString & arg1);
+    void on_textEdit_textEdited(const QString & arg1);
     void on_checkBox_toggled(bool checked);
+    void on_buttonOk_clicked();
+    void on_buttonCancel_clicked();
 
 private:
     Ui::LineEditDialog* ui;

@@ -200,7 +200,6 @@ void StructWidget::visitSlot()
     //TODO: replace with a list to pick from
     LineEditDialog mLineEdit(this);
     mLineEdit.setWindowTitle(tr("Type to visit"));
-    mLineEdit.setAutoComplete(mAutoCompleteInfo);
     if(mLineEdit.exec() != QDialog::Accepted || !mLineEdit.editText.length())
         return;
     if(!mGotoDialog)
