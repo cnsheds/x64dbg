@@ -40,6 +40,10 @@ ScriptView::ScriptView(StdTable* parent) : StdTable(parent)
     connect(mMRUList, SIGNAL(openFile(QString)), this, SLOT(openRecentFile(QString)));
     mMRUList->load();
 
+    // command line edit dialog
+    mCmdLineEdit = new LineEditDialog(this);
+    mCmdLineEdit->setWindowTitle(tr("Execute Script Command..."));
+
     // Slots
     connect(Bridge::getBridge(), SIGNAL(scriptAdd(int, const char**)), this, SLOT(add(int, const char**)));
     connect(Bridge::getBridge(), SIGNAL(scriptClear()), this, SLOT(clear()));
@@ -394,9 +398,13 @@ void ScriptView::setupContextMenu()
     {
         return getRowCount() != 0;
     };
-    mMenu->addAction(makeShortcutAction(DIcon("arrow-restart.png"), tr("Re&load Script"), SLOT(reload()), "ActionReloadScript"), isempty);
+    auto isemptyclipboard = [this](QMenu*)
+    {
+        return getRowCount() != 0 && !filename.isEmpty();
+    };
+    mMenu->addAction(makeShortcutAction(DIcon("arrow-restart.png"), tr("Re&load Script"), SLOT(reload()), "ActionReloadScript"), isemptyclipboard);
     mMenu->addAction(makeShortcutAction(DIcon("control-exit.png"), tr("&Unload Script"), SLOT(unload()), "ActionUnloadScript"), isempty);
-    mMenu->addAction(makeShortcutAction(DIcon("edit-script.png"), tr("&Edit Script"), SLOT(edit()), "ActionEditScript"), isempty);
+    mMenu->addAction(makeShortcutAction(DIcon("edit-script.png"), tr("&Edit Script"), SLOT(edit()), "ActionEditScript"), isemptyclipboard);
     mMenu->addSeparator();
     mMenu->addAction(makeShortcutAction(DIcon("breakpoint_toggle.png"), tr("Toggle &BP"), SLOT(bpToggle()), "ActionToggleBreakpointScript"), isempty);
     mMenu->addAction(makeShortcutAction(DIcon("arrow-run-cursor.png"), tr("Ru&n until selection"), SLOT(runCursor()), "ActionRunToCursorScript"), isempty);
@@ -508,7 +516,8 @@ void ScriptView::paste()
 
 void ScriptView::reload()
 {
-    openRecentFile(filename);
+    if(!filename.isEmpty())
+        openRecentFile(filename);
 }
 
 void ScriptView::unload()
@@ -564,11 +573,9 @@ void ScriptView::abort()
 
 void ScriptView::cmdExec()
 {
-    LineEditDialog mLineEdit(this);
-    mLineEdit.setWindowTitle(tr("Execute Script Command..."));
-    if(mLineEdit.exec() != QDialog::Accepted)
+    if(mCmdLineEdit->exec() != QDialog::Accepted)
         return;
-    if(!DbgScriptCmdExec(mLineEdit.editText.toUtf8().constData()))
+    if(!DbgScriptCmdExec(mCmdLineEdit->editText.toUtf8().constData()))
         error(0, tr("Error executing command!"));
 }
 

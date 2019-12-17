@@ -240,6 +240,7 @@ static void registercommands()
     dbgcmdnew("alloc", cbDebugAlloc, true); //allocate memory
     dbgcmdnew("free", cbDebugFree, true); //free memory
     dbgcmdnew("Fill,memset", cbDebugMemset, true); //memset
+    dbgcmdnew("memcpy", cbDebugMemcpy, true); //memcpy
     dbgcmdnew("getpagerights,getrightspage", cbDebugGetPageRights, true);
     dbgcmdnew("setpagerights,setrightspage", cbDebugSetPageRights, true);
     dbgcmdnew("savedata", cbInstrSavedata, true); //save data to disk
@@ -381,6 +382,7 @@ static void registercommands()
     dbgcmdnew("msgyn", cbScriptMsgyn, false);
     dbgcmdnew("log", cbInstrLog, false); //log command with superawesome hax
     dbgcmdnew("scriptdll,dllscript", cbScriptDll, false); //execute a script DLL
+    dbgcmdnew("scriptcmd", cbScriptCmd, false); // execute a script command TODO: undocumented
 
     //gui
     dbgcmdnew("disasm,dis", cbDebugDisasm, true); //doDisasm
