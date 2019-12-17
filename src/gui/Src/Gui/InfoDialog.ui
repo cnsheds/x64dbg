@@ -209,6 +209,9 @@
       </item>
       <item row="9" column="0">
        <widget class="QLabel" name="label_timet">
+        <property name="styleSheet">
+         <string notr="true">color: rgb(223, 0, 0);</string>
+        </property>
         <property name="text">
          <string>time_t:</string>
         </property>
@@ -306,6 +309,9 @@
       </item>
       <item row="5" column="0">
        <widget class="QLabel" name="label_int">
+        <property name="styleSheet">
+         <string notr="true">color: rgb(223, 0, 0);</string>
+        </property>
         <property name="text">
          <string>Int:</string>
         </property>

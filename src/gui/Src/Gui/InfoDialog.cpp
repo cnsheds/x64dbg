@@ -58,6 +58,11 @@ InfoDialog::InfoDialog(QWidget* parent)
     m_lastRvaname.clear();
     m_lastRva = 0;
 
+#ifdef _WIN64
+    m_bInt64 = true;
+    m_bTime64 = true;
+#endif
+
     connect(ui->edit_rva, SIGNAL(returnPressed()), this, SLOT(SaveRVAName()));
     connect(Bridge::getBridge(), SIGNAL(addRecentFile(QString)), this, SLOT(setDbgMainModule(QString)));
     connect(Bridge::getBridge(), SIGNAL(dbgStateChanged(DBGSTATE)), this, SLOT(dbgStateChanged(DBGSTATE)));
