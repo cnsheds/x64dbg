@@ -453,7 +453,7 @@ QString Disassembly::paintContent(QPainter* painter, dsint rowBase, int rowOffse
         int jumpsize = paintJumpsGraphic(painter, x + funcsize, y - 1, wRVA, branchType != Instruction_t::None && branchType != Instruction_t::Call); //jump line
 
         //draw bytes
-        auto richBytes = getRichBytes(instr);
+        auto richBytes = getRichBytes(instr, wIsSelected);
         RichTextPainter::paintRichText(painter, x, y, getColumnWidth(col), getRowHeight(), jumpsize + funcsize, richBytes, mFontMetrics);
     }
     break;
@@ -850,7 +850,22 @@ void Disassembly::keyPressEvent(QKeyEvent* event)
 {
     int key = event->key();
 
-    if(key == Qt::Key_Up || key == Qt::Key_Down)
+    if(event->modifiers() == (Qt::ControlModifier | Qt::AltModifier))
+    {
+        ShowDisassemblyPopup(0, 0, 0);
+
+        if(key == Qt::Key_Left)
+        {
+            setTableOffset(getTableOffset() - 1);
+        }
+        else if(key == Qt::Key_Right)
+        {
+            setTableOffset(getTableOffset() + 1);
+        }
+
+        updateViewport();
+    }
+    else if(key == Qt::Key_Up || key == Qt::Key_Down)
     {
         ShowDisassemblyPopup(0, 0, 0);
 
@@ -864,7 +879,7 @@ void Disassembly::keyPressEvent(QKeyEvent* event)
         dsint initialStart = getSelectionStart();
 
         if(key == Qt::Key_Up)
-            selectPrevious(expand);
+            selectPrevious(expand); //TODO: fix this shit to actually go to whatever the previous instruction shows
         else
             selectNext(expand);
 
@@ -1615,7 +1630,7 @@ void Disassembly::prepareDataRange(dsint startRva, dsint endRva, const std::func
     }
 }
 
-RichTextPainter::List Disassembly::getRichBytes(const Instruction_t & instr) const
+RichTextPainter::List Disassembly::getRichBytes(const Instruction_t & instr, bool isSelected) const
 {
     RichTextPainter::List richBytes;
     std::vector<std::pair<size_t, bool>> realBytes;
@@ -1625,16 +1640,19 @@ RichTextPainter::List Disassembly::getRichBytes(const Instruction_t & instr) con
     if(!richBytes.empty() && richBytes.back().text.endsWith(' '))
         richBytes.back().text.chop(1); //remove trailing space if exists
 
+    auto selectionFromVa = rvaToVa(mSelection.fromIndex);
+    auto selectionToVa = rvaToVa(mSelection.toIndex);
     for(size_t i = 0; i < richBytes.size(); i++)
     {
         auto byteIdx = realBytes[i].first;
+        auto byteAddr = cur_addr + byteIdx;
         auto isReal = realBytes[i].second;
         RichTextPainter::CustomRichText_t & curByte = richBytes.at(i);
         DBGRELOCATIONINFO relocInfo;
         curByte.highlightColor = mDisassemblyRelocationUnderlineColor;
-        if(DbgFunctions()->ModRelocationAtAddr(cur_addr + byteIdx, &relocInfo))
+        if(DbgFunctions()->ModRelocationAtAddr(byteAddr, &relocInfo))
         {
-            bool prevInSameReloc = relocInfo.rva < cur_addr + byteIdx - DbgFunctions()->ModBaseFromAddr(cur_addr + byteIdx);
+            bool prevInSameReloc = relocInfo.rva < byteAddr - DbgFunctions()->ModBaseFromAddr(byteAddr);
             curByte.highlight = isReal;
             curByte.highlightConnectPrev = i > 0 && prevInSameReloc;
         }
@@ -1645,7 +1663,7 @@ RichTextPainter::List Disassembly::getRichBytes(const Instruction_t & instr) con
         }
 
         DBGPATCHINFO patchInfo;
-        if(isReal && DbgFunctions()->PatchGetEx(cur_addr + byteIdx, &patchInfo))
+        if(isReal && DbgFunctions()->PatchGetEx(byteAddr, &patchInfo))
         {
             if((unsigned char)(instr.dump.at(byteIdx)) == patchInfo.newbyte)
             {
@@ -1662,6 +1680,15 @@ RichTextPainter::List Disassembly::getRichBytes(const Instruction_t & instr) con
         {
             curByte.textColor = mBytesColor;
             curByte.textBackground = mBytesBackgroundColor;
+        }
+
+        if(curByte.textBackground.alpha() == 0)
+        {
+            auto byteSelected = byteAddr >= selectionFromVa && byteAddr <= selectionToVa;
+            if(isSelected && !byteSelected)
+                curByte.textBackground = mBackgroundColor;
+            else if(!isSelected && byteSelected)
+                curByte.textBackground = mSelectionColor;
         }
     }
 
