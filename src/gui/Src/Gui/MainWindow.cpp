@@ -54,8 +54,6 @@
 #include "Tracer/TraceBrowser.h"
 #include "InfoDialog.h"
 
-QString MainWindow::windowTitle = "";
-
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
       ui(new Ui::MainWindow)
@@ -965,12 +963,10 @@ void MainWindow::updateWindowTitleSlot(QString filename)
     if(filename.length())
     {
         setWindowTitle(filename + QString(" - ") + mWindowMainTitle);
-        windowTitle = filename;
     }
     else
     {
         setWindowTitle(mWindowMainTitle);
-        windowTitle = mWindowMainTitle;
     }
 }
 
