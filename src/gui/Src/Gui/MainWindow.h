@@ -266,10 +266,13 @@ private:
     QList<WidgetInfo> mWidgetList;
     QList<WidgetInfo> mPluginWidgetList;
 
+    int m_initAlpha;
+
 protected:
     void dragEnterEvent(QDragEnterEvent* pEvent);
     void dropEvent(QDropEvent* pEvent);
     bool event(QEvent* event);
+    void wheelEvent(QWheelEvent* event);
 
 private slots:
     void setupLanguagesMenu2();

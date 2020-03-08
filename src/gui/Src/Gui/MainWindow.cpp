@@ -99,6 +99,8 @@ MainWindow::MainWindow(QWidget* parent)
     initMenuApi();
     Bridge::getBridge()->emitMenuAddToList(this, ui->menuPlugins, GUI_PLUGIN_MENU);
 
+    m_initAlpha = 255;
+
     // Set window title
     if(BridgeIsProcessElevated())
     {
@@ -956,6 +958,21 @@ bool MainWindow::event(QEvent* event)
     }
 
     return QMainWindow::event(event);
+}
+
+void MainWindow::wheelEvent(QWheelEvent *event)
+{
+    if (QApplication::keyboardModifiers() == Qt::ControlModifier)
+    {
+        int zDelta = event->delta();
+
+        if(m_initAlpha < 150 && zDelta < 0)
+            return;
+        if(m_initAlpha > 254 && zDelta > 0)
+            return;
+        m_initAlpha += zDelta / 40;
+        setWindowOpacity((float)m_initAlpha / 255);
+    }
 }
 
 void MainWindow::updateWindowTitleSlot(QString filename)
