@@ -25,8 +25,6 @@ HexDump::HexDump(QWidget* parent)
     mMemPage = new MemoryPage(0, 0);
     mForceColumn = -1;
 
-    clearDescriptors();
-
     mBackgroundColor = ConfigColor("HexDumpBackgroundColor");
     mTextColor = ConfigColor("HexDumpTextColor");
     mSelectionColor = ConfigColor("HexDumpSelectionColor");
@@ -46,6 +44,8 @@ HexDump::HexDump(QWidget* parent)
     setupCopyMenu();
 
     Initialize();
+
+    clearDescriptors();
 }
 
 HexDump::~HexDump()
@@ -1492,7 +1492,7 @@ void HexDump::clearDescriptors()
     deleteAllColumns();
     mDescriptor.clear();
     int charwidth = getCharWidth();
-    addColumnAt(8 + charwidth * 2 * sizeof(duint), tr("Address"), false); //address
+    addColumnAt(10 + charwidth * 2 * sizeof(duint), tr("Address"), false); //address
 }
 
 void HexDump::debugStateChanged(DBGSTATE state)
