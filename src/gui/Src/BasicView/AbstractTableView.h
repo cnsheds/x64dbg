@@ -112,6 +112,7 @@ public:
     void setDrawDebugOnly(bool value);
     bool getAllowPainting() const;
     void setAllowPainting(bool allow);
+    void setDisassemblyPopupEnabled(bool enable);
 
     void setNoSaveConfig(bool nosave);
 
@@ -210,6 +211,7 @@ private:
 
     bool mShouldReload;
     bool mDrawDebugOnly;
+    bool mPopupEnabled;
     bool mAllowPainting;
     bool mNoSaveCfg;
 
