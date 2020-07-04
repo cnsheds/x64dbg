@@ -142,6 +142,7 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Engine", "DisableDatabaseCompression", &settings.engineDisableDatabaseCompression);
     GetSettingBool("Engine", "TraceRecordEnabledDuringTrace", &settings.engineEnableTraceRecordDuringTrace);
     GetSettingBool("Engine", "SkipInt3Stepping", &settings.engineSkipInt3Stepping);
+    GetSettingBool("Engine", "BreakWhenCalcConditionsFails", &settings.engineBreakWhenCalcConditionsFails);
     GetSettingBool("Engine", "NoScriptTimeout", &settings.engineNoScriptTimeout);
     GetSettingBool("Engine", "IgnoreInconsistentBreakpoints", &settings.engineIgnoreInconsistentBreakpoints);
     GetSettingBool("Engine", "HardcoreThreadSwitchWarning", &settings.engineHardcoreThreadSwitchWarning);
@@ -177,6 +178,7 @@ void SettingsDialog::LoadSettings()
     ui->chkDisableDatabaseCompression->setChecked(settings.engineDisableDatabaseCompression);
     ui->chkTraceRecordEnabledDuringTrace->setChecked(settings.engineEnableTraceRecordDuringTrace);
     ui->chkSkipInt3Stepping->setChecked(settings.engineSkipInt3Stepping);
+    ui->chkBreakWhenCalcConditionsFails->setChecked(settings.engineBreakWhenCalcConditionsFails);
     ui->chkNoScriptTimeout->setChecked(settings.engineNoScriptTimeout);
     ui->chkIgnoreInconsistentBreakpoints->setChecked(settings.engineIgnoreInconsistentBreakpoints);
     ui->chkHardcoreThreadSwitchWarning->setChecked(settings.engineHardcoreThreadSwitchWarning);
@@ -359,6 +361,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Engine", "DisableDatabaseCompression", settings.engineDisableDatabaseCompression);
     BridgeSettingSetUint("Engine", "TraceRecordEnabledDuringTrace", settings.engineEnableTraceRecordDuringTrace);
     BridgeSettingSetUint("Engine", "SkipInt3Stepping", settings.engineSkipInt3Stepping);
+    BridgeSettingSetUint("Engine", "BreakWhenCalcConditionsFails", settings.engineBreakWhenCalcConditionsFails);
     BridgeSettingSetUint("Engine", "NoScriptTimeout", settings.engineNoScriptTimeout);
     BridgeSettingSetUint("Engine", "IgnoreInconsistentBreakpoints", settings.engineIgnoreInconsistentBreakpoints);
     BridgeSettingSetUint("Engine", "MaxTraceCount", settings.engineMaxTraceCount);
@@ -808,6 +811,11 @@ void SettingsDialog::on_chkNoCloseDialog_toggled(bool checked)
 void SettingsDialog::on_chkSkipInt3Stepping_toggled(bool checked)
 {
     settings.engineSkipInt3Stepping = checked;
+}
+
+void SettingsDialog::on_chkBreakWhenCalcConditionsFails_toggled(bool checked)
+{
+    settings.engineBreakWhenCalcConditionsFails = checked;
 }
 
 void SettingsDialog::on_chkPidInHex_clicked(bool checked)

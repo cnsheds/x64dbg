@@ -51,6 +51,7 @@ private slots:
     void on_chkSaveDatabaseInProgramDirectory_stateChanged(int arg1);
     void on_chkTraceRecordEnabledDuringTrace_stateChanged(int arg1);
     void on_chkSkipInt3Stepping_toggled(bool checked);
+    void on_chkBreakWhenCalcConditionsFails_toggled(bool checked);
     void on_chkNoScriptTimeout_stateChanged(int arg1);
     void on_chkIgnoreInconsistentBreakpoints_toggled(bool checked);
     void on_chkHardcoreThreadSwitchWarning_toggled(bool checked);
@@ -156,6 +157,7 @@ private:
         bool engineDisableDatabaseCompression;
         bool engineEnableTraceRecordDuringTrace;
         bool engineSkipInt3Stepping;
+        bool engineBreakWhenCalcConditionsFails;
         bool engineNoScriptTimeout;
         bool engineIgnoreInconsistentBreakpoints;
         bool engineHardcoreThreadSwitchWarning;

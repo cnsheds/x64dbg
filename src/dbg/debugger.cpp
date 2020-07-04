@@ -83,6 +83,7 @@ bool bUndecorateSymbolNames = true;
 bool bEnableSourceDebugging = false;
 bool bTraceRecordEnabledDuringTrace = true;
 bool bSkipInt3Stepping = false;
+bool bBreakCalcConditionsFails = false;
 bool bIgnoreInconsistentBreakpoints = false;
 bool bNoForegroundWindow = false;
 bool bVerboseExceptionLogging = true;
@@ -751,10 +752,10 @@ static bool getConditionValue(const char* expression)
         return false;
     if(word == '1') //short circuit for condition "1\0"
         return true;
-    duint value;
+    duint value = 0;
     if(valfromstring(expression, &value))
         return value != 0;
-    return true;
+    return bBreakCalcConditionsFails;
 }
 
 void cbPauseBreakpoint()

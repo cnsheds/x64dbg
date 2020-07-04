@@ -2002,7 +2002,7 @@ bool valfromstring(const char* string, duint* value, bool silent, bool baseonly,
         return true;
     }
     ExpressionParser parser(string);
-    duint result;
+    duint result = 0;
     if(!parser.Calculate(result, valuesignedcalc(), allowassign, silent, baseonly, value_size, isvar, hexonly))
         return false;
     *value = result;
