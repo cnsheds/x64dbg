@@ -58,6 +58,7 @@ private slots:
     void on_chkVerboseExceptionLogging_toggled(bool checked);
     void on_chkNoWow64SingleStepWorkaround_toggled(bool checked);
     void on_spinMaxTraceCount_valueChanged(int arg1);
+    void on_spinAnimateInterval_valueChanged(int arg1);
     //Exception tab
     void on_btnAddRange_clicked();
     void on_btnDeleteRange_clicked();
@@ -164,6 +165,7 @@ private:
         bool engineVerboseExceptionLogging;
         bool engineNoWow64SingleStepWorkaround;
         int engineMaxTraceCount;
+        int engineAnimateInterval;
         //Exception Tab
         QList<RangeStruct>* exceptionRanges;
         //Disasm Tab

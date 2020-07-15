@@ -245,6 +245,8 @@ bool cbInstrFindAllMem(int argc, char* argv[])
             findData = false;
     }
 
+    MemUpdateMap();
+
     SHARED_ACQUIRE(LockMemoryPages);
     std::vector<SimplePage> searchPages;
     for(auto & itr : memoryPages)
