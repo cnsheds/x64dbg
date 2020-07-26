@@ -152,7 +152,7 @@ void InfoDialog::SetCpuWidget(CPUWidget* cpuWidget)
 {
     pCpuWidget = cpuWidget;
 
-    RegistersView* pGeneralRegs = pCpuWidget->getRegisterWidget();
+    CPURegistersView* pGeneralRegs = pCpuWidget->getRegisterWidget();
     connect((QObject*)pGeneralRegs, SIGNAL(showSelectInfo(uint64, int)), this, SLOT(showSelectInfoSlot(uint64, int)));
     CPUStack* pStackWidget = pCpuWidget->getStackWidget();
     connect((QObject*)pStackWidget, SIGNAL(showSelectInfo(uint64, int)), this, SLOT(showSelectInfoSlot(uint64, int)));
@@ -167,7 +167,7 @@ void InfoDialog::SetCpuWidget(CPUWidget* cpuWidget)
 
 void InfoDialog::disconnectCpuWidget()
 {
-    RegistersView* pGeneralRegs = pCpuWidget->getRegisterWidget();
+    CPURegistersView* pGeneralRegs = pCpuWidget->getRegisterWidget();
     disconnect((QObject*)pGeneralRegs, SIGNAL(showSelectInfo(uint64, int)), this, SLOT(showSelectInfoSlot(uint64, int)));
     CPUStack* pStackWidget = pCpuWidget->getStackWidget();
     disconnect((QObject*)pStackWidget, SIGNAL(showSelectInfo(uint64, int)), this, SLOT(showSelectInfoSlot(uint64, int)));

@@ -211,7 +211,7 @@ CPUStack* CPUWidget::getStackWidget()
     return mStack;
 }
 
-RegistersView* CPUWidget::getRegisterWidget()
+CPURegistersView* CPUWidget::getRegisterWidget()
 {
     return mGeneralRegs;
 }

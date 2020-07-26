@@ -1416,7 +1416,7 @@ void RegistersView::mousePressEvent(QMouseEvent* event)
         // do we find a corresponding register?
         if(identifyRegister(y, x, &r))
         {
-                    mSelected = r;
+            mSelected = r;
 
             duint regValue = *(duint*)registerValue(&wRegDumpStruct, mSelected);
             emit showSelectInfo(regValue, 0);

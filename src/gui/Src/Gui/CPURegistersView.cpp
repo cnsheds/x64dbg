@@ -229,6 +229,9 @@ void CPURegistersView::mousePressEvent(QMouseEvent* event)
             }
             else
                 mSelected = r;
+
+            duint regValue = *(duint*)registerValue(&wRegDumpStruct, mSelected);
+            emit showSelectInfo(regValue, 0);
             emit refresh();
         }
         else
