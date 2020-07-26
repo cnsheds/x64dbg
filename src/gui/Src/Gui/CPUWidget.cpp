@@ -6,9 +6,10 @@
 #include "CPUDisassembly.h"
 #include "CPUMultiDump.h"
 #include "CPUStack.h"
-#include "RegistersView.h"
+#include "CPURegistersView.h"
 #include "CPUInfoBox.h"
 #include "CPUArgumentWidget.h"
+#include "DisassemblerGraphView.h"
 #include "Configuration.h"
 
 CPUWidget::CPUWidget(QWidget* parent) : QWidget(parent), ui(new Ui::CPUWidget)
@@ -16,12 +17,14 @@ CPUWidget::CPUWidget(QWidget* parent) : QWidget(parent), ui(new Ui::CPUWidget)
     ui->setupUi(this);
     setDefaultDisposition();
 
-    setStyleSheet("AbstractTableView:focus, RegistersView:focus, CPUSideBar:focus { border: 1px solid #000000; }");
+    setStyleSheet("AbstractTableView:focus, CPURegistersView:focus, CPUSideBar:focus { border: 1px solid #000000; }");
 
     mDisas = new CPUDisassembly(this, true);
     mSideBar = new CPUSideBar(mDisas);
     mDisas->setSideBar(mSideBar);
     mArgumentWidget = new CPUArgumentWidget(this);
+    mGraph = new DisassemblerGraphView(this);
+
     connect(mDisas, SIGNAL(tableOffsetChanged(dsint)), mSideBar, SLOT(changeTopmostAddress(dsint)));
     connect(mDisas, SIGNAL(viewableRowsChanged(int)), mSideBar, SLOT(setViewableRows(int)));
     connect(mDisas, SIGNAL(selectionChanged(dsint)), mSideBar, SLOT(setSelection(dsint)));
@@ -35,6 +38,9 @@ CPUWidget::CPUWidget(QWidget* parent) : QWidget(parent), ui(new Ui::CPUWidget)
 
     ui->mTopLeftUpperLeftFrameLayout->addWidget(mSideBar);
     ui->mTopLeftUpperRightFrameLayout->addWidget(mDisas);
+    ui->mTopLeftUpperRightFrameLayout->addWidget(mGraph);
+    mGraph->hide();
+    disasMode = true;
 
     ui->mTopLeftVSplitter->setCollapsible(1, true); //allow collapsing of the InfoBox
     connect(ui->mTopLeftVSplitter, SIGNAL(splitterMoved(int, int)), this, SLOT(splitterMoved(int, int)));
@@ -49,7 +55,7 @@ CPUWidget::CPUWidget(QWidget* parent) : QWidget(parent), ui(new Ui::CPUWidget)
     mDump = new CPUMultiDump(mDisas, 5, 0); //dump widget
     ui->mBotLeftFrameLayout->addWidget(mDump);
 
-    mGeneralRegs = new RegistersView(this);
+    mGeneralRegs = new CPURegistersView(this);
     mGeneralRegs->setFixedWidth(1000);
     mGeneralRegs->ShowFPU(true);
 
@@ -149,7 +155,35 @@ void CPUWidget::setDefaultDisposition()
 
 void CPUWidget::setDisasmFocus()
 {
+    if(!disasMode)
+    {
+        mGraph->hide();
+        mDisas->show();
+        mSideBar->show();
+        disasMode = true;
+        connect(mDisas, SIGNAL(selectionChanged(dsint)), mInfo, SLOT(disasmSelectionChanged(dsint)));
+        disconnect(mGraph, SIGNAL(selectionChanged(dsint)), mInfo, SLOT(disasmSelectionChanged(dsint)));
+    }
     mDisas->setFocus();
+}
+
+void CPUWidget::setGraphFocus()
+{
+    if(disasMode)
+    {
+        mDisas->hide();
+        mSideBar->hide();
+        mGraph->show();
+        disasMode = false;
+        disconnect(mDisas, SIGNAL(selectionChanged(dsint)), mInfo, SLOT(disasmSelectionChanged(dsint)));
+        connect(mGraph, SIGNAL(selectionChanged(dsint)), mInfo, SLOT(disasmSelectionChanged(dsint)));
+    }
+    mGraph->setFocus();
+}
+
+duint CPUWidget::getSelectionVa()
+{
+    return disasMode ? mDisas->getSelectedVa() : mGraph->get_cursor_pos();
 }
 
 CPUSideBar* CPUWidget::getSidebarWidget()
@@ -186,8 +220,9 @@ void CPUWidget::splitterMoved(int pos, int index)
 {
     Q_UNUSED(pos);
     Q_UNUSED(index);
-    auto splitter = (QSplitter*)sender();
-    if(splitter->sizes().at(1) == 0)
+    auto splitter = qobject_cast<QSplitter*>(sender());
+    if(splitter == nullptr) {} // ???
+    else if(splitter->sizes().at(1) == 0)
     {
         splitter->handle(1)->setCursor(Qt::UpArrowCursor);
         splitter->setStyleSheet("QSplitter::handle:vertical { border-top: 2px solid grey; }");

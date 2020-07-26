@@ -421,26 +421,26 @@ QString Disassembly::paintContent(QPainter* painter, dsint rowBase, int rowOffse
         painter->setPen(mFunctionPen);
 
         XREFTYPE refType = DbgGetXrefTypeAt(cur_addr);
-        QString indicator;
+        char indicator;
         if(refType == XREF_JMP)
         {
-            indicator = ">";
+            indicator = '>';
         }
         else if(refType == XREF_CALL)
         {
-            indicator = "$";
+            indicator = '$';
         }
         else if(funcType != Function_none)
         {
-            indicator = ".";
+            indicator = '.';
         }
         else
         {
-            indicator = " ";
+            indicator = ' ';
         }
 
         int charwidth = getCharWidth();
-        painter->drawText(QRect(x + funcsize, y, charwidth, h), Qt::AlignVCenter | Qt::AlignLeft, indicator);
+        painter->drawText(QRect(x + funcsize, y, charwidth, h), Qt::AlignVCenter | Qt::AlignLeft, QString(indicator));
         funcsize += charwidth;
 
         //draw jump arrows
@@ -896,10 +896,44 @@ void Disassembly::keyPressEvent(QKeyEvent* event)
     else if(key == Qt::Key_Return || key == Qt::Key_Enter)
     {
         ShowDisassemblyPopup(0, 0, 0);
+        // Follow branch instruction
         duint dest = DbgGetBranchDestination(rvaToVa(getInitialSelection()));
-        if(!DbgMemIsValidReadPtr(dest))
+        if(DbgMemIsValidReadPtr(dest))
+        {
+            gotoAddress(dest);
             return;
-        gotoAddress(dest);
+        }
+        // Follow memory operand in dump
+        DISASM_INSTR instr;
+        DbgDisasmAt(rvaToVa(getInitialSelection()), &instr);
+        for(int op = instr.argcount - 1; op >= 0; op--)
+        {
+            if(instr.arg[op].type == arg_memory)
+            {
+                dest = instr.arg[op].value;
+                if(DbgMemIsValidReadPtr(dest))
+                {
+                    if(instr.arg[op].segment == SEG_SS)
+                        DbgCmdExec(QString("sdump %1").arg(ToPtrString(dest)).toUtf8().constData());
+                    else
+                        DbgCmdExec(QString("dump %1").arg(ToPtrString(dest)).toUtf8().constData());
+                    return;
+                }
+            }
+        }
+        // Follow constant in dump
+        for(int op = instr.argcount - 1; op >= 0; op--)
+        {
+            if(instr.arg[op].type == arg_normal)
+            {
+                dest = instr.arg[op].value;
+                if(DbgMemIsValidReadPtr(dest))
+                {
+                    DbgCmdExec(QString("dump %1").arg(ToPtrString(dest)).toUtf8().constData());
+                    return;
+                }
+            }
+        }
     }
     else
         AbstractTableView::keyPressEvent(event);

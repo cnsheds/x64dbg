@@ -15,6 +15,16 @@ TraceFileReader::TraceFileReader(QObject* parent) : QObject(parent)
     lastAccessedIndexOffset = 0;
     hashValue = 0;
     EXEPath.clear();
+
+    int maxModuleSize = (int)ConfigUint("Disassembler", "MaxModuleSize");
+    mDisasm = new QBeaEngine(maxModuleSize);
+    connect(Config(), SIGNAL(tokenizerConfigUpdated()), this, SLOT(tokenizerUpdatedSlot()));
+    connect(Config(), SIGNAL(colorsUpdated()), this, SLOT(tokenizerUpdatedSlot()));
+}
+
+TraceFileReader::~TraceFileReader()
+{
+    delete mDisasm;
 }
 
 bool TraceFileReader::Open(const QString & fileName)
@@ -110,6 +120,23 @@ unsigned long long TraceFileReader::Length() const
     return length;
 }
 
+QString TraceFileReader::getIndexText(unsigned long long index) const
+{
+    QString indexString;
+    indexString = QString::number(index, 16).toUpper();
+    if(length < 16)
+        return indexString;
+    int digits;
+    digits = floor(log2(length - 1) / 4) + 1;
+    digits -= indexString.size();
+    while(digits > 0)
+    {
+        indexString = '0' + indexString;
+        digits = digits - 1;
+    }
+    return indexString;
+}
+
 // Return the hash value of executable to be matched against current executable
 duint TraceFileReader::HashValue() const
 {
@@ -117,7 +144,7 @@ duint TraceFileReader::HashValue() const
 }
 
 // Return the executable name of executable
-QString TraceFileReader::ExePath() const
+const QString & TraceFileReader::ExePath() const
 {
     return EXEPath;
 }
@@ -150,6 +177,15 @@ void TraceFileReader::OpCode(unsigned long long index, unsigned char* buffer, in
     }
     else
         page->OpCode(index - base, buffer, opcodeSize);
+}
+
+// Return the disassembled instruction at a given index.
+const Instruction_t & TraceFileReader::Instruction(unsigned long long index)
+{
+    unsigned long long base;
+    TraceFilePage* page = getPage(index, &base);
+    // The caller must guarantee page is not null, most likely they have already called some other getters.
+    return page->Instruction(index - base, *mDisasm);
 }
 
 // Return the thread id at a given index
@@ -188,7 +224,7 @@ void TraceFileReader::MemoryAccessInfo(unsigned long long index, duint* address,
 // Used internally to get the page for the given index and read from disk if necessary
 TraceFilePage* TraceFileReader::getPage(unsigned long long index, unsigned long long* base)
 {
-    // Try to access the most recent used page
+    // Try to access the most recently used page
     if(lastAccessedPage)
     {
         if(index >= lastAccessedIndexOffset && index < lastAccessedIndexOffset + lastAccessedPage->Length())
@@ -283,6 +319,14 @@ TraceFilePage* TraceFileReader::getPage(unsigned long long index, unsigned long 
     }
 }
 
+
+void TraceFileReader::tokenizerUpdatedSlot()
+{
+    mDisasm->UpdateConfig();
+    for(auto & i : pages)
+        i.second.updateInstructions();
+}
+
 //Parser
 
 static bool checkKey(const QJsonObject & root, const QString & key, const QString & value)
@@ -300,6 +344,7 @@ static bool checkKey(const QJsonObject & root, const QString & key, const QStrin
 void TraceFileParser::readFileHeader(TraceFileReader* that)
 {
     LARGE_INTEGER header;
+    bool ok;
     if(that->traceFile.read((char*)&header, 8) != 8)
         throw std::wstring(L"Unspecified");
     if(header.LowPart != MAKEFOURCC('T', 'R', 'A', 'C'))
@@ -308,15 +353,15 @@ void TraceFileParser::readFileHeader(TraceFileReader* that)
         throw std::wstring(L"Header info is too big");
     QByteArray jsonData = that->traceFile.read(header.HighPart);
     if(jsonData.size() != header.HighPart)
-        throw std::wstring(L"Unspecified");
+        throw std::wstring(L"JSON header is corrupted");
     QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData);
     if(jsonDoc.isNull())
-        throw std::wstring(L"Unspecified");
+        throw std::wstring(L"JSON header is corrupted");
     const QJsonObject jsonRoot = jsonDoc.object();
 
     const auto ver = jsonRoot.find("ver");
     if(ver == jsonRoot.constEnd())
-        throw std::wstring(L"Unspecified");
+        throw std::wstring(L"Version not supported");
     QJsonValue verVal = ver.value();
     if(verVal.toInt(0) != 1)
         throw std::wstring(L"Version not supported");
@@ -337,10 +382,12 @@ void TraceFileParser::readFileHeader(TraceFileReader* that)
                 {
                     a = a.mid(2);
 #ifdef _WIN64
-                    that->hashValue = a.toLongLong(nullptr, 16);
+                    that->hashValue = a.toLongLong(&ok, 16);
 #else //x86
-                    that->hashValue = a.toLong(nullptr, 16);
+                    that->hashValue = a.toLong(&ok, 16);
 #endif //_WIN64
+                    if(!ok)
+                        that->hashValue = 0;
                 }
             }
         }
@@ -419,6 +466,8 @@ void TraceFileParser::run()
                 lastIndex = index + 1;
                 //Update progress
                 that->progress.store(that->traceFile.pos() * 100 / that->traceFile.size());
+                if(that->progress == 100)
+                    that->progress = 99;
                 if(this->isInterruptionRequested() && !that->traceFile.atEnd()) //Cancel loading
                     throw std::wstring(L"Canceled");
             }
@@ -428,6 +477,7 @@ void TraceFileParser::run()
             that->fileIndex.back().second.second = index - (lastIndex - 1);
         that->error = false;
         that->length = index;
+        that->progress = 100;
     }
     catch(const std::wstring & errReason)
     {
@@ -616,7 +666,7 @@ unsigned long long TraceFilePage::Length() const
     return length;
 }
 
-REGDUMP TraceFilePage::Registers(unsigned long long index) const
+const REGDUMP & TraceFilePage::Registers(unsigned long long index) const
 {
     return mRegisters.at(index);
 }
@@ -625,6 +675,19 @@ void TraceFilePage::OpCode(unsigned long long index, unsigned char* buffer, int*
 {
     *opcodeSize = this->opcodeSize.at(index);
     memcpy(buffer, opcodes.constData() + opcodeOffset.at(index), *opcodeSize);
+}
+
+const Instruction_t & TraceFilePage::Instruction(unsigned long long index, QBeaEngine & mDisasm)
+{
+    if(instructions.size() == 0)
+    {
+        instructions.reserve(length);
+        for(unsigned long long i = 0; i < length; i++)
+        {
+            instructions.emplace_back(mDisasm.DisassembleAt((const byte_t*)opcodes.constData() + opcodeOffset.at(i), opcodeSize.at(i), 0, Registers(i).regcontext.cip, false));
+        }
+    }
+    return instructions.at(index);
 }
 
 DWORD TraceFilePage::ThreadId(unsigned long long index) const
@@ -652,4 +715,9 @@ void TraceFilePage::MemoryAccessInfo(unsigned long long index, duint* address, d
         newMemory[i] = this->newMemory.at(base + i);
         isValid[i] = true; // proposed flag
     }
+}
+
+void TraceFilePage::updateInstructions()
+{
+    instructions.clear();
 }

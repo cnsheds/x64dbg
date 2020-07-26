@@ -29,11 +29,10 @@ class MainWindowCloseThread;
 class TimeWastedCounter;
 class NotesManager;
 class SettingsDialog;
-class DisassemblerGraphView;
 class SimpleTraceDialog;
 class MRUList;
 class UpdateChecker;
-class TraceBrowser;
+class TraceWidget;
 class InfoDialog;
 
 namespace Ui
@@ -182,8 +181,7 @@ private:
     CalculatorDialog* mCalculatorDialog;
     HandlesView* mHandlesView;
     NotesManager* mNotesManager;
-    DisassemblerGraphView* mGraphView;
-    TraceBrowser* mTraceBrowser;
+    TraceWidget* mTraceWidget;
     SimpleTraceDialog* mSimpleTraceDialog;
     UpdateChecker* mUpdateChecker;
     DebugStatusLabel* mStatusLabel;
