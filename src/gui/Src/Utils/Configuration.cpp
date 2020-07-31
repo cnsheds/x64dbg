@@ -98,8 +98,8 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultColors.insert("RegistersHighlightWriteColor", QColor("#B00000"));
     defaultColors.insert("RegistersHighlightReadWriteColor", QColor("#808000"));
 
-    defaultColors.insert("InstructionHighlightColor", QColor("#FF0000"));
-    defaultColors.insert("InstructionHighlightBackgroundColor", Qt::transparent);
+    defaultColors.insert("InstructionHighlightColor", QColor("#000000"));
+    defaultColors.insert("InstructionHighlightBackgroundColor", QColor("#CC0000"));
     defaultColors.insert("InstructionCommaColor", QColor("#000000"));
     defaultColors.insert("InstructionCommaBackgroundColor", Qt::transparent);
     defaultColors.insert("InstructionPrefixColor", QColor("#000000"));
@@ -513,7 +513,6 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultShortcuts.insert("ActionToggleDestinationPreview", Shortcut({tr("Actions"), tr("Enable/Disable Branch Destination Preview")}, "P"));
     defaultShortcuts.insert("ActionFind", Shortcut({tr("Actions"), tr("Find")}, "Ctrl+F"));
     defaultShortcuts.insert("ActionFindInModule", Shortcut({tr("Actions"), tr("Find in Current Module")}, "Ctrl+Shift+F"));
-    defaultShortcuts.insert("ActionEditBreakpoint", Shortcut({tr("Actions"), tr("Edit breakpoint")}, ""));
     defaultShortcuts.insert("ActionToggleLogging", Shortcut({tr("Actions"), tr("Enable/Disable Logging")}, ""));
     defaultShortcuts.insert("ActionAllocateMemory", Shortcut({tr("Actions"), tr("Allocate Memory")}, ""));
     defaultShortcuts.insert("ActionFreeMemory", Shortcut({tr("Actions"), tr("Free Memory")}, ""));
