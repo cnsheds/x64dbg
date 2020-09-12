@@ -16,13 +16,14 @@
 TraceBrowser::TraceBrowser(QWidget* parent) : AbstractTableView(parent)
 {
     mTraceFile = nullptr;
-    addColumnAt(getCharWidth() * 2 * 8 + 8, "", false); //index
+    addColumnAt(getCharWidth() * 2 * 2 + 8, "", false); //index
     addColumnAt(getCharWidth() * 2 * sizeof(dsint) + 8, "", false); //address
     addColumnAt(getCharWidth() * 2 * 12 + 8, "", false); //bytes
     addColumnAt(getCharWidth() * 40, "", false); //disassembly
     addColumnAt(getCharWidth() * 50, "", false); //registers
     addColumnAt(getCharWidth() * 50, "", false); //memory
     addColumnAt(1000, "", false); //comments
+    loadColumnFromConfig("Trace");
 
     setShowHeader(false); //hide header
 
@@ -807,6 +808,7 @@ void TraceBrowser::setupRightClickContextMenu()
     copyMenu->addAction(makeAction(DIcon("copy_selection.png"), tr("Selection to &File"), SLOT(copySelectionToFileSlot())));
     copyMenu->addAction(makeAction(DIcon("copy_selection_no_bytes.png"), tr("Selection (&No Bytes)"), SLOT(copySelectionNoBytesSlot())));
     copyMenu->addAction(makeAction(DIcon("copy_selection_no_bytes.png"), tr("Selection to File (No Bytes)"), SLOT(copySelectionToFileNoBytesSlot())));
+    copyMenu->addAction(makeShortcutAction(DIcon("database-export.png"), tr("&Export Table"), SLOT(exportSlot()), "ActionExport"));
     copyMenu->addAction(makeShortcutAction(DIcon("copy_address.png"), tr("Address"), SLOT(copyCipSlot()), "ActionCopyAddress"));
     copyMenu->addAction(makeShortcutAction(DIcon("copy_address.png"), tr("&RVA"), SLOT(copyRvaSlot()), "ActionCopyRva"), isDebugging);
     copyMenu->addAction(makeShortcutAction(DIcon("fileoffset.png"), tr("&File Offset"), SLOT(copyFileOffsetSlot()), "ActionCopyFileOffset"), isDebugging);
@@ -826,6 +828,7 @@ void TraceBrowser::setupRightClickContextMenu()
     mBreakpointMenu->build(mMenuBuilder);
     mMenuBuilder->addAction(makeShortcutAction(DIcon("label.png"), tr("Label Current Address"), SLOT(setLabelSlot()), "ActionSetLabel"), isDebugging);
     mMenuBuilder->addAction(makeShortcutAction(DIcon("comment.png"), tr("&Comment"), SLOT(setCommentSlot()), "ActionSetComment"), isDebugging);
+    mMenuBuilder->addAction(makeShortcutAction(DIcon("bookmark_toggle.png"), tr("Toggle Bookmark"), SLOT(setBookmarkSlot()), "ActionToggleBookmark"), isDebugging);
     mMenuBuilder->addAction(makeShortcutAction(DIcon("highlight.png"), tr("&Highlighting mode"), SLOT(enableHighlightingModeSlot()), "ActionHighlightingMode"), isValid);
     MenuBuilder* gotoMenu = new MenuBuilder(this, isValid);
     gotoMenu->addAction(makeShortcutAction(DIcon("goto.png"), tr("Expression"), SLOT(gotoSlot()), "ActionGotoExpression"), isValid);
@@ -954,14 +957,14 @@ void TraceBrowser::mousePressEvent(QMouseEvent* event)
                 mHighlightingMode = false;
                 reloadData();
             }
+            if(event->modifiers() & Qt::ShiftModifier)
+                expandSelectionUpTo(index);
+            else
+                setSingleSelection(index);
+            mHistory.addVaToHistory(index);
+            emit selectionChanged(getInitialSelection());
         }
-        if(event->modifiers() & Qt::ShiftModifier)
-            expandSelectionUpTo(index);
-        else
-            setSingleSelection(index);
-        mHistory.addVaToHistory(index);
         updateViewport();
-        emit selectionChanged(getInitialSelection());
         return;
 
         break;
@@ -1625,6 +1628,81 @@ void TraceBrowser::copyFileOffsetSlot()
     Bridge::CopyToClipboard(text);
 }
 
+void TraceBrowser::exportSlot()
+{
+    if(mTraceFile == nullptr || mTraceFile->Progress() < 100)
+        return;
+    std::vector<QString> headers;
+    headers.reserve(getColumnCount());
+    for(int i = 0; i < getColumnCount(); i++)
+        headers.push_back(getColTitle(i));
+    ExportCSV(getRowCount(), getColumnCount(), headers, [this](dsint row, dsint col)
+    {
+        QString temp;
+        switch(col)
+        {
+        case Index:
+            return mTraceFile->getIndexText(row);
+
+        case Address:
+        {
+            if(!DbgIsDebugging())
+                return ToPtrString(mTraceFile->Registers(row).regcontext.cip);
+            else
+                return getAddrText(mTraceFile->Registers(row).regcontext.cip, 0, true);
+        }
+
+        case Opcode:
+        {
+            for(auto i : getRichBytes(mTraceFile->Instruction(row)))
+                temp += i.text;
+            return temp;
+        }
+
+        case Disassembly:
+        {
+            for(auto i : mTraceFile->Instruction(row).tokens.tokens)
+                temp += i.text;
+            return temp;
+        }
+
+        case Registers:
+        {
+            for(auto i : registersTokens(row).tokens)
+                temp += i.text;
+            return temp;
+        }
+        case Memory:
+        {
+            for(auto i : memoryTokens(row).tokens)
+                temp += i.text;
+            return temp;
+        }
+        case Comments:
+        {
+            if(DbgIsDebugging())
+            {
+                //TODO: draw arguments
+                QString comment;
+                bool autoComment = false;
+                char label[MAX_LABEL_SIZE] = "";
+                if(GetCommentFormat(mTraceFile->Registers(row).regcontext.cip, comment, &autoComment))
+                {
+                    return QString(comment);
+                }
+                else if(DbgGetLabelAt(mTraceFile->Registers(row).regcontext.cip, SEG_DEFAULT, label)) // label but no comment
+                {
+                    return QString(label);
+                }
+            }
+            return QString();
+        }
+        default:
+            return QString();
+        }
+    });
+}
+
 void TraceBrowser::setCommentSlot()
 {
     if(!DbgIsDebugging() || mTraceFile == nullptr || mTraceFile->Progress() < 100)
@@ -1657,6 +1735,28 @@ void TraceBrowser::setCommentSlot()
             QByteArray egg = file.readAll();
             PlaySoundA(egg.data(), 0, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
         }
+    }
+
+    GuiUpdateAllViews();
+}
+
+void TraceBrowser::setBookmarkSlot()
+{
+    if(!DbgIsDebugging())
+        return;
+    duint wVA = mTraceFile->Registers(getInitialSelection()).regcontext.cip;
+    bool result;
+    if(DbgGetBookmarkAt(wVA))
+        result = DbgSetBookmarkAt(wVA, false);
+    else
+        result = DbgSetBookmarkAt(wVA, true);
+    if(!result)
+    {
+        QMessageBox msg(QMessageBox::Critical, tr("Error!"), tr("DbgSetBookmarkAt failed!"));
+        msg.setWindowIcon(DIcon("compile-error.png"));
+        msg.setParent(this, Qt::Dialog);
+        msg.setWindowFlags(msg.windowFlags() & (~Qt::WindowContextHelpButtonHint));
+        msg.exec();
     }
 
     GuiUpdateAllViews();

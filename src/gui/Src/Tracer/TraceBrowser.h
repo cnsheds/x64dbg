@@ -159,6 +159,7 @@ public slots:
     void enableHighlightingModeSlot();
     void setLabelSlot();
     void setCommentSlot();
+    void setBookmarkSlot();
     void copyDisassemblySlot();
     void copyCipSlot();
     void copyIndexSlot();
@@ -168,11 +169,12 @@ public slots:
     void copySelectionToFileNoBytesSlot();
     void copyFileOffsetSlot();
     void copyRvaSlot();
+    void exportSlot();
 
     void searchConstantSlot();
     void searchMemRefSlot();
 
-    void updateSlot(); //debug
+    void updateSlot();
 
     void toggleAutoDisassemblyFollowSelectionSlot();
 };
