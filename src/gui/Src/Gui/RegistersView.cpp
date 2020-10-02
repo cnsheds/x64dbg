@@ -1201,6 +1201,7 @@ void RegistersView::ShowFPU(bool set_showfpu)
 {
     mShowFpu = set_showfpu;
     InitMappings();
+    setFixedHeight(getEstimateHeight());
     reload();
 }
 
@@ -2073,10 +2074,7 @@ void RegistersView::appendRegister(QString & text, REGISTER_NAME reg, const char
 
 void RegistersView::onChangeFPUViewAction()
 {
-    if(mShowFpu == true)
-        ShowFPU(false);
-    else
-        ShowFPU(true);
+    ShowFPU(!mShowFpu);
 }
 
 void RegistersView::onCopyAllAction()

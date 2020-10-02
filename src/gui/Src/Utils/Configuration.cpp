@@ -240,6 +240,8 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultColors.insert("BreakpointSummaryStringColor", QColor("#008000"));
     defaultColors.insert("PatchRelocatedByteHighlightColor", QColor("#0000DD"));
     defaultColors.insert("SymbolImportBackgroundColor", QColor("#EDF7ED"));
+    defaultColors.insert("SymbolUserTextColor", QColor("#000000"));
+    defaultColors.insert("SymbolSystemTextColor", QColor("#000000"));
     defaultColors.insert("SymbolUnloadedTextColor", QColor("#000000"));
     defaultColors.insert("SymbolLoadingTextColor", QColor("#8B671F"));
     defaultColors.insert("SymbolLoadedTextColor", QColor("#008000"));
@@ -282,6 +284,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     guiBool.insert("ShowExitConfirmation", true);
     guiBool.insert("DisableAutoComplete", false);
     guiBool.insert("CaseSensitiveAutoComplete", false);
+    guiBool.insert("AutoRepeatOnEnter", false);
     //Named menu settings
     insertMenuBuilderBools(&guiBool, "CPUDisassembly", 50); //CPUDisassembly
     insertMenuBuilderBools(&guiBool, "CPUDump", 50); //CPUDump
@@ -332,6 +335,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     addWindowPosConfig(guiUint, "HexEditDialog");
     addWindowPosConfig(guiUint, "WordEditDialog");
     addWindowPosConfig(guiUint, "InfoDialog");
+    addWindowPosConfig(guiUint, "SystemBreakpointScriptDialog");
     defaultUints.insert("Gui", guiUint);
 
     //uint settings

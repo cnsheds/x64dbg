@@ -43,7 +43,7 @@
 #include "CPUMultiDump.h"
 #include "CPUStack.h"
 #include "GotoDialog.h"
-#include "BrowseDialog.h"
+#include "SystemBreakpointScriptDialog.h"
 #include "CustomizeMenuDialog.h"
 #include "main.h"
 #include "SimpleTraceDialog.h"
@@ -62,9 +62,25 @@ MainWindow::MainWindow(QWidget* parent)
     ui->setupUi(this);
 
     // Build information
-    QAction* buildInfo = new QAction(ToDateString(GetCompileDate()), this);
-    buildInfo->setEnabled(false);
-    ui->menuBar->addAction(buildInfo);
+    {
+        const char* debugEngine = []
+        {
+            switch(DbgGetDebugEngine())
+            {
+            case DebugEngineTitanEngine:
+                return "TitanEngine";
+            case DebugEngineGleeBug:
+                return "GleeBug";
+            case DebugEngineStaticEngine:
+                return "StaticEngine";
+            }
+            return "";
+        }();
+
+        QAction* buildInfo = new QAction(tr("%1 (%2)").arg(ToDateString(GetCompileDate())).arg(debugEngine), this);
+        buildInfo->setEnabled(false);
+        ui->menuBar->addAction(buildInfo);
+    }
 
     // Setup bridge signals
     connect(Bridge::getBridge(), SIGNAL(updateWindowTitle(QString)), this, SLOT(updateWindowTitleSlot(QString)));
@@ -210,6 +226,7 @@ MainWindow::MainWindow(QWidget* parent)
     mTraceWidget->setWindowTitle(tr("Trace"));
     mTraceWidget->setWindowIcon(DIcon("trace.png"));
     connect(mTraceWidget->getTraceBrowser(), SIGNAL(displayReferencesWidget()), this, SLOT(displayReferencesWidget()));
+    connect(mTraceWidget->getTraceBrowser(), SIGNAL(displayLogWidget()), this, SLOT(displayLogWidget()));
 
     mTabWidget = new MHTabWidget(this, true, true);
 
@@ -340,10 +357,9 @@ MainWindow::MainWindow(QWidget* parent)
     connect(mCpuWidget->getDisasmWidget(), SIGNAL(displayReferencesWidget()), this, SLOT(displayReferencesWidget()));
     connect(mCpuWidget->getDisasmWidget(), SIGNAL(displaySourceManagerWidget()), this, SLOT(displaySourceViewWidget()));
     connect(mCpuWidget->getDisasmWidget(), SIGNAL(displayLogWidget()), this, SLOT(displayLogWidget()));
-    connect(mCpuWidget->getDisasmWidget(), SIGNAL(displayGraphWidget()), this, SLOT(displayGraphWidget()));
     connect(mCpuWidget->getDisasmWidget(), SIGNAL(displaySymbolsWidget()), this, SLOT(displaySymbolWidget()));
     connect(mCpuWidget->getDisasmWidget(), SIGNAL(showPatches()), this, SLOT(patchWindow()));
-
+    connect(mCpuWidget->getGraphWidget(), SIGNAL(displayLogWidget()), this, SLOT(displayLogWidget()));
 
     connect(mCpuWidget->getDumpWidget(), SIGNAL(displayReferencesWidget()), this, SLOT(displayReferencesWidget()));
 
@@ -2133,26 +2149,8 @@ void MainWindow::animateCommandSlot()
 
 void MainWindow::setInitializationScript()
 {
-    QString global, debuggee;
-    char globalChar[MAX_SETTING_SIZE];
-    if(DbgIsDebugging())
-    {
-        debuggee = QString(DbgFunctions()->DbgGetDebuggeeInitScript());
-        BrowseDialog browseScript(this, tr("Set Initialization Script for Debuggee"), tr("Set Initialization Script for Debuggee"), tr("Script files (*.txt *.scr);;All files (*.*)"), debuggee, false);
-        browseScript.setWindowIcon(DIcon("initscript.png"));
-        if(browseScript.exec() == QDialog::Accepted)
-            DbgFunctions()->DbgSetDebuggeeInitScript(browseScript.path.toUtf8().constData());
-    }
-    if(BridgeSettingGet("Engine", "InitializeScript", globalChar))
-        global = QString(globalChar);
-    else
-        global = QString();
-    BrowseDialog browseScript(this, tr("Set Global Initialization Script"), tr("Set Global Initialization Script"), tr("Script files (*.txt *.scr);;All files (*.*)"), global, false);
-    browseScript.setWindowIcon(DIcon("initscript.png"));
-    if(browseScript.exec() == QDialog::Accepted)
-    {
-        BridgeSettingSet("Engine", "InitializeScript", browseScript.path.toUtf8().constData());
-    }
+    SystemBreakpointScriptDialog dialog(this);
+    dialog.exec();
 }
 
 void MainWindow::customizeMenu()
@@ -2298,8 +2296,8 @@ void MainWindow::on_actionDefaultTheme_triggered()
     Config()->Colors = Config()->defaultColors;
     Config()->writeColors();
     // Reset [Fonts] to default
-    Config()->Fonts = Config()->defaultFonts;
-    Config()->writeFonts();
+    //Config()->Fonts = Config()->defaultFonts;
+    //Config()->writeFonts();
     // Remove custom colors
     BridgeSettingSet("Colors", "CustomColorCount", nullptr);
 }

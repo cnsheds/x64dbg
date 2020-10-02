@@ -30,8 +30,6 @@ public:
 
     // Misc
     void setDefaultDisposition();
-    void setDisasmFocus();
-    void setGraphFocus();
 
     void saveWindowSettings();
     void loadWindowSettings();
@@ -41,10 +39,15 @@ public:
     // Widget getters
     CPUSideBar* getSidebarWidget();
     CPUDisassembly* getDisasmWidget();
+    DisassemblerGraphView* getGraphWidget();
     CPUMultiDump* getDumpWidget();
     CPUStack* getStackWidget();
     CPUInfoBox* getInfoBoxWidget();
     CPURegistersView* getRegisterWidget();
+
+public slots:
+    void setDisasmFocus();
+    void setGraphFocus();
 
 protected:
     CPUSideBar* mSideBar;

@@ -75,6 +75,7 @@ RESOURCES += \
 
 SOURCES += \
     Src/Gui/CPURegistersView.cpp \
+    Src/Gui/SystemBreakpointScriptDialog.cpp \
     Src/Tracer/TraceRegisters.cpp \
     Src/Tracer/TraceWidget.cpp \
     Src/main.cpp \
@@ -195,6 +196,7 @@ SOURCES += \
 
 HEADERS += \
     Src/Gui/CPURegistersView.h \
+    Src/Gui/SystemBreakpointScriptDialog.h \
     Src/Tracer/TraceRegisters.h \
     Src/Tracer/TraceWidget.h \
     Src/main.h \
@@ -325,6 +327,7 @@ HEADERS += \
     
 
 FORMS += \
+    Src/Gui/SystemBreakpointScriptDialog.ui \
     Src/Gui/MainWindow.ui \
     Src/Gui/CPUWidget.ui \
     Src/Gui/GotoDialog.ui \
