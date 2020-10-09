@@ -244,7 +244,7 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Gui", "FpuRegistersLittleEndian", &settings.guiFpuRegistersLittleEndian);
     GetSettingBool("Gui", "SaveColumnOrder", &settings.guiSaveColumnOrder);
     GetSettingBool("Gui", "NoCloseDialog", &settings.guiNoCloseDialog);
-    GetSettingBool("Gui", "PidInHex", &settings.guiPidInHex);
+    GetSettingBool("Gui", "PidTidInHex", &settings.guiPidTidInHex);
     GetSettingBool("Gui", "SidebarWatchLabels", &settings.guiSidebarWatchLabels);
     GetSettingBool("Gui", "NoForegroundWindow", &settings.guiNoForegroundWindow);
     GetSettingBool("Gui", "LoadSaveTabOrder", &settings.guiLoadSaveTabOrder);
@@ -257,7 +257,7 @@ void SettingsDialog::LoadSettings()
     ui->chkFpuRegistersLittleEndian->setChecked(settings.guiFpuRegistersLittleEndian);
     ui->chkSaveColumnOrder->setChecked(settings.guiSaveColumnOrder);
     ui->chkNoCloseDialog->setChecked(settings.guiNoCloseDialog);
-    ui->chkPidInHex->setChecked(settings.guiPidInHex);
+    ui->chkPidTidInHex->setChecked(settings.guiPidTidInHex);
     ui->chkSidebarWatchLabels->setChecked(settings.guiSidebarWatchLabels);
     ui->chkNoForegroundWindow->setChecked(settings.guiNoForegroundWindow);
     ui->chkSaveLoadTabOrder->setChecked(settings.guiLoadSaveTabOrder);
@@ -404,7 +404,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Gui", "FpuRegistersLittleEndian", settings.guiFpuRegistersLittleEndian);
     BridgeSettingSetUint("Gui", "SaveColumnOrder", settings.guiSaveColumnOrder);
     BridgeSettingSetUint("Gui", "NoCloseDialog", settings.guiNoCloseDialog);
-    BridgeSettingSetUint("Gui", "PidInHex", settings.guiPidInHex);
+    BridgeSettingSetUint("Gui", "PidTidInHex", settings.guiPidTidInHex);
     BridgeSettingSetUint("Gui", "SidebarWatchLabels", settings.guiSidebarWatchLabels);
     BridgeSettingSetUint("Gui", "NoForegroundWindow", settings.guiNoForegroundWindow);
     BridgeSettingSetUint("Gui", "LoadSaveTabOrder", settings.guiLoadSaveTabOrder);
@@ -823,9 +823,9 @@ void SettingsDialog::on_chkBreakWhenCalcConditionsFails_toggled(bool checked)
     settings.engineBreakWhenCalcConditionsFails = checked;
 }
 
-void SettingsDialog::on_chkPidInHex_clicked(bool checked)
+void SettingsDialog::on_chkPidTidInHex_clicked(bool checked)
 {
-    settings.guiPidInHex = checked;
+    settings.guiPidTidInHex = checked;
 }
 
 void SettingsDialog::on_chkNoScriptTimeout_stateChanged(int arg1)

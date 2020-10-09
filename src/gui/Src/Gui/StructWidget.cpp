@@ -180,7 +180,7 @@ void StructWidget::followDumpSlot()
 {
     if(!hasSelection)
         return;
-    DbgCmdExec(QString("dump %1").arg(ToPtrString(selectedType.addr + selectedType.offset)).toUtf8().constData());
+    DbgCmdExec(QString("dump %1").arg(ToPtrString(selectedType.addr + selectedType.offset)));
 }
 
 void StructWidget::clearSlot()
@@ -208,7 +208,7 @@ void StructWidget::visitSlot()
     mGotoDialog->setWindowTitle(tr("Address to visit"));
     if(DbgIsDebugging() && mGotoDialog->exec() == QDialog::Accepted)
         addr = DbgValFromString(mGotoDialog->expressionText.toUtf8().constData());
-    DbgCmdExec(QString("VisitType %1, %2").arg(mLineEdit.editText, ToPtrString(addr)).toUtf8().constData());
+    DbgCmdExec(QString("VisitType %1, %2").arg(mLineEdit.editText, ToPtrString(addr)));
 }
 
 void StructWidget::loadJsonSlot()
@@ -217,7 +217,7 @@ void StructWidget::loadJsonSlot()
     if(!filename.length())
         return;
     filename = QDir::toNativeSeparators(filename);
-    DbgCmdExec(QString("LoadTypes \"%1\"").arg(filename).toUtf8().constData());
+    DbgCmdExec(QString("LoadTypes \"%1\"").arg(filename));
 }
 
 void StructWidget::parseFileSlot()
@@ -226,7 +226,7 @@ void StructWidget::parseFileSlot()
     if(!filename.length())
         return;
     filename = QDir::toNativeSeparators(filename);
-    DbgCmdExec(QString("ParseTypes \"%1\"").arg(filename).toUtf8().constData());
+    DbgCmdExec(QString("ParseTypes \"%1\"").arg(filename));
 }
 
 static void changeTypeAddr(QTreeWidgetItem* item, duint addr)

@@ -187,6 +187,8 @@ private:
     DebugStatusLabel* mStatusLabel;
     LogStatusLabel* mLastLogLabel;
     InfoDialog* mInfoDialog;
+    QToolBar* mFavouriteToolbar;
+
     TimeWastedCounter* mTimeWastedCounter;
 
     QString mWindowMainTitle;

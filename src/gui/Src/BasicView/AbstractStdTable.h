@@ -55,9 +55,10 @@ public:
     void setCopyMenuOnly(bool bSet, bool bDebugOnly = true);
 
     //draw helpers
-    void setHighlightText(QString highlightText)
+    void setHighlightText(QString highlightText, int minCol = 0)
     {
         mHighlightText = highlightText;
+        mMinimumHighlightColumn = minCol;
     }
 
     void setAddressColumn(int col, bool cipBase = false)
@@ -143,6 +144,7 @@ protected:
     QColor mTracedSelectedAddressBackgroundColor;
     bool bCipBase = false;
     QString mHighlightText;
+    int mMinimumHighlightColumn = 0;
     int mAddressColumn = -1;
     bool bAddressLabel = true;
     bool bDisassemblyPopupEnabled = true;

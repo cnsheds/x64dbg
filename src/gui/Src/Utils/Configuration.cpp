@@ -276,7 +276,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     guiBool.insert("FpuRegistersLittleEndian", false);
     guiBool.insert("SaveColumnOrder", true);
     guiBool.insert("NoCloseDialog", false);
-    guiBool.insert("PidInHex", true);
+    guiBool.insert("PidTidInHex", false);
     guiBool.insert("SidebarWatchLabels", true);
     guiBool.insert("LoadSaveTabOrder", true);
     guiBool.insert("ShowGraphRva", false);

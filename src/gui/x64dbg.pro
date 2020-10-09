@@ -36,7 +36,7 @@ UI_DIR = $${X64_GEN_DIR}
 ##
 ## QT libraries
 ##
-QT += core gui network
+QT += core gui network winextras
 
 # QT5 requires widgets
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
@@ -74,8 +74,11 @@ RESOURCES += \
     resource.qrc
 
 SOURCES += \
+    Src/BasicView/StdIconSearchListView.cpp \
+    Src/BasicView/StdIconTable.cpp \
     Src/Gui/CPURegistersView.cpp \
     Src/Gui/SystemBreakpointScriptDialog.cpp \
+    Src/Imports.cpp \
     Src/Tracer/TraceRegisters.cpp \
     Src/Tracer/TraceWidget.cpp \
     Src/main.cpp \
@@ -195,6 +198,8 @@ SOURCES += \
     Src/Utils/BackgroundFlickerThread.cpp
 
 HEADERS += \
+    Src/BasicView/StdIconSearchListView.h \
+    Src/BasicView/StdIconTable.h \
     Src/Gui/CPURegistersView.h \
     Src/Gui/SystemBreakpointScriptDialog.h \
     Src/Tracer/TraceRegisters.h \
