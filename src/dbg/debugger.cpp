@@ -48,7 +48,6 @@ static duint pCreateProcessBase = 0;
 static duint pDebuggedEntry = 0;
 static bool bRepeatIn = false;
 static duint stepRepeat = 0;
-static bool isDetachedByUser = false;
 static bool bIsAttached = false;
 static bool bSkipExceptions = false;
 static duint skipExceptionCount = 0;
@@ -326,11 +325,6 @@ void dbgsetsteprepeat(bool steppingIn, duint repeat)
 {
     bRepeatIn = steppingIn;
     stepRepeat = repeat;
-}
-
-void dbgsetisdetachedbyuser(bool b)
-{
-    isDetachedByUser = b;
 }
 
 void dbgsetfreezestack(bool freeze)
@@ -890,7 +884,7 @@ static void cbGenericBreakpoint(BP_TYPE bptype, void* ExceptionAddress = nullptr
     EXCLUSIVE_RELEASE();
 
     if(bptype != BPDLL && bptype != BPEXCEPTION)
-        bp.addr += ModBaseFromAddr(CIP);
+        bp.addr += ModBaseFromName(bp.mod);
     bp.active = true; //a breakpoint that has been hit is active
 
     varset("$breakpointcounter", bp.hitcount, true); //save the breakpoint counter as a variable
@@ -969,16 +963,19 @@ static void cbGenericBreakpoint(BP_TYPE bptype, void* ExceptionAddress = nullptr
 
 void cbUserBreakpoint()
 {
+    lastExceptionInfo = ((DEBUG_EVENT*)GetDebugData())->u.Exception;
     cbGenericBreakpoint(BPNORMAL);
 }
 
 void cbHardwareBreakpoint(void* ExceptionAddress)
 {
+    lastExceptionInfo = ((DEBUG_EVENT*)GetDebugData())->u.Exception;
     cbGenericBreakpoint(BPHARDWARE, ExceptionAddress);
 }
 
 void cbMemoryBreakpoint(void* ExceptionAddress)
 {
+    lastExceptionInfo = ((DEBUG_EVENT*)GetDebugData())->u.Exception;
     cbGenericBreakpoint(BPMEMORY, ExceptionAddress);
 }
 
@@ -1488,6 +1485,8 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* CreateProcessInfo)
     threadInfo.lpStartAddress = CreateProcessInfo->lpStartAddress;
     threadInfo.lpThreadLocalBase = CreateProcessInfo->lpThreadLocalBase;
     ThreadCreate(&threadInfo);
+
+    hActiveThread = ThreadGetHandle(((DEBUG_EVENT*)GetDebugData())->dwThreadId);
 }
 
 static void cbExitProcess(EXIT_PROCESS_DEBUG_INFO* ExitProcess)
@@ -1646,10 +1645,7 @@ static void cbSystemBreakpoint(void* ExceptionData) // TODO: System breakpoint e
     GuiUpdateAllViews();
 
     //log message
-    if(bIsAttached)
-        dputs(QT_TRANSLATE_NOOP("DBG", "Attach breakpoint reached!"));
-    else
-        dputs(QT_TRANSLATE_NOOP("DBG", "System breakpoint reached!"));
+    dputs(QT_TRANSLATE_NOOP("DBG", "System breakpoint reached!"));
     dbgsetskipexceptions(false); //we are not skipping first-chance exceptions
 
     //plugin callbacks
@@ -1664,7 +1660,7 @@ static void cbSystemBreakpoint(void* ExceptionData) // TODO: System breakpoint e
         dputs(QT_TRANSLATE_NOOP("DBG", "It has been detected that the debuggee entry point is in the MZ header of the executable. This will cause strange behavior, so the system breakpoint has been enabled regardless of your setting. Be careful!"));
         systemBreakpoint = true;
     }
-    if(bIsAttached ? settingboolget("Events", "AttachBreakpoint") : systemBreakpoint)
+    if(systemBreakpoint)
     {
         //lock
         GuiSetDebugStateAsync(paused);
@@ -1963,24 +1959,7 @@ static void cbException(EXCEPTION_DEBUG_INFO* ExceptionData)
             return;
         }
     }
-    if(ExceptionData->ExceptionRecord.ExceptionCode == EXCEPTION_BREAKPOINT)
-    {
-        if(isDetachedByUser)
-        {
-            PLUG_CB_DETACH detachInfo;
-            detachInfo.fdProcessInfo = fdProcessInfo;
-            plugincbcall(CB_DETACH, &detachInfo);
-            BpEnumAll(dbgdetachDisableAllBreakpoints); // Disable all software breakpoints before detaching.
-            if(!DetachDebuggerEx(fdProcessInfo->dwProcessId))
-                dputs(QT_TRANSLATE_NOOP("DBG", "DetachDebuggerEx failed..."));
-            else
-                dputs(QT_TRANSLATE_NOOP("DBG", "Detached!"));
-            isDetachedByUser = false;
-            _dbg_animatestop(); // Stop animating
-            return;
-        }
-    }
-    else if(ExceptionData->ExceptionRecord.ExceptionCode == MS_VC_EXCEPTION) //SetThreadName exception
+    if(ExceptionData->ExceptionRecord.ExceptionCode == MS_VC_EXCEPTION) //SetThreadName exception
     {
         THREADNAME_INFO nameInfo; //has no valid local pointers
         memcpy(&nameInfo, ExceptionData->ExceptionRecord.ExceptionInformation, sizeof(THREADNAME_INFO));
@@ -2057,21 +2036,20 @@ static void cbAttachDebugger()
         tidToResume = 0;
     }
     varset("$pid", fdProcessInfo->dwProcessId, true);
-}
 
-void cbDetach()
-{
-    if(!isDetachedByUser)
-        return;
-    PLUG_CB_DETACH detachInfo;
-    detachInfo.fdProcessInfo = fdProcessInfo;
-    plugincbcall(CB_DETACH, &detachInfo);
-    BpEnumAll(dbgdetachDisableAllBreakpoints); // Disable all software breakpoints before detaching.
-    if(!DetachDebuggerEx(fdProcessInfo->dwProcessId))
-        dputs(QT_TRANSLATE_NOOP("DBG", "DetachDebuggerEx failed..."));
-    else
-        dputs(QT_TRANSLATE_NOOP("DBG", "Detached!"));
-    return;
+    //Get on top of things
+    SetForegroundWindow(GuiGetWindowHandle());
+
+    // Update GUI (this should be the first triggered event)
+    duint cip = GetContextDataEx(hActiveThread, UE_CIP);
+    GuiDumpAt(MemFindBaseAddr(cip, 0, true)); //dump somewhere
+    DebugUpdateGuiSetStateAsync(cip, true, running);
+
+    MemInitRemoteProcessCookie(cookie.cookie);
+    GuiUpdateAllViews();
+
+    dputs(QT_TRANSLATE_NOOP("DBG", "Attached to process!"));
+    dbgsetskipexceptions(false); //we are not skipping first-chance exceptions
 }
 
 cmdline_qoutes_placement_t getqoutesplacement(const char* cmdline)
@@ -2878,7 +2856,6 @@ static void debugLoopFunction(void* lpParameter, bool attach)
     pDebuggedEntry = 0;
     pDebuggedBase = 0;
     pCreateProcessBase = 0;
-    isDetachedByUser = false;
     hActiveThread = nullptr;
     if(!gDllLoader.empty()) //Delete the DLL loader (#1496)
     {
