@@ -6,6 +6,7 @@
 //forward declaration
 class CPUMultiDump;
 class GotoDialog;
+class CommonActions;
 
 class CPUStack : public HexDump
 {
@@ -42,28 +43,11 @@ public slots:
     void selectionSet(const SELECTIONDATA* selection);
     void selectionUpdatedSlot();
     void followDisasmSlot();
-    void followDumpPtrSlot();
-    void followinDumpNSlot();
     void followStackSlot();
-    void watchDataSlot();
     void binaryEditSlot();
     void binaryFillSlot();
     void binaryCopySlot();
     void binaryPasteSlot();
-    void memoryAccessSingleshootSlot();
-    void memoryAccessRestoreSlot();
-    void memoryWriteSingleshootSlot();
-    void memoryWriteRestoreSlot();
-    void memoryRemoveSlot();
-    void hardwareAccess1Slot();
-    void hardwareAccess2Slot();
-    void hardwareAccess4Slot();
-    void hardwareAccess8Slot();
-    void hardwareWrite1Slot();
-    void hardwareWrite2Slot();
-    void hardwareWrite4Slot();
-    void hardwareWrite8Slot();
-    void hardwareRemoveSlot();
     void findPattern();
     void binaryPasteIgnoreSizeSlot();
     void undoSelectionSlot();
@@ -71,8 +55,6 @@ public slots:
     void realignSlot();
     void freezeStackSlot();
     void dbgStateChangedSlot(DBGSTATE state);
-    void followInMemoryMapSlot();
-    void followInDumpSlot();
     void updateSlot();
 
 private:
@@ -82,7 +64,6 @@ private:
     QAction* mFreezeStack;
     QAction* mFollowStack;
     QAction* mFollowDisasm;
-    QList<QAction*> mFollowInDumpActions;
     QMenu* mPluginMenu;
 
     GotoDialog* mGoto;
@@ -98,6 +79,7 @@ private:
     };
 
     MenuBuilder* mMenuBuilder;
+    CommonActions* mCommonActions;
 
     std::vector<CPUCallStack> mCallstack;
     static int CPUStack::getCurrentFrame(const std::vector<CPUStack::CPUCallStack> & mCallstack, duint wVA);
