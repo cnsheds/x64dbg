@@ -59,6 +59,14 @@ static void getSymAddrName(duint addr, char(& str)[_Count])
     if(addrinfo.label[0] == '\0')
         _snprintf_s(addrinfo.label, _TRUNCATE, "%p", addr);
     strncat_s(str, addrinfo.label, _TRUNCATE);
+
+    duint base = ModBaseFromAddr(addr);
+    if (base)
+    {
+        char mod_rva_buf[16] = { 0 };
+        _snprintf_s(mod_rva_buf, _TRUNCATE, " [+%X]", addr - base);
+        strncat_s(str, mod_rva_buf, _TRUNCATE);
+    }
 }
 
 bool stackcommentget(duint addr, STACK_COMMENT* comment)
