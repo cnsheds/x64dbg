@@ -83,6 +83,7 @@ CPUWidget::CPUWidget(QWidget* parent) : QWidget(parent), ui(new Ui::CPUWidget)
 
     mStack = new CPUStack(mDump, 0); //stack widget
     ui->mBotRightFrameLayout->addWidget(mStack);
+    connect(mDisas, SIGNAL(selectionChanged(dsint)), mStack, SLOT(disasmSelectionChanged(dsint)));
 
     // load column config
     mDisas->loadColumnFromConfig("CPUDisassembly");

@@ -95,6 +95,7 @@ private slots:
     void on_chkNoForegroundWindow_toggled(bool checked);
     void on_chkShowExitConfirmation_toggled(bool checked);
     void on_chkDisableAutoComplete_toggled(bool checked);
+    void on_chkAutoFollowInStack_toggled(bool checked);
     //Misc tab
     void on_chkSetJIT_stateChanged(int arg1);
     void on_chkConfirmBeforeAtt_stateChanged(int arg1);
@@ -207,6 +208,7 @@ private:
         bool guiShowExitConfirmation;
         bool guiDisableAutoComplete;
         bool guiShowInfoWindow;
+        bool guiAutoFollowInStack;
         //Misc Tab
         bool miscSetJIT;
         bool miscSetJITAuto;

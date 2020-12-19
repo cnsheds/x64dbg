@@ -221,6 +221,8 @@ protected:
     QAction* mCopyAddress;
     QAction* mCopyRva;
     QAction* mCopySelection;
+    duint mUnderlineRangeStartVa = 0;
+    duint mUnderlineRangeEndVa = 0;
 };
 
 #endif // _HEXDUMP_H

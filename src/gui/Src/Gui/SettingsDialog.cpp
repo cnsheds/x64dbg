@@ -87,6 +87,7 @@ void SettingsDialog::LoadSettings()
     settings.guiLoadSaveTabOrder = true;
     settings.guiDisableAutoComplete = false;
     settings.guiShowInfoWindow = true;
+    settings.guiAutoFollowInStack = false;
 
     //Events tab
     GetSettingBool("Events", "SystemBreakpoint", &settings.eventSystemBreakpoint);
@@ -273,6 +274,7 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Gui", "ShowExitConfirmation", &settings.guiShowExitConfirmation);
     GetSettingBool("Gui", "DisableAutoComplete", &settings.guiDisableAutoComplete);
     GetSettingBool("Gui", "ShowInfoWindow", &settings.guiShowInfoWindow);
+    GetSettingBool("Gui", "AutoFollowInStack", &settings.guiAutoFollowInStack);
     ui->chkFpuRegistersLittleEndian->setChecked(settings.guiFpuRegistersLittleEndian);
     ui->chkSaveColumnOrder->setChecked(settings.guiSaveColumnOrder);
     ui->chkNoCloseDialog->setChecked(settings.guiNoCloseDialog);
@@ -285,6 +287,7 @@ void SettingsDialog::LoadSettings()
     ui->chkShowExitConfirmation->setChecked(settings.guiShowExitConfirmation);
     ui->chkDisableAutoComplete->setChecked(settings.guiDisableAutoComplete);
     ui->chkShowInfoWindow->setChecked(settings.guiShowInfoWindow);
+    ui->chkAutoFollowInStack->setChecked(settings.guiAutoFollowInStack);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -436,6 +439,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Gui", "ShowExitConfirmation", settings.guiShowExitConfirmation);
     BridgeSettingSetUint("Gui", "DisableAutoComplete", settings.guiDisableAutoComplete);
     BridgeSettingSetUint("Gui", "ShowInfoWindow", settings.guiShowInfoWindow);
+    BridgeSettingSetUint("Gui", "AutoFollowInStack", settings.guiAutoFollowInStack);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -837,6 +841,12 @@ void SettingsDialog::on_chkSaveColumnOrder_stateChanged(int arg1)
 void SettingsDialog::on_chkNoCloseDialog_toggled(bool checked)
 {
     settings.guiNoCloseDialog = checked;
+}
+
+void SettingsDialog::on_chkAutoFollowInStack_toggled(bool checked)
+{
+    bGuiOptionsUpdated = true;
+    settings.guiAutoFollowInStack = checked;
 }
 
 void SettingsDialog::on_chkSkipInt3Stepping_toggled(bool checked)
