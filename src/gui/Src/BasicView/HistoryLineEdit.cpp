@@ -65,6 +65,11 @@ QString HistoryLineEdit::addHistoryClear()
     return str;
 }
 
+void HistoryLineEdit::setDefaultTxt(QString txt)
+{
+    mDefaultTxt = txt;
+}
+
 void HistoryLineEdit::keyPressEvent(QKeyEvent* event)
 {
     int wKey = event->key();
@@ -93,7 +98,7 @@ void HistoryLineEdit::keyPressEvent(QKeyEvent* event)
         mCmdIndex = mCmdIndex > mCmdHistory.size() - 1 ? mCmdHistory.size() - 1 : mCmdIndex;
 
         // Set the new text if an existing command was available
-        QString newText("");
+        QString newText(mDefaultTxt);
 
         if(mCmdIndex != -1)
             newText = mCmdHistory.at(mCmdIndex);

@@ -23,7 +23,7 @@ GotoDialog::GotoDialog(QWidget* parent, bool allowInvalidExpression, bool allowI
     else
         ui->labelError->setText(tr("<font color='red'><b>Invalid expression...</b></font>"));
     setOkEnabled(false);
-    ui->editExpression->addLineToHistory(":0+");
+    ui->editExpression->setDefaultTxt(":0+");
     ui->editExpression->setFocus();
     completer = new QCompleter(this);
     completer->setModel(new SymbolAutoCompleteModel([this]

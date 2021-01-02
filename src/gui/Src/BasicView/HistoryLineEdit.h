@@ -13,6 +13,7 @@ public:
     void addLineToHistory(QString parLine);
     QString getLineFromHistory();
     QString addHistoryClear();
+    void setDefaultTxt(QString txt);
     void setFocus();
     void loadSettings(QString sectionPrefix);
     void saveSettings(QString sectionPrefix);
@@ -25,7 +26,7 @@ private:
     QList<QString> mCmdHistory;
     int mCmdIndex;
     bool bSixPressed;
-
+    QString mDefaultTxt;
 };
 
 #endif // HISTORYLINEEDIT_H
