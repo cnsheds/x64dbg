@@ -244,7 +244,7 @@ void SettingsDialog::LoadSettings()
                 newFilter.logException = !entry.contains("nolog");
                 newFilter.handledBy = entry.contains("debugger") ? ExceptionHandledBy::Debugger : ExceptionHandledBy::Debuggee;
                 AddExceptionFilterToList(newFilter);
-                if(newFilter.range.start == 0 && newFilter.range.start == newFilter.range.end)
+                if(newFilter.range.start == 0 && newFilter.range.start <= newFilter.range.end)
                     unknownExceptionsFilterAdded = true;
             }
         }
