@@ -82,6 +82,7 @@ void SettingsDialog::LoadSettings()
     settings.disasm0xPrefixValues = false;
     settings.disasmNoBranchDisasmPreview = false;
     settings.disasmNoSourceLineAutoComments = false;
+    settings.disasmAssembleOnDoubleClick = false;
     settings.disasmMaxModuleSize = -1;
     settings.guiNoForegroundWindow = true;
     settings.guiLoadSaveTabOrder = true;
@@ -273,6 +274,7 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Disassembler", "0xPrefixValues", &settings.disasm0xPrefixValues);
     GetSettingBool("Disassembler", "NoBranchDisasmPreview", &settings.disasmNoBranchDisasmPreview);
     GetSettingBool("Disassembler", "NoSourceLineAutoComments", &settings.disasmNoSourceLineAutoComments);
+    GetSettingBool("Disassembler", "AssembleOnDoubleClick", &settings.disasmAssembleOnDoubleClick);
     if(BridgeSettingGetUint("Disassembler", "MaxModuleSize", &cur))
         settings.disasmMaxModuleSize = int(cur);
     ui->chkArgumentSpaces->setChecked(settings.disasmArgumentSpaces);
@@ -288,6 +290,7 @@ void SettingsDialog::LoadSettings()
     ui->chk0xPrefixValues->setChecked(settings.disasm0xPrefixValues);
     ui->chkNoBranchDisasmPreview->setChecked(settings.disasmNoBranchDisasmPreview);
     ui->chkNoSourceLinesAutoComments->setChecked(settings.disasmNoSourceLineAutoComments);
+    ui->chkDoubleClickAssemble->setChecked(settings.disasmAssembleOnDoubleClick);
     ui->spinMaximumModuleNameSize->setValue(settings.disasmMaxModuleSize);
 
     //Gui tab
@@ -460,6 +463,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Disassembler", "0xPrefixValues", settings.disasm0xPrefixValues);
     BridgeSettingSetUint("Disassembler", "NoBranchDisasmPreview", settings.disasmNoBranchDisasmPreview);
     BridgeSettingSetUint("Disassembler", "NoSourceLineAutoComments", settings.disasmNoSourceLineAutoComments);
+    BridgeSettingSetUint("Disassembler", "AssembleOnDoubleClick", settings.disasmAssembleOnDoubleClick);
     BridgeSettingSetUint("Disassembler", "MaxModuleSize", settings.disasmMaxModuleSize);
 
     //Gui tab
@@ -1115,6 +1119,11 @@ void SettingsDialog::on_chkNoBranchDisasmPreview_toggled(bool checked)
 void SettingsDialog::on_chkNoSourceLinesAutoComments_toggled(bool checked)
 {
     settings.disasmNoSourceLineAutoComments = checked;
+}
+
+void SettingsDialog::on_chkDoubleClickAssemble_toggled(bool checked)
+{
+    settings.disasmAssembleOnDoubleClick = checked;
 }
 
 void SettingsDialog::on_spinMaximumModuleNameSize_valueChanged(int arg1)
