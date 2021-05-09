@@ -254,7 +254,7 @@ QString TraceBrowser::paintContent(QPainter* painter, dsint rowBase, int rowOffs
     }
     if(mTraceFile->isError())
     {
-        GuiAddLogMessage(tr("An error occured when reading trace file.\r\n").toUtf8().constData());
+        GuiAddLogMessage(tr("An error occurred when reading trace file.\r\n").toUtf8().constData());
         mTraceFile->Close();
         delete mTraceFile;
         mTraceFile = nullptr;
@@ -917,10 +917,10 @@ void TraceBrowser::setupRightClickContextMenu()
                 menu->addAction(QString("%1: %2 -> %3").arg(getAddrText(MemoryAddress[i], nolabel, false)).arg(ToPtrString(MemoryOldContent[i])).arg(ToPtrString(MemoryNewContent[i])));
             }
             mRvaDisplayEnabled = RvaDisplayEnabled;
-            menu->addSeparator();
+            return true;
         }
-        menu->addAction(QString("ThreadID: %1").arg(mTraceFile->ThreadId(index)));
-        return true;
+        else
+            return false; //The information menu now only contains memory access info
     });
     mMenuBuilder->addMenu(makeMenu(tr("Information")), infoMenu);
 

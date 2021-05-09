@@ -37,4 +37,6 @@ private:
         ColDecorated,
         ColUndecorated
     };
+
+    QString symbolInfoString(const SYMBOLINFO* info, int c);
 };

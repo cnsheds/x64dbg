@@ -554,13 +554,13 @@ namespace Exprfunc
         duint addr = argv[0].number;
 
         std::vector<wchar_t> tempStr(MAX_STRING_SIZE + 1);
-        if(!DbgMemRead(addr, tempStr.data(), sizeof(wchar_t) * (tempStr.size() - 1)))
+        duint NumberOfBytesRead = 0;
+        if(!MemRead(addr, tempStr.data(), sizeof(wchar_t) * (tempStr.size() - 1), &NumberOfBytesRead) && NumberOfBytesRead == 0)
         {
             return false;
         }
 
         auto utf8Str = StringUtils::Utf16ToUtf8(tempStr.data());
-
         if(utf8Str.empty() && wcslen(tempStr.data()) > 0)
         {
             return false;
@@ -585,13 +585,13 @@ namespace Exprfunc
         duint addr = argv[0].number;
 
         std::vector<char> tempStr(MAX_STRING_SIZE + 1);
-        if(!DbgMemRead(addr, tempStr.data(), tempStr.size() - 1))
+        duint NumberOfBytesRead = 0;
+        if(!MemRead(addr, tempStr.data(), tempStr.size() - 1, &NumberOfBytesRead) && NumberOfBytesRead == 0)
         {
             return false;
         }
 
         auto strlen = ::strlen(tempStr.data());
-
         auto strBuf = BridgeAlloc(strlen + 1);
         memcpy(strBuf, tempStr.data(), strlen + 1);
 

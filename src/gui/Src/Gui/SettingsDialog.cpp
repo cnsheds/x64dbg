@@ -89,6 +89,7 @@ void SettingsDialog::LoadSettings()
     settings.guiDisableAutoComplete = false;
     settings.guiShowInfoWindow = true;
     settings.guiAutoFollowInStack = false;
+    settings.guiHideSeasonalIcons = false;
 
     //Events tab
     GetSettingBool("Events", "SystemBreakpoint", &settings.eventSystemBreakpoint);
@@ -386,11 +387,14 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Misc", "QueryProcessCookie", &settings.miscQueryProcessCookie);
     GetSettingBool("Misc", "QueryWorkingSet", &settings.miscQueryWorkingSet);
     GetSettingBool("Misc", "TransparentExceptionStepping", &settings.miscTransparentExceptionStepping);
+    GetSettingBool("Misc", "NoSeasons", &settings.guiHideSeasonalIcons);
     ui->chkUtf16LogRedirect->setChecked(settings.miscUtf16LogRedirect);
     ui->chkUseLocalHelpFile->setChecked(settings.miscUseLocalHelpFile);
     ui->chkQueryProcessCookie->setChecked(settings.miscQueryProcessCookie);
     ui->chkQueryWorkingSet->setChecked(settings.miscQueryWorkingSet);
     ui->chkTransparentExceptionStepping->setChecked(settings.miscTransparentExceptionStepping);
+    ui->chkHideSeasonalIcons->setChecked(settings.guiHideSeasonalIcons);
+    ui->chkHideSeasonalIcons->setVisible(isSeasonal());
 }
 
 void SettingsDialog::SaveSettings()
@@ -510,6 +514,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Misc", "QueryProcessCookie", settings.miscQueryProcessCookie);
     BridgeSettingSetUint("Misc", "QueryWorkingSet", settings.miscQueryWorkingSet);
     BridgeSettingSetUint("Misc", "TransparentExceptionStepping", settings.miscTransparentExceptionStepping);
+    BridgeSettingSetUint("Misc", "NoSeasons", settings.guiHideSeasonalIcons);
 
     BridgeSettingFlush();
     Config()->load();
@@ -1152,6 +1157,11 @@ void SettingsDialog::on_chkDisableAutoComplete_toggled(bool checked)
 {
     settings.guiDisableAutoComplete = checked;
     bDisableAutoCompleteUpdated = true;
+}
+
+void SettingsDialog::on_chkHideSeasonalIcons_toggled(bool checked)
+{
+    settings.guiHideSeasonalIcons = checked;
 }
 
 void SettingsDialog::on_chkUseLocalHelpFile_toggled(bool checked)

@@ -79,6 +79,7 @@ SOURCES += \
     Src/Gui/CPURegistersView.cpp \
     Src/Gui/SystemBreakpointScriptDialog.cpp \
     Src/Imports.cpp \
+    Src/Tracer/TraceInfoBox.cpp \
     Src/Tracer/TraceRegisters.cpp \
     Src/Tracer/TraceWidget.cpp \
     Src/Utils/CommonActions.cpp \
@@ -202,6 +203,7 @@ HEADERS += \
     Src/BasicView/StdIconTable.h \
     Src/Gui/CPURegistersView.h \
     Src/Gui/SystemBreakpointScriptDialog.h \
+    Src/Tracer/TraceInfoBox.h \
     Src/Tracer/TraceRegisters.h \
     Src/Tracer/TraceWidget.h \
     Src/Utils/CommonActions.h \
