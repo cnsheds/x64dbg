@@ -44,7 +44,6 @@ static TraceState traceState;
 static bool bFileIsDll = false;
 static bool bEntryIsInMzHeader = false;
 static duint pDebuggedBase = 0;
-static duint pCreateProcessBase = 0;
 static duint pDebuggedEntry = 0;
 static bool bRepeatIn = false;
 static duint stepRepeat = 0;
@@ -774,7 +773,7 @@ static char getConditionValue(const char* expression)
     if(valfromstring(expression, &value))
         return value != 0 ? 1 : 0;
     else
-    	return bBreakCalcConditionsFails;	//return -1; // Error
+        return bBreakCalcConditionsFails;	//return -1; // Error
 }
 
 void cbPauseBreakpoint()
