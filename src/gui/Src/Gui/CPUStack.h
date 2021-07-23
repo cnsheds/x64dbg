@@ -23,6 +23,7 @@ public:
     void contextMenuEvent(QContextMenuEvent* event);
     void mousePressEvent(QMouseEvent* event);
     void mouseDoubleClickEvent(QMouseEvent* event);
+    void wheelEvent(QWheelEvent* event) override;
     void setupContextMenu();
     void updateFreezeStackAction();
 
