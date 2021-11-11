@@ -1,5 +1,4 @@
-#ifndef BRIDGE_H
-#define BRIDGE_H
+#pragma once
 
 #include <agents.h>
 #include <QObject>
@@ -172,5 +171,3 @@ private:
     DWORD dwMainThreadId = 0;
     volatile bool dbgStopped = false;
 };
-
-#endif // BRIDGE_H
