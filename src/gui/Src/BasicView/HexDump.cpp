@@ -568,7 +568,7 @@ void HexDump::keyPressEvent(QKeyEvent* event)
             break;
         }
     }
-    if(modifiers == 0) //No modifier
+    if(modifiers == Qt::NoModifier)
     {
         //selStart -= selStart % granularity; //Align the selection to word boundary. TODO: Unaligned data?
         switch(key)
@@ -637,6 +637,8 @@ void HexDump::keyPressEvent(QKeyEvent* event)
             action = 0;
             verticalScrollBar()->triggerAction(QAbstractSlider::SliderSingleStepAdd);
             break;
+        default:
+            AbstractTableView::keyPressEvent(event);
         }
         if(action != 0)
         {
@@ -648,6 +650,10 @@ void HexDump::keyPressEvent(QKeyEvent* event)
     else if(modifiers == Qt::ShiftModifier)
     {
         //TODO
+    }
+    else
+    {
+        AbstractTableView::keyPressEvent(event);
     }
     /*
         Let's keep the old code for a while until nobody remembers previous behaviour.

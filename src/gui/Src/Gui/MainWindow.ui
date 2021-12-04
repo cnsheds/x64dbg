@@ -1320,7 +1320,7 @@
     <string>Customize menus</string>
    </property>
    <property name="statusTip">
-    <string>Open the Custimuze menus dialog to hide infrequently used menu items into the &quot;more commands&quot; submenu.</string>
+    <string>Open the Customize Menus dialog to hide infrequently used menu items into the &quot;more commands&quot; submenu.</string>
    </property>
   </action>
   <action name="actionImportdatabase">
@@ -1425,7 +1425,7 @@
     <string>Restart as Admin</string>
    </property>
    <property name="statusTip">
-    <string>Restart x64dbg under Administrator priviledge.</string>
+    <string>Restart x64dbg under Administrator privilege.</string>
    </property>
   </action>
   <action name="actionPlugins">
