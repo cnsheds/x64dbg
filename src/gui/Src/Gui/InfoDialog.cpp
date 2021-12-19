@@ -352,16 +352,18 @@ void InfoDialog::UpdateInfo(uint64 value)
 
     //////////////////////////////////////////////////////////////////////////
     DWORD _dword = (DWORD)value;
+    ushort _word = (ushort)value;
+    uchar _byte = (BYTE)value;
     if(ui->checkBE->isChecked())
     {
         value = _byteswap_uint64(value);
         _dword = _byteswap_ulong(_dword);
+        _word = _byteswap_ushort(_word);
     }
 
     float _float;
     double _Double;
-    ushort _word = (WORD)_dword;
-    uchar _byte = (BYTE)_dword;
+
     _float = *(float*)&_dword;
     _Double = *(double*)&value;
 
