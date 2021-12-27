@@ -81,8 +81,6 @@ namespace Exprfunc
     duint exflags();
     duint exinfocount();
     duint exinfo(duint index);
-    duint MatchStrA(duint src, duint patstr);
-    duint MatchStrW(duint src, duint patstr);
 
     bool strcmp(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata);
     bool strstr(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata);

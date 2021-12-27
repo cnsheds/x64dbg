@@ -25,6 +25,5 @@ duint valvatofileoffset(duint va);
 bool setregister(const char* string, duint value);
 bool setflag(const char* string, bool set);
 duint getregister(int* size, const char* string);
-duint getMatchPatternString(duint strptr);
 
 #endif // _VALUE_H

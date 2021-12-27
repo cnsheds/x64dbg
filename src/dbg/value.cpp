@@ -21,8 +21,6 @@
 
 static bool dosignedcalc = false;
 
-#define  MAX_TMP_PARAM  9
-static std::string tmpFuncParams[MAX_TMP_PARAM + 1];
 /**
 \brief Returns whether we do signed or unsigned calculations.
 \return true if we do signed calculations, false for unsigned calculationss.
@@ -1743,18 +1741,6 @@ bool valfromstring_noexpr(const char* string, duint* value, bool silent, bool ba
             if(new_size < read_size)
                 read_size = new_size;
         }
-        else if(string[0] == 's' && string[2] == ':')
-        {
-            int ipos = string[1] - '0';
-            if(ipos > MAX_TMP_PARAM) ipos = MAX_TMP_PARAM;
-            tmpFuncParams[ipos] = string + 3;
-            if(value_size)
-                *value_size = read_size;
-            if(isvar)
-                *isvar = true;
-            *value = (duint)(tmpFuncParams[ipos].c_str());
-            return true;
-        }
         else if(string[1] == 's' && string[2] == ':')
         {
             prefix_size = 4;
@@ -2727,14 +2713,4 @@ duint valvatofileoffset(duint va)
         return (duint)offset;
     }
     return 0;
-}
-
-duint getMatchPatternString(duint strptr)
-{
-    for (int i=0; i<=MAX_TMP_PARAM; i++)
-    {
-		if (reinterpret_cast<duint>(tmpFuncParams[i].c_str()) == strptr)
-			return strptr;
-    }
-	return 0;
 }

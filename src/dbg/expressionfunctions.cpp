@@ -147,8 +147,6 @@ void ExpressionFunctions::Init()
 
     //Undocumented
     RegisterEasy("bpgoto", bpgoto);
-    RegisterEasy("matchstrA,matchstr", MatchStrA); //match string with regex
-    RegisterEasy("matchstrW", MatchStrW); //match string with regex
 
     ExpressionFunctions::Register("streq", ValueTypeNumber, { ValueTypeString, ValueTypeString }, Exprfunc::strcmp, nullptr);
     ExpressionFunctions::Register("strstr", ValueTypeNumber, { ValueTypeString, ValueTypeString }, Exprfunc::strstr, nullptr);
