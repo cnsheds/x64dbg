@@ -224,7 +224,7 @@ void InfoDialog::showSelectInfoSlot(uint64 addr, int nWidget)
         }
     }
 
-    if(nWidget == 1)    //Dump
+    if (nWidget == 1)    //Dump
         DbgMemRead(addr, &value, 8);
     else if(nWidget == 2)   //Stack
         DbgMemRead(addr, &value, sizeof(duint));
