@@ -56,6 +56,7 @@ public:
     void clearTabWidget();
 
     static void loadSelectedStyle(bool reloadStyleCss = false);
+    static void updateDarkTitleBar(QWidget* widget);
 
 public slots:
     void saveWindowSettings();
@@ -193,7 +194,6 @@ private:
 
     QAction* actionManageFavourites;
 
-    void updateDarkTitleBar();
     void updateMRUMenu();
     void setupLanguagesMenu();
     void setupThemesMenu();
