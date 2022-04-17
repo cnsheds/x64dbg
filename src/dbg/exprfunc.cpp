@@ -13,6 +13,50 @@
 #include "exhandlerinfo.h"
 #include <regex>
 #include <vector>
+#include <regex>
+
+/// <summary>
+/// Creates an owning ExpressionValue string
+/// </summary>
+static ExpressionValue ValueString(const char* str)
+{
+    auto len = ::strlen(str);
+    auto buf = (char*)BridgeAlloc(len + 1);
+    memcpy(buf, str, len);
+
+    ExpressionValue value = {};
+    value.type = ValueTypeString;
+    value.string.ptr = buf;
+    value.string.isOwner = true;
+    return value;
+}
+
+/// <summary>
+/// Creates an owning ExpressionValue string
+/// </summary>
+static ExpressionValue ValueString(const String & str)
+{
+    auto len = str.length();
+    auto buf = (char*)BridgeAlloc(len + 1);
+    memcpy(buf, str.c_str(), len);
+
+    ExpressionValue value = {};
+    value.type = ValueTypeString;
+    value.string.ptr = buf;
+    value.string.isOwner = true;
+    return value;
+}
+
+/// <summary>
+/// Creates an owning ExpressionValue number
+/// </summary>
+static ExpressionValue ValueNumber(duint number)
+{
+    ExpressionValue value = {};
+    value.type = ValueTypeNumber;
+    value.number = number;
+    return value;
+}
 
 namespace Exprfunc
 {
@@ -83,6 +127,15 @@ namespace Exprfunc
             return info->findExport(rva) ? 1 : 0;
         }
         return 0;
+    }
+
+    bool modbasefromname(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
+    {
+        assert(argc == 1);
+        assert(argv[0].type == ValueTypeString);
+
+        *result = ValueNumber(ModBaseFromName(argv[0].string.ptr));
+        return true;
     }
 
     static duint selstart(GUISELECTIONTYPE hWindow)
@@ -307,6 +360,73 @@ namespace Exprfunc
         return dest && (modsystem(dest) || modsystem(disbranchdest(dest)));
     }
 
+    bool dismnemonic(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
+    {
+        assert(argc == 1);
+        assert(argv[0].type == ValueTypeNumber);
+
+        String mnemonic = "???";
+        auto addr = argv[0].number;
+        unsigned char data[MAX_DISASM_BUFFER];
+        if(MemRead(addr, data, sizeof(data)))
+        {
+            Zydis dis;
+            if(dis.Disassemble(addr, data))
+            {
+                mnemonic = dis.Mnemonic();
+            }
+        }
+
+        *result = ValueString(mnemonic);
+        return true;
+    }
+
+    bool distext(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
+    {
+        assert(argc == 1);
+        assert(argv[0].type == ValueTypeNumber);
+
+        std::string text = "???";
+        auto addr = argv[0].number;
+        unsigned char data[MAX_DISASM_BUFFER];
+        if(MemRead(addr, data, sizeof(data)))
+        {
+            Zydis dis;
+            if(dis.Disassemble(addr, data))
+            {
+                text = dis.InstructionText();
+            }
+        }
+
+        *result = ValueString(text);
+        return true;
+    }
+
+    bool dismatch(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
+    {
+        assert(argc == 2);
+        assert(argv[0].type == ValueTypeNumber);
+        assert(argv[1].type == ValueTypeString);
+
+        bool matched = false;
+        auto addr = argv[0].number;
+        unsigned char data[MAX_DISASM_BUFFER];
+        if(MemRead(addr, data, sizeof(data)))
+        {
+            Zydis dis;
+            if(dis.Disassemble(addr, data))
+            {
+                auto text = dis.InstructionText();
+                std::smatch m;
+                std::regex re(argv[1].string.ptr);
+                matched = std::regex_search(text, m, re);
+            }
+        }
+
+        *result = ValueNumber(matched);
+        return true;
+    }
+
     duint trenabled(duint addr)
     {
         return TraceRecord.getTraceRecordType(addr) != TraceRecordManager::TraceRecordNone;
@@ -479,12 +599,38 @@ namespace Exprfunc
         return getLastExceptionInfo().ExceptionRecord.ExceptionInformation[index];
     }
 
+    bool streq(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
+    {
+        assert(argc == 1);
+        assert(argv[0].type == ValueTypeString);
+
+        *result = ValueNumber(::strcmp(argv[0].string.ptr, argv[1].string.ptr) == 0);
+        return true;
+    }
+
+    bool strstr(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
+    {
+        assert(argc == 1);
+        assert(argv[0].type == ValueTypeString);
+
+        *result = ValueNumber(::strstr(argv[0].string.ptr, argv[1].string.ptr) != nullptr);
+        return true;
+    }
+
+    bool strlen(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
+    {
+        assert(argc == 1);
+        assert(argv[0].type == ValueTypeString);
+
+        *result = ValueNumber(::strlen(argv[0].string.ptr));
+        return true;
+    }
+
     bool utf16(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
     {
-        if(argc > 1 || !argc)
-            return false;
-
+        assert(argc == 1);
         assert(argv[0].type == ValueTypeNumber);
+
         duint addr = argv[0].number;
 
         std::vector<wchar_t> tempStr(MAX_STRING_SIZE + 1);
@@ -500,22 +646,16 @@ namespace Exprfunc
             return false;
         }
 
-        auto strBuf = BridgeAlloc(utf8Str.size() + 1);
-        memcpy(strBuf, utf8Str.c_str(), utf8Str.size());
-
-        result->type = ValueTypeString;
-        result->string.ptr = (const char*)strBuf;
-        result->string.isOwner = true;
+        *result = ValueString(utf8Str);
 
         return true;
     }
 
     bool utf8(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
     {
-        if(argc > 1 || !argc)
-            return false;
-
+        assert(argc == 1);
         assert(argv[0].type == ValueTypeNumber);
+
         duint addr = argv[0].number;
 
         std::vector<char> tempStr(MAX_STRING_SIZE + 1);
@@ -525,65 +665,7 @@ namespace Exprfunc
             return false;
         }
 
-        auto strlen = ::strlen(tempStr.data());
-        auto strBuf = BridgeAlloc(strlen + 1);
-        memcpy(strBuf, tempStr.data(), strlen + 1);
-
-        result->type = ValueTypeString;
-        result->string.ptr = (const char*)strBuf;
-        result->string.isOwner = true;
-
-        return true;
-
-    }
-
-    bool modbasefromname(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
-    {
-        result->type = ValueTypeNumber;
-        result->number = ModBaseFromName(argv[0].string.ptr);
-
-        if(!result->number)
-            return false;
-
-        return true;
-    }
-
-    bool strcmp(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
-    {
-        assert(argv[0].type == ValueTypeString);
-        result->type = ValueTypeNumber;
-        result->number = 0;
-
-        if(argc > 2 || argc <= 1)
-            return false;
-
-        result->number = !::strcmp(argv[0].string.ptr, argv[1].string.ptr);
-        return true;
-    }
-
-    bool strstr(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
-    {
-        assert(argv[0].type == ValueTypeString);
-        result->type = ValueTypeNumber;
-        result->number = 0;
-
-        if(argc > 2 || argc <= 1)
-            return false;
-
-        result->number = ::strstr(argv[0].string.ptr, argv[1].string.ptr) != nullptr;
-        return true;
-    }
-
-    bool strlen(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
-    {
-        assert(argv[0].type == ValueTypeString);
-        result->type = ValueTypeNumber;
-        result->number = 0;
-
-        if(argc != 1)
-            return false;
-
-        result->number = ::strlen(argv[0].string.ptr);
+        *result = ValueString(tempStr.data());
         return true;
     }
 }

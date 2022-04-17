@@ -397,6 +397,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Setup close thread and dialog
     bCanClose = false;
+    bExitWhenDetached = false;
     mCloseThread = new MainWindowCloseThread(this);
     connect(mCloseThread, SIGNAL(canClose()), this, SLOT(canClose()));
     mCloseDialog = new CloseDialog(this);
@@ -602,7 +603,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
         msgbox.setWindowIcon(DIcon("bug.png"));
         msgbox.addButton(QMessageBox::Yes)->setText(tr("&Exit"));
         msgbox.addButton(QMessageBox::Cancel)->setText(tr("&Cancel"));
-        msgbox.addButton(QMessageBox::Abort)->setText(tr("&Stop debugging"));
+        msgbox.addButton(QMessageBox::Abort)->setText(tr("&Detach and exit"));
         msgbox.addButton(QMessageBox::Retry)->setText(tr("&Restart debugging"));
         msgbox.setDefaultButton(QMessageBox::Cancel);
         msgbox.setEscapeButton(QMessageBox::Cancel);
@@ -616,8 +617,11 @@ void MainWindow::closeEvent(QCloseEvent* event)
         auto code = msgbox.exec();
         if(code == QMessageBox::Retry)
             restartDebugging();
-        if(code == QMessageBox::Abort)
-            DbgCmdExec("stop");
+        else if(code == QMessageBox::Abort)
+        {
+            bExitWhenDetached = true;
+            DbgCmdExec("detach");
+        }
         if(code != QMessageBox::Yes)
         {
             event->ignore();
@@ -1922,6 +1926,8 @@ void MainWindow::dbgStateChangedSlot(DBGSTATE state)
 {
     if(state == initialized) //fixes a crash when restarting with certain settings in another tab
         displayCpuWidget();
+    if(bExitWhenDetached && state == stopped) //detach and exit: the debugger has detached, no exit confirmation dialog this time
+        close();
 }
 
 void MainWindow::on_actionFaq_triggered()

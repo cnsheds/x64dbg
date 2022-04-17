@@ -248,6 +248,7 @@ private:
     void clearMenuImpl(int hMenu, bool erase);
 
     bool bCanClose;
+    bool bExitWhenDetached;
     MainWindowCloseThread* mCloseThread;
 
     struct WidgetInfo
