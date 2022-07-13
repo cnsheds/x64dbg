@@ -19,6 +19,8 @@ class StructWidget : public QWidget, public ActionHelper<StructWidget>
 public:
     explicit StructWidget(QWidget* parent = 0);
     ~StructWidget();
+    void saveWindowSettings();
+    void loadWindowSettings();
 
 public slots:
     void colorsUpdatedSlot();
@@ -39,11 +41,15 @@ private:
 
     void setupColumns();
     void setupContextMenu();
+    QString highlightTypeName(QString name) const;
+    duint selectedValue() const;
 
 private slots:
     void on_treeWidget_customContextMenuRequested(const QPoint & pos);
 
     void followDumpSlot();
+    void followValueDumpSlot();
+    void followValueDisasmSlot();
     void clearSlot();
     void removeSlot();
     void visitSlot();

@@ -302,17 +302,12 @@ void TypeManager::Enum(std::vector<Summary> & typeList) const
     });
 }
 
-void TypeManager::Enum(std::string & kind, std::vector<Summary> & typeList) const
+std::string Types::TypeManager::StructUnionPtrType(const std::string & pointto) const
 {
-    typeList.clear();
-    if(kind == "typedef")
-        enumType(types, typeList);
-    else if(kind == "struct")
-        enumType(structs, typeList);
-    else if(kind == "union")
-        enumType(structs, typeList);
-    else if(kind == "function")
-        enumType(functions, typeList);
+    auto itr = structs.find(pointto);
+    if(itr == structs.end())
+        return "";
+    return getKind(itr->second);
 }
 
 template<typename K, typename V>
@@ -734,4 +729,9 @@ bool LoadTypesFile(const std::string & path, const std::string & owner)
     if(!FileHelper::ReadAllText(path, json))
         return false;
     return LoadTypesJson(json, owner);
+}
+
+std::string StructUnionPtrType(const std::string & pointto)
+{
+    return typeManager.StructUnionPtrType(pointto);
 }

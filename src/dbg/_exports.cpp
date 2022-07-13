@@ -1112,6 +1112,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
         bNoWow64SingleStepWorkaround = settingboolget("Engine", "NoWow64SingleStepWorkaround");
         bQueryWorkingSet = settingboolget("Misc", "QueryWorkingSet");
         bForceLoadSymbols = settingboolget("Misc", "ForceLoadSymbols");
+        bPidTidInHex = settingboolget("Gui", "PidTidInHex");
         stackupdatesettings();
 
         duint setting;
@@ -1210,7 +1211,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
             auto acp = GetACP();
             newStringAlgorithm = acp == 932 || acp == 936 || acp == 949 || acp == 950 || acp == 951 || acp == 1251;
         }
-        bNewStringAlgorithm = newStringAlgorithm;
+        bNewStringAlgorithm = !!newStringAlgorithm;
     }
     break;
 

@@ -120,6 +120,7 @@ private slots:
     void on_chkQueryWorkingSet_toggled(bool checked);
     void on_chkTransparentExceptionStepping_toggled(bool checked);
 
+    void on_chkQtHighDpiScaling_toggled(bool checked);
     void on_chkShowInfoWindow_toggled(bool checked);
 
 private:
@@ -243,6 +244,7 @@ private:
         bool guiShowInfoWindow;
         bool guiAutoFollowInStack;
         bool guiHideSeasonalIcons;
+        bool guiEnableQtHighDpiScaling;
         //Misc Tab
         bool miscSetJIT;
         bool miscSetJITAuto;

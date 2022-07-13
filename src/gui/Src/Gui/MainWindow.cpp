@@ -146,26 +146,26 @@ MainWindow::MainWindow(QWidget* parent)
     // Log view
     mLogView = new LogView();
     mLogView->setWindowTitle(tr("Log"));
-    mLogView->setWindowIcon(DIcon("log.png"));
+    mLogView->setWindowIcon(DIcon("log"));
     mLogView->hide();
 
     // Symbol view
     mSymbolView = new SymbolView();
     Bridge::getBridge()->symbolView = mSymbolView;
     mSymbolView->setWindowTitle(tr("Symbols"));
-    mSymbolView->setWindowIcon(DIcon("pdb.png"));
+    mSymbolView->setWindowIcon(DIcon("pdb"));
     mSymbolView->hide();
 
     // Source view
     mSourceViewManager = new SourceViewerManager();
     mSourceViewManager->setWindowTitle(tr("Source"));
-    mSourceViewManager->setWindowIcon(DIcon("source.png"));
+    mSourceViewManager->setWindowIcon(DIcon("source"));
     mSourceViewManager->hide();
 
     // Breakpoints
     mBreakpointsView = new BreakpointsView();
     mBreakpointsView->setWindowTitle(tr("Breakpoints"));
-    mBreakpointsView->setWindowIcon(DIcon("breakpoint.png"));
+    mBreakpointsView->setWindowIcon(DIcon("breakpoint"));
     mBreakpointsView->hide();
 
     // Memory map view
@@ -173,60 +173,60 @@ MainWindow::MainWindow(QWidget* parent)
 
     connect(mMemMapView, SIGNAL(showReferences()), this, SLOT(displayReferencesWidget()));
     mMemMapView->setWindowTitle(tr("Memory Map"));
-    mMemMapView->setWindowIcon(DIcon("memory-map.png"));
+    mMemMapView->setWindowIcon(DIcon("memory-map"));
     mMemMapView->hide();
 
     // Callstack view
     mCallStackView = new CallStackView();
     mCallStackView->setWindowTitle(tr("Call Stack"));
-    mCallStackView->setWindowIcon(DIcon("callstack.png"));
+    mCallStackView->setWindowIcon(DIcon("callstack"));
 
     // SEH Chain view
     mSEHChainView = new SEHChainView();
     mSEHChainView->setWindowTitle(tr("SEH"));
-    mSEHChainView->setWindowIcon(DIcon("seh-chain.png"));
+    mSEHChainView->setWindowIcon(DIcon("seh-chain"));
 
     // Script view
     mScriptView = new ScriptView();
     mScriptView->setWindowTitle(tr("Script"));
-    mScriptView->setWindowIcon(DIcon("script-code.png"));
+    mScriptView->setWindowIcon(DIcon("script-code"));
     mScriptView->hide();
 
     // CPU view
     mCpuWidget = new CPUWidget();
     mCpuWidget->setWindowTitle(tr("CPU"));
 #ifdef _WIN64
-    mCpuWidget->setWindowIcon(DIcon("processor64.png"));
+    mCpuWidget->setWindowIcon(DIcon("processor64"));
 #else
-    mCpuWidget->setWindowIcon(DIcon("processor32.png"));
-    ui->actionCpu->setIcon(DIcon("processor32.png"));
+    mCpuWidget->setWindowIcon(DIcon("processor32"));
+    ui->actionCpu->setIcon(DIcon("processor32"));
 #endif //_WIN64
 
     // Reference manager
     mReferenceManager = new ReferenceManager(this);
     Bridge::getBridge()->referenceManager = mReferenceManager;
     mReferenceManager->setWindowTitle(tr("References"));
-    mReferenceManager->setWindowIcon(DIcon("search.png"));
+    mReferenceManager->setWindowIcon(DIcon("search"));
 
     // Thread view
     mThreadView = new ThreadView();
     mThreadView->setWindowTitle(tr("Threads"));
-    mThreadView->setWindowIcon(DIcon("arrow-threads.png"));
+    mThreadView->setWindowIcon(DIcon("arrow-threads"));
 
     // Notes manager
     mNotesManager = new NotesManager(this);
     mNotesManager->setWindowTitle(tr("Notes"));
-    mNotesManager->setWindowIcon(DIcon("notes.png"));
+    mNotesManager->setWindowIcon(DIcon("notes"));
 
     // Handles view
     mHandlesView = new HandlesView(this);
     mHandlesView->setWindowTitle(tr("Handles"));
-    mHandlesView->setWindowIcon(DIcon("handles.png"));
+    mHandlesView->setWindowIcon(DIcon("handles"));
 
     // Trace view
     mTraceWidget = new TraceWidget(this);
     mTraceWidget->setWindowTitle(tr("Trace"));
-    mTraceWidget->setWindowIcon(DIcon("trace.png"));
+    mTraceWidget->setWindowIcon(DIcon("trace"));
     connect(mTraceWidget->getTraceBrowser(), SIGNAL(displayReferencesWidget()), this, SLOT(displayReferencesWidget()));
     connect(mTraceWidget->getTraceBrowser(), SIGNAL(displayLogWidget()), this, SLOT(displayLogWidget()));
 
@@ -383,6 +383,7 @@ MainWindow::MainWindow(QWidget* parent)
     setupLanguagesMenu();
     setupThemesMenu();
     setupMenuCustomization();
+    ui->actionAbout_Qt->setIcon(QApplication::style()->standardIcon(QStyle::SP_TitleBarMenuButton));
 
     // Set default setttings (when not set)
     SettingsDialog defaultSettings;
@@ -446,7 +447,7 @@ void MainWindow::setupLanguagesMenu()
         languageMenu = new QMenu(QString("Languages"));
     else
         languageMenu = new QMenu(tr("Languages") + QString(" Languages"), this);
-    languageMenu->setIcon(DIcon("codepage.png"));
+    languageMenu->setIcon(DIcon("codepage"));
 
     QLocale enUS(QLocale::English, QLocale::UnitedStates);
     QAction* action_enUS = new QAction(QString("[%1] %2 - %3").arg(enUS.name()).arg(enUS.nativeLanguageName()).arg(enUS.nativeCountryName()), languageMenu);
@@ -489,36 +490,158 @@ static void importSettings(const QString & filename, const QSet<QString> & secti
             emit Config()->guiOptionsUpdated();
             emit Config()->shortcutsUpdated();
             emit Config()->tokenizerConfigUpdated();
-            GuiUpdateAllViews();
+            // Before startup we don't need to update all views
+            if(Bridge::getBridge())
+                GuiUpdateAllViews();
         }
     }
 }
 
-void MainWindow::loadSelectedStyle(bool reloadStyleCss)
+void MainWindow::loadSelectedTheme(bool reloadOnlyStyleCss)
 {
-    char selectedTheme[MAX_SETTING_SIZE] = "";
-    QString stylePath(":/css/default.css");
-    QString styleSettings;
-    if(BridgeSettingGet("Theme", "Selected", selectedTheme) && *selectedTheme)
+    if(BridgeGetNtBuildNumber() >= 14393 /* darkmode registry release */)
     {
+        duint lastAppsUseLightTheme = -1;
+        BridgeSettingGetUint("Theme", "AppsUseLightTheme", &lastAppsUseLightTheme);
+
+        auto readRegistryDword = [](HKEY hRootKey, const wchar_t* lpSubKey, const wchar_t* lpValueName, DWORD & result)
+        {
+            auto success = false;
+            HKEY hKey = 0;
+            if(RegOpenKeyExW(hRootKey, lpSubKey, 0, KEY_READ, &hKey) == ERROR_SUCCESS)
+            {
+                DWORD dwBufferSize = sizeof(DWORD);
+                DWORD dwData = 0;
+                if(RegQueryValueExW(hKey, lpValueName, 0, NULL, reinterpret_cast<LPBYTE>(&dwData), &dwBufferSize) == ERROR_SUCCESS)
+                {
+                    result = dwData;
+                    success = true;
+                }
+                RegCloseKey(hKey);
+            }
+            return success;
+        };
+
+        DWORD appsUseLightTheme = 1;
+        auto subKey = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
+        auto valueName = L"AppsUseLightTheme";
+        if(!readRegistryDword(HKEY_CURRENT_USER, subKey, valueName, appsUseLightTheme))
+            readRegistryDword(HKEY_LOCAL_MACHINE, subKey, valueName, appsUseLightTheme);
+
+        // If the user changed the setting since last startup, adjust the default theme
+        if(appsUseLightTheme != lastAppsUseLightTheme)
+        {
+            BridgeSettingSet("Theme", "Selected", appsUseLightTheme ? "Default" : "Dark");
+            BridgeSettingSetUint("Theme", "AppsUseLightTheme", appsUseLightTheme);
+        }
+    }
+
+    char selectedTheme[MAX_SETTING_SIZE] = "Default";
+    if(!BridgeSettingGet("Theme", "Selected", selectedTheme))
+        BridgeSettingSet("Theme", "Selected", selectedTheme);
+
+    QString stylePath(":/css/default.css");
+    QString settingsPath;
+    if(*selectedTheme)
+    {
+        // Handle the icon theme
+        QStringList searchPaths = { ":/" };
+        if(strcmp(selectedTheme, "Default") == 0)
+        {
+            // The Default theme needs some special handling to allow overriding
+            auto overrideDir = QCoreApplication::applicationDirPath() + "/../themes/Default";
+            if(QDir(overrideDir).exists("index.theme"))
+            {
+                /*
+                HACK: for some reason this allows you to override icons from the themes/Default folder.
+                You need themes/Default/index.theme and then you can put images in themes/Default/icons:
+
+                [Icon Theme]
+                Name=DefaultOverride
+                Comment=Default icon theme override
+                Directories=icons
+                Inherits=Default
+
+                [icons]
+                Size=16
+                Type=Scalable
+                */
+                searchPaths << overrideDir;
+                QIcon::setThemeName("DefaultOverride");
+            }
+            else
+            {
+                QIcon::setThemeName("Default");
+            }
+            QIcon::setThemeSearchPaths(searchPaths);
+        }
+        else
+        {
+            auto themesDir = QCoreApplication::applicationDirPath() + "/../themes";
+            if(QDir(themesDir).exists(QString("%1/index.theme").arg(selectedTheme)))
+            {
+                searchPaths << themesDir;
+                QIcon::setThemeName(selectedTheme);
+            }
+            else
+            {
+                // If there is no icon theme, use the default icons
+                QIcon::setThemeName("Default");
+            }
+            QIcon::setThemeSearchPaths(searchPaths);
+        }
+
         QString themePath = QString("%1/../themes/%2/style.css").arg(QCoreApplication::applicationDirPath()).arg(selectedTheme);
         if(QFile(themePath).exists())
             stylePath = themePath;
-        QString settingsPath = QString("%1/../themes/%2/style.ini").arg(QCoreApplication::applicationDirPath()).arg(selectedTheme);
-        if(QFile(themePath).exists())
-            styleSettings = settingsPath;
+
+        auto tryIni = [&settingsPath, &selectedTheme](const char* name)
+        {
+            if(!settingsPath.isEmpty())
+                return;
+            QString iniPath = QString("%1/../themes/%2/%3").arg(QCoreApplication::applicationDirPath(), selectedTheme, name);
+            if(QFile(iniPath).exists())
+                settingsPath = iniPath;
+        };
+        tryIni("style.ini");
+        tryIni("colors.ini");
     }
-    QFile f(stylePath);
-    if(f.open(QFile::ReadOnly | QFile::Text))
+    else
     {
-        QTextStream in(&f);
-        auto style = in.readAll();
-        f.close();
+        // This code path should never be executed
+        QIcon::setThemeName("Default");
+    }
+
+    QFile cssFile(stylePath);
+    if(cssFile.open(QFile::ReadOnly | QFile::Text))
+    {
+        auto style = QTextStream(&cssFile).readAll();
+        cssFile.close();
         style = style.replace("url(./", QString("url(../themes/%2/").arg(selectedTheme));
         qApp->setStyleSheet(style);
     }
-    if(!reloadStyleCss && !styleSettings.isEmpty())
-        importSettings(styleSettings, { "Colors", "Fonts" });
+
+    // Skip changing the settings when only reloading the CSS
+    if(reloadOnlyStyleCss)
+        return;
+
+    if(!settingsPath.isEmpty())
+    {
+        // TODO: add an 'inherit' option to style.ini to inherit from another theme
+        importSettings(settingsPath, { "Colors", "Fonts" });
+    }
+    else
+    {
+        // Reset [Colors] to default
+        Config()->Colors = Config()->defaultColors;
+        Config()->writeColors();
+        BridgeSettingSetUint("Colors", "DarkTitleBar", 0);
+        // Reset [Fonts] to default (TODO: https://github.com/x64dbg/x64dbg/issues/2422)
+        //Config()->Fonts = Config()->defaultFonts;
+        //Config()->writeFonts();
+        // Remove custom colors
+        BridgeSettingSet("Colors", "CustomColorCount", nullptr);
+    }
 }
 
 void MainWindow::themeTriggeredSlot()
@@ -530,7 +653,7 @@ void MainWindow::themeTriggeredSlot()
     int nameIdx = dir.lastIndexOf('/');
     QString name = dir.mid(nameIdx + 1);
     BridgeSettingSet("Theme", "Selected", name.toUtf8().constData());
-    loadSelectedStyle();
+    loadSelectedTheme();
     updateDarkTitleBar(this);
 }
 
@@ -540,16 +663,27 @@ void MainWindow::setupThemesMenu()
     {
         return QFile(str).exists();
     };
+    char selectedTheme[MAX_SETTING_SIZE];
+    BridgeSettingGet("Theme", "Selected", selectedTheme);
     QDirIterator it(QString("%1/../themes").arg(QCoreApplication::applicationDirPath()), QDir::NoDotAndDotDot | QDir::Dirs);
+    auto actionGroup = new QActionGroup(ui->menuTheme);
+    actionGroup->addAction(ui->actionDefaultTheme);
     while(it.hasNext())
     {
         auto dir = it.next();
         auto nameIdx = dir.lastIndexOf('/');
         auto name = dir.mid(nameIdx + 1);
+        // The Default theme folder is a hidden theme to override the default theme
+        if(name == "Default")
+            continue;
         auto action = ui->menuTheme->addAction(name);
         connect(action, SIGNAL(triggered()), this, SLOT(themeTriggeredSlot()));
         action->setText(name);
         action->setData(dir);
+        action->setCheckable(true);
+        actionGroup->addAction(action);
+        if(name == selectedTheme)
+            action->setChecked(true);
     }
 }
 
@@ -600,7 +734,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
         QMessageBox msgbox(this);
         msgbox.setText(tr("The debuggee is still running and will be terminated if you exit. Do you really want to exit?"));
         msgbox.setWindowTitle(tr("Debuggee is still running"));
-        msgbox.setWindowIcon(DIcon("bug.png"));
+        msgbox.setWindowIcon(DIcon("bug"));
         msgbox.addButton(QMessageBox::Yes)->setText(tr("&Exit"));
         msgbox.addButton(QMessageBox::Cancel)->setText(tr("&Cancel"));
         msgbox.addButton(QMessageBox::Abort)->setText(tr("&Detach and exit"));
@@ -999,7 +1133,7 @@ void MainWindow::execTicnd()
         return;
     mSimpleTraceDialog->setTraceCommand("TraceIntoConditional");
     mSimpleTraceDialog->setWindowTitle(tr("Trace into..."));
-    mSimpleTraceDialog->setWindowIcon(DIcon("traceinto.png"));
+    mSimpleTraceDialog->setWindowIcon(DIcon("traceinto"));
     mSimpleTraceDialog->exec();
 }
 
@@ -1009,7 +1143,7 @@ void MainWindow::execTocnd()
         return;
     mSimpleTraceDialog->setTraceCommand("TraceOverConditional");
     mSimpleTraceDialog->setWindowTitle(tr("Trace over..."));
-    mSimpleTraceDialog->setWindowIcon(DIcon("traceover.png"));
+    mSimpleTraceDialog->setWindowIcon(DIcon("traceover"));
     mSimpleTraceDialog->exec();
 }
 
@@ -1138,10 +1272,8 @@ void MainWindow::updateWindowTitleSlot(QString filename)
 
 void MainWindow::updateDarkTitleBar(QWidget* widget)
 {
-    // https://www.vergiliusproject.com/kernels/x64/Windows%2010%20%7C%202016/2009%2020H2%20(October%202020%20Update)/_KUSER_SHARED_DATA
-    uint32_t NtBuildNumber = *(uint32_t*)(0x7FFE0000 + 0x260);
-
-    if(NtBuildNumber == 0 /* pre Windows-10 */ || NtBuildNumber < 17763)
+    auto NtBuildNumber = BridgeGetNtBuildNumber();
+    if(NtBuildNumber < 17763)
         return;
 
     duint darkTitleBar = 0;
@@ -1718,7 +1850,7 @@ void MainWindow::displayRunTrace()
 void MainWindow::donate()
 {
     QMessageBox msg(QMessageBox::Information, tr("Donate"), tr("All the money will go to x64dbg development."));
-    msg.setWindowIcon(DIcon("donate.png"));
+    msg.setWindowIcon(DIcon("donate"));
     msg.setParent(this, Qt::Dialog);
     msg.setWindowFlags(msg.windowFlags() & (~Qt::WindowContextHelpButtonHint));
     msg.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
@@ -1731,7 +1863,7 @@ void MainWindow::donate()
 void MainWindow::blog()
 {
     QMessageBox msg(QMessageBox::Information, tr("Blog"), tr("You will visit x64dbg's official blog."));
-    msg.setWindowIcon(DIcon("hex.png"));
+    msg.setWindowIcon(DIcon("hex"));
     msg.setParent(this, Qt::Dialog);
     msg.setWindowFlags(msg.windowFlags() & (~Qt::WindowContextHelpButtonHint));
     msg.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
@@ -1744,7 +1876,7 @@ void MainWindow::blog()
 void MainWindow::reportBug()
 {
     QMessageBox msg(QMessageBox::Information, tr("Report Bug"), tr("You will be taken to a website where you can report a bug.\nMake sure to fill in as much information as possible."));
-    msg.setWindowIcon(DIcon("bug-report.png"));
+    msg.setWindowIcon(DIcon("bug-report"));
     msg.setParent(this, Qt::Dialog);
     msg.setWindowFlags(msg.windowFlags() & (~Qt::WindowContextHelpButtonHint));
     msg.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
@@ -1757,7 +1889,7 @@ void MainWindow::reportBug()
 void MainWindow::crashDump()
 {
     QMessageBox msg(QMessageBox::Critical, tr("Generate crash dump"), tr("This action will crash the debugger and generate a crash dump. You will LOSE ALL YOUR UNSAVED DATA. Do you really want to continue?"));
-    msg.setWindowIcon(DIcon("fatal-error.png"));
+    msg.setWindowIcon(DIcon("fatal-error"));
     msg.setParent(this, Qt::Dialog);
     msg.setWindowFlags(msg.windowFlags() & (~Qt::WindowContextHelpButtonHint));
     msg.setStandardButtons(QMessageBox::Ok | QMessageBox::Cancel);
@@ -1805,7 +1937,7 @@ void MainWindow::changeCommandLine()
     LineEditDialog mLineEdit(this);
     mLineEdit.setText("");
     mLineEdit.setWindowTitle(tr("Change Command Line"));
-    mLineEdit.setWindowIcon(DIcon("changeargs.png"));
+    mLineEdit.setWindowIcon(DIcon("changeargs"));
 
     QString cmdLine;
     if(!getCmdLine(cmdLine))
@@ -1937,7 +2069,7 @@ void MainWindow::on_actionFaq_triggered()
 
 void MainWindow::on_actionReloadStylesheet_triggered()
 {
-    loadSelectedStyle(true);
+    loadSelectedTheme(true);
     ensurePolished();
     update();
 }
@@ -1994,7 +2126,7 @@ void MainWindow::updateFavouriteTools()
     ui->menuFavourites->clear();
     delete actionManageFavourites;
     mFavouriteToolbar->clear();
-    actionManageFavourites = new QAction(DIcon("star.png"), tr("&Manage Favourite Tools..."), this);
+    actionManageFavourites = new QAction(DIcon("star"), tr("&Manage Favourite Tools..."), this);
     actionManageFavourites->setStatusTip(tr("Open the Favourites dialog to manage the favourites menu"));
     for(unsigned int i = 1; BridgeSettingGet("Favourite", QString("Tool%1").arg(i).toUtf8().constData(), buffer); i++)
     {
@@ -2018,7 +2150,7 @@ void MainWindow::updateFavouriteTools()
         splitToolPath(toolPath, file, cmd);
         icon = getFileIcon(file);
         if(icon.isNull())
-            icon = DIcon("plugin.png");
+            icon = DIcon("plugin");
         newAction->setIcon(icon);
         connect(newAction, SIGNAL(triggered()), this, SLOT(clickFavouriteTool()));
         ui->menuFavourites->addAction(newAction);
@@ -2048,7 +2180,7 @@ void MainWindow::updateFavouriteTools()
         newAction->setText(description);
         newAction->setStatusTip(description);
         connect(newAction, SIGNAL(triggered()), this, SLOT(clickFavouriteTool()));
-        newAction->setIcon(DIcon("script-code.png"));
+        newAction->setIcon(DIcon("script-code"));
         ui->menuFavourites->addAction(newAction);
         mFavouriteToolbar->addAction(newAction);
         isanythingexists = true;
@@ -2069,7 +2201,7 @@ void MainWindow::updateFavouriteTools()
             if(*buffer && strcmp(buffer, "NOT_SET") != 0)
                 setGlobalShortcut(newAction, QKeySequence(QString(buffer)));
         connect(newAction, SIGNAL(triggered()), this, SLOT(clickFavouriteTool()));
-        newAction->setIcon(DIcon("star.png"));
+        newAction->setIcon(DIcon("star"));
         ui->menuFavourites->addAction(newAction);
         mFavouriteToolbar->addAction(newAction);
         isanythingexists = true;
@@ -2164,7 +2296,7 @@ void MainWindow::chooseLanguage()
         if(file.size() < 512)
         {
             QMessageBox msg(this);
-            msg.setWindowIcon(DIcon("codepage.png"));
+            msg.setWindowIcon(DIcon("codepage"));
             msg.setIcon(QMessageBox::Information);
             if(tr("Languages") == QString("Languages"))
             {
@@ -2185,7 +2317,7 @@ void MainWindow::chooseLanguage()
     BridgeSettingSet("Engine", "Language", localeName.toUtf8().constData());
     QMessageBox msg(this);
     msg.setIcon(QMessageBox::Information);
-    msg.setWindowIcon(DIcon("codepage.png"));
+    msg.setWindowIcon(DIcon("codepage"));
     if(tr("Languages") == QString("Languages"))
     {
         msg.setWindowTitle(QString("Languages"));
@@ -2281,7 +2413,7 @@ void MainWindow::customizeMenu()
 {
     CustomizeMenuDialog customMenuDialog(this);
     customMenuDialog.setWindowTitle(tr("Customize Menus"));
-    customMenuDialog.setWindowIcon(DIcon("analysis.png"));
+    customMenuDialog.setWindowIcon(DIcon("analysis"));
     customMenuDialog.exec();
     onMenuCustomized();
 }
@@ -2407,25 +2539,19 @@ void MainWindow::on_actionCheckUpdates_triggered()
 
 void MainWindow::on_actionDefaultTheme_triggered()
 {
-    // Delete [Theme] Selected
-    BridgeSettingSet("Theme", "Selected", nullptr);
+    // Revert to the Default theme
+    BridgeSettingSet("Theme", "Selected", "Default");
     // Load style
-    loadSelectedStyle();
-    // Reset [Colors] to default
-    Config()->Colors = Config()->defaultColors;
-    Config()->writeColors();
-    BridgeSettingSetUint("Colors", "DarkTitleBar", 0);
-    // Reset [Fonts] to default
-    //Config()->Fonts = Config()->defaultFonts;
-    //Config()->writeFonts();
-    // Remove custom colors
-    BridgeSettingSet("Colors", "CustomColorCount", nullptr);
+    loadSelectedTheme();
     updateDarkTitleBar(this);
 }
 
 void MainWindow::on_actionAbout_Qt_triggered()
 {
-    QMessageBox::aboutQt(this);
+    auto w = new QWidget(this);
+    w->setWindowIcon(QApplication::style()->standardIcon(QStyle::SP_TitleBarMenuButton));
+    QMessageBox::aboutQt(w);
+    delete w;
 }
 
 void MainWindow::updateStyle()

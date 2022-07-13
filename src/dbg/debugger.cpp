@@ -89,6 +89,7 @@ bool bNoWow64SingleStepWorkaround = false;
 bool bTraceBrowserNeedsUpdate = false;
 bool bForceLoadSymbols = false;
 bool bNewStringAlgorithm = false;
+bool bPidTidInHex = false;
 duint DbgEvents = 0;
 duint maxSkipExceptionCount = 0;
 HANDLE mProcHandle;
@@ -469,7 +470,7 @@ static void DebugUpdateTitle(duint disasm_addr, bool analyzeThreadSwitch)
     if(!ModNameFromAddr(disasm_addr, modname, true))
         *modname = 0;
     else
-        sprintf_s(modtext, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Module: %s - ")), modname);
+        _snprintf_s(modtext, _TRUNCATE, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Module: %s - ")), modname);
     char threadswitch[256] = "";
     DWORD currentThreadId = ThreadGetId(hActiveThread);
     if(analyzeThreadSwitch)
@@ -482,7 +483,7 @@ static void DebugUpdateTitle(duint disasm_addr, bool analyzeThreadSwitch)
             char threadName2[MAX_THREAD_NAME_SIZE] = "";
             if(!ThreadGetName(PrevThreadId, threadName2) || threadName2[0] == 0)
                 sprintf_s(threadName2, "%X", PrevThreadId);
-            sprintf_s(threadswitch, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", " (switched from %s)")), threadName2);
+            _snprintf_s(threadswitch, _TRUNCATE, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", " (switched from %s)")), threadName2);
             PrevThreadId = currentThreadId;
         }
     }
@@ -501,7 +502,7 @@ static void DebugUpdateTitle(duint disasm_addr, bool analyzeThreadSwitch)
         sprintf_s(PIDnumber, "%u", fdProcessInfo->dwProcessId);
         sprintf_s(TIDnumber, "%u", currentThreadId);
     }
-    sprintf_s(title, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "%s - PID: %s - %sThread: %s%s%s")), szBaseFileName, PIDnumber, modtext, threadName, TIDnumber, threadswitch);
+    _snprintf_s(title, _TRUNCATE, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "%s - PID: %s - %sThread: %s%s%s")), szBaseFileName, PIDnumber, modtext, threadName, TIDnumber, threadswitch);
     GuiUpdateWindowTitle(title);
 }
 
@@ -622,20 +623,10 @@ static void printSoftBpInfo(const BREAKPOINT & bp)
     else if((titantype & UE_BREAKPOINT_TYPE_LONG_INT3) == UE_BREAKPOINT_TYPE_LONG_INT3)
         bptype = "LONG INT3";
     auto symbolicname = SymGetSymbolicName(bp.addr);
-    if(symbolicname.length())
-    {
-        if(*bp.name)
-            dprintf(QT_TRANSLATE_NOOP("DBG", "%s breakpoint \"%s\" at %s (%p)!\n"), bptype, bp.name, symbolicname.c_str(), bp.addr);
-        else
-            dprintf(QT_TRANSLATE_NOOP("DBG", "%s breakpoint at %s (%p)!\n"), bptype, symbolicname.c_str(), bp.addr);
-    }
+    if(*bp.name)
+        dprintf(QT_TRANSLATE_NOOP("DBG", "%s breakpoint \"%s\" at %s!\n"), bptype, bp.name, symbolicname.c_str());
     else
-    {
-        if(*bp.name)
-            dprintf(QT_TRANSLATE_NOOP("DBG", "%s breakpoint \"%s\" at %p!\n"), bptype, bp.name, bp.addr);
-        else
-            dprintf(QT_TRANSLATE_NOOP("DBG", "%s breakpoint at %p!\n"), bptype, bp.addr);
-    }
+        dprintf(QT_TRANSLATE_NOOP("DBG", "%s breakpoint at %s!\n"), bptype, symbolicname.c_str());
 }
 
 static void printHwBpInfo(const BREAKPOINT & bp)
@@ -675,20 +666,10 @@ static void printHwBpInfo(const BREAKPOINT & bp)
         bptype = _strdup(" ");
     }
     auto symbolicname = SymGetSymbolicName(bp.addr);
-    if(symbolicname.length())
-    {
-        if(*bp.name)
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint (%s%s) \"%s\" at %s (%p)!\n"), bpsize, bptype, bp.name, symbolicname.c_str(), bp.addr);
-        else
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint (%s%s) at %s (%p)!\n"), bpsize, bptype, symbolicname.c_str(), bp.addr);
-    }
+    if(*bp.name)
+        dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint%s \"%s\" at %s!\n"), bptype, bp.name, symbolicname.c_str());
     else
-    {
-        if(*bp.name)
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint (%s%s) \"%s\" at %p!\n"), bpsize, bptype, bp.name, bp.addr);
-        else
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint (%s%s) at %p!\n"), bpsize, bptype, bp.addr);
-    }
+        dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint%s at %s!\n"), bptype, symbolicname.c_str());
     free(bptype);
 }
 
@@ -713,19 +694,22 @@ static void printMemBpInfo(const BREAKPOINT & bp, const void* ExceptionAddress)
         bptype = _strdup("");
     }
     auto symbolicname = SymGetSymbolicName(bp.addr);
-    if(symbolicname.length())
+    if(*bp.name)
     {
-        if(*bp.name)
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint%s \"%s\" at %s (%p, %p)!\n"), bptype, bp.name, symbolicname.c_str(), bp.addr, ExceptionAddress);
-        else
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint%s at %s (%p, %p)!\n"), bptype, symbolicname.c_str(), bp.addr, ExceptionAddress);
+        dprintf(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint%s \"%s\" at %s, exception address: %s!\n"),
+                bptype,
+                bp.name,
+                symbolicname.c_str(),
+                SymGetSymbolicName(duint(ExceptionAddress)).c_str()
+               );
     }
     else
     {
-        if(*bp.name)
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint%s \"%s\" at %p (%p)!\n"), bptype, bp.name, bp.addr, ExceptionAddress);
-        else
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint%s at %p (%p)!\n"), bptype, bp.addr, ExceptionAddress);
+        dprintf(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint%s at %s, exception address: %s!\n"),
+                bptype,
+                symbolicname.c_str(),
+                SymGetSymbolicName(duint(ExceptionAddress)).c_str()
+               );
     }
     free(bptype);
 }
@@ -1032,8 +1016,7 @@ void cbRunToUserCodeBreakpoint(void* ExceptionAddress)
 {
     hActiveThread = ThreadGetHandle(((DEBUG_EVENT*)GetDebugData())->dwThreadId);
     auto CIP = GetContextDataEx(hActiveThread, UE_CIP);
-    auto symbolicname = SymGetSymbolicName(CIP);
-    dprintf(QT_TRANSLATE_NOOP("DBG", "User code reached at %s (%p)!"), symbolicname.c_str(), CIP);
+    dprintf(QT_TRANSLATE_NOOP("DBG", "User code reached at %s"), SymGetSymbolicName(CIP).c_str());
     // lock
     lock(WAITID_RUN);
     // Trace record
@@ -1571,7 +1554,18 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* CreateProcessInfo)
 
 static void cbExitProcess(EXIT_PROCESS_DEBUG_INFO* ExitProcess)
 {
-    dprintf(QT_TRANSLATE_NOOP("DBG", "Process stopped with exit code 0x%X\n"), ExitProcess->dwExitCode);
+    {
+        auto exitCode = ExitProcess->dwExitCode;
+        auto exitDescription = StringUtils::sprintf("0x%X (%d)", exitCode, exitCode);
+        if((exitCode & 0x80000000) != 0)
+        {
+            auto statusName = NtStatusCodeToName(exitCode);
+            if(!statusName.empty())
+                exitDescription = StringUtils::sprintf("0x%X (%s)", exitCode, statusName.c_str());
+        }
+        dprintf(QT_TRANSLATE_NOOP("DBG", "Process stopped with exit code %s\n"), exitDescription.c_str());
+    }
+
     const bool breakHere = settingboolget("Events", "NtTerminateProcess");
     if(breakHere)
     {
@@ -1608,10 +1602,12 @@ static void cbCreateThread(CREATE_THREAD_DEBUG_INFO* CreateThread)
     plugincbcall(CB_CREATETHREAD, &callbackInfo);
 
     auto entry = duint(CreateThread->lpStartAddress);
-    auto symbolic = SymGetSymbolicName(entry);
-    if(!symbolic.length())
-        symbolic = StringUtils::sprintf("%p", entry);
-    dprintf(QT_TRANSLATE_NOOP("DBG", "Thread %X created, Entry: %s\n"), dwThreadId, symbolic.c_str());
+    auto parameter = GetContextDataEx(hActiveThread, ArchValue(UE_EBX, UE_RDX));
+    dprintf(QT_TRANSLATE_NOOP("DBG", "Thread %X created, Entry: %s, Parameter: %s\n"),
+            dwThreadId,
+            SymGetSymbolicName(entry).c_str(),
+            SymGetSymbolicName(parameter).c_str()
+           );
 
     if(settingboolget("Events", "ThreadEntry"))
     {
@@ -1847,7 +1843,8 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
         }
     }
 
-    if(ModNameFromAddr(duint(base), modname, true) && scmp(modname, "ntdll.dll"))
+    auto isNtdll = ModNameFromAddr(duint(base), modname, true) && scmp(modname, "ntdll.dll");
+    if(isNtdll)
     {
         if(settingboolget("Misc", "QueryProcessCookie"))
             cookie.HandleNtdllLoad(bIsAttached);
@@ -1920,7 +1917,7 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
     {
         cbGenericBreakpoint(BPDLL, DLLDebugFileName);
     }
-    else if(settingboolget("Events", "DllLoad") && party != mod_system || settingboolget("Events", "DllLoadSystem") && party == mod_system)
+    else if(!isNtdll && (settingboolget("Events", "DllLoad") && party != mod_system || settingboolget("Events", "DllLoadSystem") && party == mod_system))
     {
         //update GUI
         DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), true);
@@ -3003,6 +3000,14 @@ void dbgcreatedebugthread(INIT_STRUCT* init)
     }, init, 0, nullptr);
     WaitForSingleObject(event, INFINITE);
     CloseHandle(event);
+}
+
+String formatpidtid(DWORD pidtid)
+{
+    if(bPidTidInHex)
+        return StringUtils::sprintf("%X", pidtid);
+    else
+        return StringUtils::sprintf("%u", pidtid);
 }
 
 bool dbgrestartadmin()

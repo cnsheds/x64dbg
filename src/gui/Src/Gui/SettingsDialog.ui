@@ -20,8 +20,8 @@
    <string>Preferences</string>
   </property>
   <property name="windowIcon">
-   <iconset resource="../../resource.qrc">
-    <normaloff>:/icons/images/settings.png</normaloff>:/icons/images/settings.png</iconset>
+   <iconset theme="settings" resource="../../resource.qrc">
+    <normaloff>:/Default/icons/settings.png</normaloff>:/Default/icons/settings.png</iconset>
   </property>
   <property name="autoFillBackground">
    <bool>true</bool>
@@ -909,6 +909,16 @@
         <widget class="QCheckBox" name="chkHideSeasonalIcons">
          <property name="text">
           <string>Hide seasonal icons</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="chkQtHighDpiScaling">
+         <property name="toolTip">
+          <string>Disabling this option will tell Windows that x64dbg is DPI unaware. This might result in blurry results in some configurations.</string>
+         </property>
+         <property name="text">
+          <string>Qt High DPI Scaling</string>
          </property>
         </widget>
        </item>

@@ -55,7 +55,7 @@ public:
     void loadTabSavedOrder();
     void clearTabWidget();
 
-    static void loadSelectedStyle(bool reloadStyleCss = false);
+    static void loadSelectedTheme(bool reloadOnlyStyleCss = false);
     static void updateDarkTitleBar(QWidget* widget);
 
 public slots:
@@ -270,9 +270,9 @@ private:
     int m_initAlpha;
 
 protected:
-    void dragEnterEvent(QDragEnterEvent* pEvent);
-    void dropEvent(QDropEvent* pEvent);
-    bool event(QEvent* event);
+    void dragEnterEvent(QDragEnterEvent* pEvent) override;
+    void dropEvent(QDropEvent* pEvent) override;
+    bool event(QEvent* event) override;
     void wheelEvent(QWheelEvent* event);
 
 private slots:
