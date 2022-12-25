@@ -4,25 +4,46 @@
 #include "exception.h"
 #include "debugger.h"
 #include "thread.h"
+#include "threading.h"
 
-typedef NTSTATUS(NTAPI* ZWQUERYSYSTEMINFORMATION)(
-    IN LONG SystemInformationClass,
-    OUT PVOID SystemInformation,
-    IN ULONG SystemInformationLength,
-    OUT PULONG ReturnLength OPTIONAL
-);
+static std::unordered_map<UCHAR, String> HandleTypeNames;
+static std::unordered_map<HANDLE, String> HandleTypeCache;
 
-typedef NTSTATUS(NTAPI* ZWQUERYOBJECT)(
-    IN HANDLE Handle OPTIONAL,
-    IN LONG ObjectInformationClass,
-    OUT PVOID ObjectInformation OPTIONAL,
-    IN ULONG ObjectInformationLength,
-    OUT PULONG ReturnLength OPTIONAL
-);
+static void HandleTypesEnum()
+{
+    Memory<POBJECT_TYPES_INFORMATION> TypesInformation(16 * 1024, "types");
+    NTSTATUS status = STATUS_SUCCESS;
+    for(;;)
+    {
+        status = NtQueryObject(nullptr, ObjectTypesInformation, TypesInformation(), ULONG(TypesInformation.size()), nullptr);
+        if(status != STATUS_INFO_LENGTH_MISMATCH)
+            break;
+        TypesInformation.realloc(TypesInformation.size() * 2, "types");
+    }
+    if(status != STATUS_SUCCESS)
+        return;
+
+    auto TypeInfo = TypesInformation()->TypeInformation;
+    for(ULONG i = 0; i < TypesInformation()->NumberOfTypes; i++)
+    {
+        auto wtypeName = WString(TypeInfo->TypeName.Buffer, TypeInfo->TypeName.Buffer + TypeInfo->TypeName.Length / 2);
+        auto typeName = StringUtils::Utf16ToUtf8(wtypeName);
+        auto typeIndex = i + 1;
+        if(BridgeGetNtBuildNumber() >= 9600 /* Windows 8.1 */)
+        {
+            typeIndex = TypeInfo->TypeIndex;
+        }
+        HandleTypeNames.emplace((UCHAR)typeIndex, typeName);
+        TypeInfo = (POBJECT_TYPE_INFORMATION)((char*)(TypeInfo + 1) + ALIGN_UP(TypeInfo->TypeName.MaximumLength, ULONG_PTR));
+    }
+}
 
 // Enumerate all handles in the debuggee
 bool HandlesEnum(std::vector<HANDLEINFO> & handles)
 {
+    if(HandleTypeNames.empty())
+        HandleTypesEnum();
+
     duint pid;
     Memory<PSYSTEM_HANDLE_INFORMATION> HandleInformation(16 * 1024, "_dbg_enumhandles");
     NTSTATUS ErrorCode = ERROR_SUCCESS;
@@ -39,6 +60,8 @@ bool HandlesEnum(std::vector<HANDLEINFO> & handles)
 
     handles.reserve(HandleInformation()->NumberOfHandles);
 
+    EXCLUSIVE_ACQUIRE(LockHandleCache);
+    HandleTypeCache.clear();
     HANDLEINFO info;
     for(ULONG i = 0; i < HandleInformation()->NumberOfHandles; i++)
     {
@@ -48,6 +71,9 @@ bool HandlesEnum(std::vector<HANDLEINFO> & handles)
         info.Handle = handle.HandleValue;
         info.TypeNumber = handle.ObjectTypeIndex;
         info.GrantedAccess = handle.GrantedAccess;
+        auto typeNameItr = HandleTypeNames.find(handle.ObjectTypeIndex);
+        if(typeNameItr != HandleTypeNames.end())
+            HandleTypeCache.emplace((HANDLE)handle.HandleValue, typeNameItr->second);
         handles.push_back(info);
     }
     return true;
@@ -207,6 +233,14 @@ bool HandlesGetName(HANDLE remoteHandle, String & name, String & typeName)
     }
     else
         name = String(ErrorCodeToName(GetLastError()));
+
+    if(typeName.empty())
+    {
+        SHARED_ACQUIRE(LockHandleCache);
+        auto itr = HandleTypeCache.find(remoteHandle);
+        if(itr != HandleTypeCache.end())
+            typeName = itr->second;
+    }
     return true;
 }
 
@@ -361,4 +395,41 @@ bool HandlesEnumHeaps(std::vector<HEAPINFO> & heapList)
     return true;
     */
     return false;
+}
+
+String LoadedAntiCheatDrivers()
+{
+    Memory<RTL_PROCESS_MODULES*> HandleInformation(0x1000, __FUNCTION__);
+    NTSTATUS ErrorCode = ERROR_SUCCESS;
+    for(;;)
+    {
+        ErrorCode = NtQuerySystemInformation(SystemModuleInformation, HandleInformation(), ULONG(HandleInformation.size()), nullptr);
+        if(ErrorCode != STATUS_INFO_LENGTH_MISMATCH)
+            break;
+        HandleInformation.realloc(HandleInformation.size() * 2, __FUNCTION__);
+    }
+    if(ErrorCode != STATUS_SUCCESS)
+        return {};
+    const char* AntiCheatDrivers[] =
+    {
+        "EasyAntiCheat.sys",
+        "EasyAntiCheat_EOS.sys",
+    };
+    std::unordered_set<String> DriverSet;
+    for(auto & Driver : AntiCheatDrivers)
+        DriverSet.insert(StringUtils::ToLower(Driver));
+    String Result;
+    auto Modules = HandleInformation();
+    for(ULONG i = 0; i < Modules->NumberOfModules; i++)
+    {
+        const auto & Module = Modules->Modules[i];
+        String DriverName = (char*)Module.FullPathName + Module.OffsetToFileName;
+        if(DriverSet.count(StringUtils::ToLower(DriverName)))
+        {
+            if(!Result.empty())
+                Result += '\n';
+            Result += DriverName;
+        }
+    }
+    return Result;
 }

@@ -50,7 +50,10 @@ TraceBrowser::TraceBrowser(QWidget* parent) : AbstractTableView(parent)
 
     connect(Bridge::getBridge(), SIGNAL(updateTraceBrowser()), this, SLOT(updateSlot()));
     connect(Bridge::getBridge(), SIGNAL(openTraceFile(const QString &)), this, SLOT(openSlot(const QString &)));
+    connect(Bridge::getBridge(), SIGNAL(gotoTraceIndex(duint)), this, SLOT(gotoIndexSlot(duint)));
     connect(Config(), SIGNAL(tokenizerConfigUpdated()), this, SLOT(tokenizerConfigUpdatedSlot()));
+    connect(this, SIGNAL(selectionChanged(unsigned long long)), this, SLOT(selectionChangedSlot(unsigned long long)));
+    connect(Bridge::getBridge(), SIGNAL(shutdown()), this, SLOT(closeFileSlot()));
 }
 
 TraceBrowser::~TraceBrowser()
@@ -65,6 +68,41 @@ TraceBrowser::~TraceBrowser()
 bool TraceBrowser::isFileOpened() const
 {
     return mTraceFile && mTraceFile->Progress() == 100 && mTraceFile->Length() > 0;
+}
+
+bool TraceBrowser::isRecording()
+{
+    return DbgEval("tr.isrecording()") != 0;
+}
+
+bool TraceBrowser::toggleTraceRecording(QWidget* parent)
+{
+    if(!DbgIsDebugging())
+        return false;
+    if(isRecording())
+    {
+        return DbgCmdExecDirect("StopTraceRecording");
+    }
+    else
+    {
+        auto extension = ArchValue(".trace32", ".trace64");
+        BrowseDialog browse(
+            parent,
+            tr("Start trace recording"),
+            tr("Trace recording file"),
+            tr("Trace recordings (*.%1);;All files (*.*)").arg(extension),
+            getDbPath(mainModuleName() + extension, true),
+            true
+        );
+        if(browse.exec() == QDialog::Accepted)
+        {
+            if(browse.path.contains(QChar('"')) || browse.path.contains(QChar('\'')))
+                SimpleErrorBox(parent, tr("Error"), tr("File name contains invalid character."));
+            else
+                return DbgCmdExecDirect(QString("StartTraceRecording \"%1\"").arg(browse.path));
+        }
+    }
+    return false;
 }
 
 QString TraceBrowser::getAddrText(dsint cur_addr, char label[MAX_LABEL_SIZE], bool getLabel)
@@ -771,6 +809,7 @@ ZydisTokenizer::InstructionToken TraceBrowser::registersTokens(unsigned long lon
     addRegValues("r14", r14)
     addRegValues("r15", r15)
 #endif //_WIN64
+    addRegValues(ArchValue("eflags", "rflags"), eflags)
 
     fakeInstruction.tokens.insert(fakeInstruction.tokens.begin(), tokens.begin(), tokens.end());
     return fakeInstruction;
@@ -784,8 +823,9 @@ void TraceBrowser::prepareData()
     {
         if(mTraceFile->Progress() == 100)
         {
-            if(mTraceFile->Length() < getTableOffset() + viewables)
-                lines = mTraceFile->Length() - getTableOffset();
+            duint tableOffset = getTableOffset();
+            if(mTraceFile->Length() < tableOffset + viewables)
+                lines = mTraceFile->Length() - tableOffset;
             else
                 lines = viewables;
         }
@@ -803,15 +843,21 @@ void TraceBrowser::setupRightClickContextMenu()
         else
             return mTraceFile->Registers(getInitialSelection()).regcontext.cip;
     });
-    QAction* toggleRunTrace = makeShortcutAction(DIcon("trace"), tr("Start Run Trace"), SLOT(toggleRunTraceSlot()), "ActionToggleRunTrace");
-    mMenuBuilder->addAction(toggleRunTrace, [toggleRunTrace](QMenu*)
+    QAction* toggleTraceRecording = makeShortcutAction(DIcon("control-record"), tr("Start recording"), SLOT(toggleTraceRecordingSlot()), "ActionToggleRunTrace");
+    mMenuBuilder->addAction(toggleTraceRecording, [toggleTraceRecording](QMenu*)
     {
         if(!DbgIsDebugging())
             return false;
-        if(DbgValFromString("tr.runtraceenabled()") == 1)
-            toggleRunTrace->setText(tr("Stop Run Trace"));
+        if(isRecording())
+        {
+            toggleTraceRecording->setText(tr("Stop recording"));
+            toggleTraceRecording->setIcon(DIcon("control-stop"));
+        }
         else
-            toggleRunTrace->setText(tr("Start Run Trace"));
+        {
+            toggleTraceRecording->setText(tr("Start recording"));
+            toggleTraceRecording->setIcon(DIcon("control-record"));
+        }
         return true;
     });
     auto mTraceFileIsNull = [this](QMenu*)
@@ -830,11 +876,11 @@ void TraceBrowser::setupRightClickContextMenu()
         else
             return false;
     });
-    mMenuBuilder->addAction(makeAction(DIcon("fatal-error"), tr("Close"), SLOT(closeFileSlot())), [this](QMenu*)
+    mMenuBuilder->addAction(makeAction(DIcon("close"), tr("Close recording"), SLOT(closeFileSlot())), [this](QMenu*)
     {
         return mTraceFile != nullptr;
     });
-    mMenuBuilder->addAction(makeAction(DIcon("fatal-error"), tr("Close and delete"), SLOT(closeDeleteSlot())), [this](QMenu*)
+    mMenuBuilder->addAction(makeAction(DIcon("delete"), tr("Delete recording"), SLOT(closeDeleteSlot())), [this](QMenu*)
     {
         return mTraceFile != nullptr;
     });
@@ -875,7 +921,7 @@ void TraceBrowser::setupRightClickContextMenu()
         return true;
     });
     MenuBuilder* gotoMenu = new MenuBuilder(this, isValid);
-    gotoMenu->addAction(makeShortcutAction(DIcon("goto"), tr("Expression"), SLOT(gotoSlot()), "ActionGotoExpression"), isValid);
+    gotoMenu->addAction(makeShortcutAction(DIcon("goto"), tr("Index"), SLOT(gotoSlot()), "ActionGotoExpression"), isValid);
     gotoMenu->addAction(makeAction(DIcon("arrow-step-rtr"), tr("Function return"), SLOT(rtrSlot())), isValid);
     gotoMenu->addAction(makeShortcutAction(DIcon("previous"), tr("Previous"), SLOT(gotoPreviousSlot()), "ActionGotoPrevious"), [this](QMenu*)
     {
@@ -888,7 +934,7 @@ void TraceBrowser::setupRightClickContextMenu()
     mMenuBuilder->addMenu(makeMenu(DIcon("goto"), tr("Go to")), gotoMenu);
 
     MenuBuilder* searchMenu = new MenuBuilder(this, isValid);
-    searchMenu->addAction(makeAction(DIcon("search_for_constant"), tr("Constant"), SLOT(searchConstantSlot())));
+    searchMenu->addAction(makeAction(DIcon("search_for_constant"), tr("Address/Constant"), SLOT(searchConstantSlot())));
     searchMenu->addAction(makeAction(DIcon("memory-map"), tr("Memory Reference"), SLOT(searchMemRefSlot())));
     mMenuBuilder->addMenu(makeMenu(DIcon("search"), tr("&Search")), searchMenu);
 
@@ -924,18 +970,9 @@ void TraceBrowser::setupRightClickContextMenu()
     });
     mMenuBuilder->addMenu(makeMenu(tr("Information")), infoMenu);
 
-
-    QAction* toggleAutoDisassemblyFollowSelection = makeAction(tr("Toggle Auto Disassembly Scroll (off)"), SLOT(toggleAutoDisassemblyFollowSelectionSlot()));
-    mMenuBuilder->addAction(toggleAutoDisassemblyFollowSelection, [this, toggleAutoDisassemblyFollowSelection](QMenu*)
-    {
-        if(!DbgIsDebugging())
-            return false;
-        if(mAutoDisassemblyFollowSelection)
-            toggleAutoDisassemblyFollowSelection->setText(tr("Toggle Auto Disassembly Scroll (on)"));
-        else
-            toggleAutoDisassemblyFollowSelection->setText(tr("Toggle Auto Disassembly Scroll (off)"));
-        return true;
-    });
+    auto synchronizeCpuAction = makeAction(DIcon("sync"), tr("Sync with CPU"), SLOT(synchronizeCpuSlot()));
+    synchronizeCpuAction->setCheckable(true);
+    mMenuBuilder->addAction(synchronizeCpuAction);
 }
 
 void TraceBrowser::contextMenuEvent(QContextMenuEvent* event)
@@ -947,7 +984,7 @@ void TraceBrowser::contextMenuEvent(QContextMenuEvent* event)
 
 void TraceBrowser::mousePressEvent(QMouseEvent* event)
 {
-    duint index = getIndexOffsetFromY(transY(event->y())) + getTableOffset();
+    auto index = getIndexOffsetFromY(transY(event->y())) + getTableOffset();
     if(getGuiState() != AbstractTableView::NoState || !mTraceFile || mTraceFile->Progress() < 100)
     {
         AbstractTableView::mousePressEvent(event);
@@ -1147,10 +1184,12 @@ void TraceBrowser::keyPressEvent(QKeyEvent* event)
         AbstractTableView::keyPressEvent(event);
 }
 
-void TraceBrowser::onSelectionChanged(unsigned long long selection)
+void TraceBrowser::selectionChangedSlot(unsigned long long selection)
 {
-    if(mAutoDisassemblyFollowSelection)
-        mCommonActions->followDisassemblySlot();
+    if(mAutoDisassemblyFollowSelection && isFileOpened())
+    {
+        GuiDisasmAt(mTraceFile->Registers(selection).regcontext.cip, 0);
+    }
 }
 
 void TraceBrowser::tokenizerConfigUpdatedSlot()
@@ -1203,9 +1242,10 @@ duint TraceBrowser::getSelectionEnd()
 
 void TraceBrowser::makeVisible(duint index)
 {
-    if(index < getTableOffset())
+    duint tableOffset = getTableOffset();
+    if(index < tableOffset)
         setTableOffset(index);
-    else if(index + 2 > getTableOffset() + getViewableRowsCount())
+    else if(index + 2 > tableOffset + getViewableRowsCount())
         setTableOffset(index - getViewableRowsCount() + 2);
 }
 
@@ -1255,7 +1295,14 @@ void TraceBrowser::updateColors()
 
 void TraceBrowser::openFileSlot()
 {
-    BrowseDialog browse(this, tr("Open run trace file"), tr("Open trace file"), tr("Run trace files (*.%1);;All files (*.*)").arg(ArchValue("trace32", "trace64")), QApplication::applicationDirPath() + QDir::separator() + "db", false);
+    BrowseDialog browse(
+        this,
+        tr("Open trace recording"),
+        tr("Trace recording"),
+        tr("Trace recordings (*.%1);;All files (*.*)").arg(ArchValue("trace32", "trace64")),
+        getDbPath(),
+        false
+    );
     if(browse.exec() != QDialog::Accepted)
         return;
     emit openSlot(browse.path);
@@ -1274,52 +1321,31 @@ void TraceBrowser::openSlot(const QString & fileName)
     mTraceFile->Open(fileName);
 }
 
-void TraceBrowser::toggleRunTraceSlot()
+void TraceBrowser::toggleTraceRecordingSlot()
 {
-    if(!DbgIsDebugging())
-        return;
-    if(DbgValFromString("tr.runtraceenabled()") == 1)
-        DbgCmdExec("StopRunTrace");
-    else
-    {
-        QString defaultFileName;
-        char moduleName[MAX_MODULE_SIZE];
-        QDateTime currentTime = QDateTime::currentDateTime();
-        duint defaultModule = DbgValFromString("mod.main()");
-        if(DbgFunctions()->ModNameFromAddr(defaultModule, moduleName, false))
-        {
-            defaultFileName = QString::fromUtf8(moduleName);
-        }
-        defaultFileName += "-" + QLocale(QString(currentLocale)).toString(currentTime.date()) + " " + currentTime.time().toString("hh-mm-ss") + ArchValue(".trace32", ".trace64");
-        BrowseDialog browse(this, tr("Select stored file"), tr("Store run trace to the following file"),
-                            tr("Run trace files (*.%1);;All files (*.*)").arg(ArchValue("trace32", "trace64")), QCoreApplication::applicationDirPath() + QDir::separator() + "db" + QDir::separator() + defaultFileName, true);
-        if(browse.exec() == QDialog::Accepted)
-        {
-            if(browse.path.contains(QChar('"')) || browse.path.contains(QChar('\'')))
-                SimpleErrorBox(this, tr("Error"), tr("File name contains invalid character."));
-            else
-                DbgCmdExec(QString("StartRunTrace \"%1\"").arg(browse.path));
-        }
-    }
+    toggleTraceRecording(this);
 }
 
 void TraceBrowser::closeFileSlot()
 {
-    if(DbgValFromString("tr.runtraceenabled()") == 1)
-        DbgCmdExec("StopRunTrace");
-    mTraceFile->Close();
-    delete mTraceFile;
-    mTraceFile = nullptr;
+    if(isRecording())
+        DbgCmdExecDirect("StopTraceRecording");
+    if(mTraceFile != nullptr)
+    {
+        mTraceFile->Close();
+        delete mTraceFile;
+        mTraceFile = nullptr;
+    }
     emit Bridge::getBridge()->updateTraceBrowser();
 }
 
 void TraceBrowser::closeDeleteSlot()
 {
-    QMessageBox msgbox(QMessageBox::Critical, tr("Close and delete"), tr("Are you really going to delete this file?"), QMessageBox::Yes | QMessageBox::Cancel, this);
+    QMessageBox msgbox(QMessageBox::Critical, tr("Delete recording"), tr("Are you sure you want to delete this recording?"), QMessageBox::Yes | QMessageBox::No, this);
     if(msgbox.exec() == QMessageBox::Yes)
     {
-        if(DbgValFromString("tr.runtraceenabled()") == 1)
-            DbgCmdExecDirect("StopRunTrace");
+        if(isRecording())
+            DbgCmdExecDirect("StopTraceRecording");
         mTraceFile->Delete();
         delete mTraceFile;
         mTraceFile = nullptr;
@@ -1331,7 +1357,7 @@ void TraceBrowser::parseFinishedSlot()
 {
     if(mTraceFile->isError())
     {
-        SimpleErrorBox(this, tr("Error"), tr("Error when opening run trace file"));
+        SimpleErrorBox(this, tr("Error"), tr("Error when opening trace recording"));
         delete mTraceFile;
         mTraceFile = nullptr;
         setRowCount(0);
@@ -1804,7 +1830,10 @@ void TraceBrowser::enableHighlightingModeSlot()
 void TraceBrowser::searchConstantSlot()
 {
     WordEditDialog constantDlg(this);
-    constantDlg.setup(tr("Constant"), 0, sizeof(duint));
+    duint initialConstant = 0;
+    if(mTraceFile && mTraceFile->Progress() == 100)
+        initialConstant =  mTraceFile->Registers(getInitialSelection()).regcontext.cip;
+    constantDlg.setup(tr("Constant"), initialConstant, sizeof(duint));
     if(constantDlg.exec() == QDialog::Accepted)
     {
         TraceFileSearchConstantRange(mTraceFile, constantDlg.getVal(), constantDlg.getVal());
@@ -1827,7 +1856,7 @@ void TraceBrowser::updateSlot()
 {
     if(mTraceFile && mTraceFile->Progress() == 100) // && this->isVisible()
     {
-        if(DbgValFromString("tr.runtraceenabled()") == 1)
+        if(isRecording())
         {
             mTraceFile->purgeLastPage();
             setRowCount(mTraceFile->Length());
@@ -1838,7 +1867,12 @@ void TraceBrowser::updateSlot()
     reloadData();
 }
 
-void TraceBrowser::toggleAutoDisassemblyFollowSelectionSlot()
+void TraceBrowser::synchronizeCpuSlot()
 {
     mAutoDisassemblyFollowSelection = !mAutoDisassemblyFollowSelection;
+}
+
+void TraceBrowser::gotoIndexSlot(duint index)
+{
+    disasm(index, false);
 }

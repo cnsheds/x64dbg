@@ -38,6 +38,7 @@ private:
     MenuBuilder* mMenuBuilder;
     GotoDialog* mGotoDialog = nullptr;
     SCRIPTTYPEINFO* mAutoCompleteInfo;
+    QColor mTextColor;
 
     void setupColumns();
     void setupContextMenu();

@@ -7,10 +7,12 @@
 #include "_global.h"
 #include "bridgemain.h"
 #include <stdio.h>
+#include <ShlObj.h>
 #include "Utf8Ini.h"
 
 static HINSTANCE hInst;
 static Utf8Ini settings;
+static wchar_t szUserDirectory[MAX_PATH] = L"";
 static wchar_t szIniFile[MAX_PATH] = L"";
 static CRITICAL_SECTION csIni;
 static CRITICAL_SECTION csTranslate;
@@ -42,6 +44,27 @@ static bool bDisableGUIUpdate;
         return szError; \
     }
 
+static std::wstring Utf8ToUtf16(const char* str)
+{
+    std::wstring convertedString;
+    if(!str || !*str)
+        return convertedString;
+    int requiredSize = MultiByteToWideChar(CP_UTF8, 0, str, -1, nullptr, 0);
+    if(requiredSize > 0)
+    {
+        convertedString.resize(requiredSize - 1);
+        if(!MultiByteToWideChar(CP_UTF8, 0, str, -1, (wchar_t*)convertedString.c_str(), requiredSize))
+            convertedString.clear();
+    }
+    return convertedString;
+}
+
+static bool DirExists(const wchar_t* dir)
+{
+    DWORD attrib = GetFileAttributesW(dir);
+    return (attrib != INVALID_FILE_ATTRIBUTES && (attrib & FILE_ATTRIBUTE_DIRECTORY) != 0);
+}
+
 BRIDGE_IMPEXP const wchar_t* BridgeInit()
 {
     //Initialize critial section
@@ -49,15 +72,73 @@ BRIDGE_IMPEXP const wchar_t* BridgeInit()
     InitializeCriticalSection(&csTranslate);
 
     //Settings load
-    if(!GetModuleFileNameW(0, szIniFile, MAX_PATH))
+    if(!GetModuleFileNameW(0, szUserDirectory, _countof(szUserDirectory)))
         return L"Error getting module path!";
-    int len = (int)wcslen(szIniFile);
-    while(szIniFile[len] != L'.' && szIniFile[len] != L'\\' && len)
-        len--;
-    if(szIniFile[len] == L'\\')
-        wcscat_s(szIniFile, L".ini");
+
+    auto backslash = wcsrchr(szUserDirectory, L'\\');
+    if(backslash == nullptr)
+        return L"Error getting module directory!";
+
+    *backslash = L'\0';
+
+    // Extract the file name of the x64dbg executable (without extension)
+    auto fileNameWithoutExtension = backslash + 1;
+    auto period = wcschr(fileNameWithoutExtension, L'.');
+    if(period != nullptr)
+    {
+        *period = L'\0';
+    }
+
+    wchar_t szFolderRedirect[MAX_PATH];
+    wcscpy_s(szFolderRedirect, szUserDirectory);
+    wcscat_s(szFolderRedirect, L"\\userdir");
+
+    std::wstring userDirUtf16;
+    {
+        std::vector<char> userDirUtf8;
+        auto hFile = CreateFileW(szFolderRedirect, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+        if(hFile != INVALID_HANDLE_VALUE)
+        {
+            auto size = GetFileSize(hFile, nullptr);
+            userDirUtf8.resize(size + 1);
+            DWORD read = 0;
+            if(!ReadFile(hFile, userDirUtf8.data(), size, &read, nullptr))
+                userDirUtf8.clear();
+            CloseHandle(hFile);
+            userDirUtf16 = Utf8ToUtf16(userDirUtf8.data());
+        }
+        else
+        {
+            userDirUtf16 = szUserDirectory;
+        }
+    }
+
+    if(userDirUtf16.empty())
+    {
+        wchar_t szAppData[MAX_PATH] = L"";
+        if(!SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, szAppData)))
+            return L"Error getting AppData path";
+        userDirUtf16 = szAppData;
+        if(userDirUtf16.back() != L'\\')
+            userDirUtf16 += L'\\';
+        userDirUtf16 += fileNameWithoutExtension;
+        CreateDirectoryW(userDirUtf16.c_str(), nullptr);
+    }
     else
-        wcscpy_s(&szIniFile[len], _countof(szIniFile) - len, L".ini");
+    {
+        if(userDirUtf16.back() == L'\\')
+            userDirUtf16.pop_back();
+    }
+
+    if(!DirExists(userDirUtf16.c_str()))
+        return L"Specified user directory doesn't exist";
+
+    wcscpy_s(szIniFile, userDirUtf16.c_str());
+    wcscat_s(szIniFile, L"\\");
+    wcscat_s(szIniFile, fileNameWithoutExtension);
+    wcscat_s(szIniFile, L".ini");
+
+    wcscpy_s(szUserDirectory, userDirUtf16.c_str());
 
     HINSTANCE hInst;
     const wchar_t* szLib;
@@ -266,21 +347,32 @@ BRIDGE_IMPEXP bool BridgeIsProcessElevated()
     return !!IsAdminMember;
 }
 
+static DWORD BridgeGetNtBuildNumberWindows7()
+{
+    auto p_RtlGetVersion = (NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW))GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlGetVersion");
+    RTL_OSVERSIONINFOW info = { sizeof(info) };
+    if(p_RtlGetVersion && p_RtlGetVersion(&info) == 0)
+        return info.dwBuildNumber;
+    else
+        return 0;
+}
+
 BRIDGE_IMPEXP unsigned int BridgeGetNtBuildNumber()
 {
     // https://www.vergiliusproject.com/kernels/x64/Windows%2010%20%7C%202016/1507%20Threshold%201/_KUSER_SHARED_DATA
-    auto NtBuildNumber = *(unsigned int*)(0x7FFE0000 + 0x260);
+    auto NtBuildNumber = *(DWORD*)(0x7FFE0000 + 0x260);
     if(NtBuildNumber == 0)
     {
         // Older versions of Windows
-        static auto p_RtlGetVersion = (NTSTATUS(*)(PRTL_OSVERSIONINFOW))GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlGetVersion");
-        RTL_OSVERSIONINFOW info = { sizeof(info) };
-        if(p_RtlGetVersion && p_RtlGetVersion(&info) == 0)
-        {
-            NtBuildNumber = info.dwBuildNumber;
-        }
+        static DWORD NtBuildNumber7 = BridgeGetNtBuildNumberWindows7();
+        NtBuildNumber = NtBuildNumber7;
     }
     return NtBuildNumber;
+}
+
+BRIDGE_IMPEXP const wchar_t* BridgeUserDirectory()
+{
+    return szUserDirectory;
 }
 
 BRIDGE_IMPEXP bool DbgMemRead(duint va, void* dest, duint size)
@@ -1771,6 +1863,21 @@ BRIDGE_IMPEXP void GuiShowReferences()
 BRIDGE_IMPEXP void GuiSelectInSymbolsTab(duint addr)
 {
     _gui_sendmessage(GUI_SELECT_IN_SYMBOLS_TAB, (void*)addr, nullptr);
+}
+
+BRIDGE_IMPEXP void GuiGotoTrace(duint index)
+{
+    _gui_sendmessage(GUI_GOTO_TRACE, (void*)index, nullptr);
+}
+
+BRIDGE_IMPEXP void GuiShowTrace()
+{
+    _gui_sendmessage(GUI_SHOW_TRACE, nullptr, nullptr);
+}
+
+BRIDGE_IMPEXP DWORD GuiGetMainThreadId()
+{
+    return (DWORD)(duint)_gui_sendmessage(GUI_GET_MAIN_THREAD_ID, nullptr, nullptr);
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)

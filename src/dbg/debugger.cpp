@@ -36,6 +36,7 @@
 #include "exprfunc.h"
 #include "debugger_cookie.h"
 #include "debugger_tracing.h"
+#include "handles.h"
 
 // Debugging variables
 static PROCESS_INFORMATION g_pi = {0, 0, 0, 0};
@@ -70,6 +71,7 @@ static duint exceptionDispatchAddr = 0;
 static bool bPausedOnException = false;
 static HANDLE DebugDLLFileMapping = 0;
 char szProgramDir[MAX_PATH] = "";
+char szUserDir[MAX_PATH] = "";
 char szDebuggeePath[MAX_PATH] = "";
 char szDllLoaderPath[MAX_PATH] = "";
 char szSymbolCachePath[MAX_PATH] = "";
@@ -79,7 +81,6 @@ HANDLE hActiveThread;
 HANDLE hProcessToken;
 bool bUndecorateSymbolNames = true;
 bool bEnableSourceDebugging = false;
-bool bTraceRecordEnabledDuringTrace = true;
 bool bSkipInt3Stepping = false;
 bool bBreakCalcConditionsFails = false;
 bool bIgnoreInconsistentBreakpoints = false;
@@ -482,7 +483,7 @@ static void DebugUpdateTitle(duint disasm_addr, bool analyzeThreadSwitch)
         {
             char threadName2[MAX_THREAD_NAME_SIZE] = "";
             if(!ThreadGetName(PrevThreadId, threadName2) || threadName2[0] == 0)
-                sprintf_s(threadName2, "%X", PrevThreadId);
+                strcpy_s(threadName2, formatpidtid(PrevThreadId).c_str());
             _snprintf_s(threadswitch, _TRUNCATE, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", " (switched from %s)")), threadName2);
             PrevThreadId = currentThreadId;
         }
@@ -491,18 +492,7 @@ static void DebugUpdateTitle(duint disasm_addr, bool analyzeThreadSwitch)
     char threadName[MAX_THREAD_NAME_SIZE + 1] = "";
     if(ThreadGetName(currentThreadId, threadName) && *threadName)
         strcat_s(threadName, " ");
-    char PIDnumber[64], TIDnumber[64];
-    if(settingboolget("Gui", "PidInHex"))
-    {
-        sprintf_s(PIDnumber, "%X", fdProcessInfo->dwProcessId);
-        sprintf_s(TIDnumber, "%X", currentThreadId);
-    }
-    else
-    {
-        sprintf_s(PIDnumber, "%u", fdProcessInfo->dwProcessId);
-        sprintf_s(TIDnumber, "%u", currentThreadId);
-    }
-    _snprintf_s(title, _TRUNCATE, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "%s - PID: %s - %sThread: %s%s%s")), szBaseFileName, PIDnumber, modtext, threadName, TIDnumber, threadswitch);
+    _snprintf_s(title, _TRUNCATE, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "%s - PID: %s - %sThread: %s%s%s")), szBaseFileName, formatpidtid(fdProcessInfo->dwProcessId).c_str(), modtext, threadName, formatpidtid(currentThreadId).c_str(), threadswitch);
     GuiUpdateWindowTitle(title);
 }
 
@@ -667,9 +657,9 @@ static void printHwBpInfo(const BREAKPOINT & bp)
     }
     auto symbolicname = SymGetSymbolicName(bp.addr);
     if(*bp.name)
-        dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint%s \"%s\" at %s!\n"), bptype, bp.name, symbolicname.c_str());
+        dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint (%s%s) \"%s\" at %s!\n"), bpsize, bptype, bp.name, symbolicname.c_str());
     else
-        dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint%s at %s!\n"), bptype, symbolicname.c_str());
+        dprintf(QT_TRANSLATE_NOOP("DBG", "Hardware breakpoint (%s%s) at %s!\n"), bpsize, bptype, symbolicname.c_str());
     free(bptype);
 }
 
@@ -770,7 +760,7 @@ void cbPauseBreakpoint()
     DebugUpdateGuiSetStateAsync(CIP, true);
     _dbg_animatestop(); // Stop animating when paused
     // Trace record
-    _dbg_dbgtraceexecute(CIP);
+    dbgtraceexecute(CIP);
     //lock
     lock(WAITID_RUN);
     // Plugin callback
@@ -951,7 +941,7 @@ static void cbGenericBreakpoint(BP_TYPE bptype, void* ExceptionAddress = nullptr
     plugincbcall(CB_BREAKPOINT, &bpInfo);
 
     // Trace record
-    _dbg_dbgtraceexecute(CIP);
+    dbgtraceexecute(CIP);
 
     // Watchdog
     cbCheckWatchdog(0, nullptr);
@@ -1020,7 +1010,7 @@ void cbRunToUserCodeBreakpoint(void* ExceptionAddress)
     // lock
     lock(WAITID_RUN);
     // Trace record
-    _dbg_dbgtraceexecute(CIP);
+    dbgtraceexecute(CIP);
     // Update GUI
     DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), true);
     // Plugin callback
@@ -1217,7 +1207,7 @@ void cbStep()
     {
         DebugUpdateGuiSetStateAsync(CIP, true);
         // Trace record
-        _dbg_dbgtraceexecute(CIP);
+        dbgtraceexecute(CIP);
         // Plugin interaction
         PLUG_CB_STEPPED stepInfo;
         stepInfo.reserved = 0;
@@ -1233,8 +1223,7 @@ void cbStep()
     }
     else
     {
-        if(bTraceRecordEnabledDuringTrace)
-            _dbg_dbgtraceexecute(CIP);
+        dbgtraceexecute(CIP);
         (bRepeatIn ? StepIntoWow64 : StepOverWrapper)((void*)cbStep);
     }
 }
@@ -1247,7 +1236,7 @@ static void cbRtrFinalStep(bool checkRepeat = false)
         hActiveThread = ThreadGetHandle(((DEBUG_EVENT*)GetDebugData())->dwThreadId);
         duint CIP = GetContextDataEx(hActiveThread, UE_CIP);
         // Trace record
-        _dbg_dbgtraceexecute(CIP);
+        dbgtraceexecute(CIP);
         DebugUpdateGuiSetStateAsync(CIP, true);
         //lock
         lock(WAITID_RUN);
@@ -1270,8 +1259,7 @@ void cbRtrStep()
     duint cip = GetContextDataEx(hActiveThread, UE_CIP);
     duint csp = GetContextDataEx(hActiveThread, UE_CSP);
     MemRead(cip, data, sizeof(data));
-    if(bTraceRecordEnabledDuringTrace)
-        _dbg_dbgtraceexecute(cip);
+    dbgtraceexecute(cip);
     if(mRtrPreviousCSP <= csp) //"Run until return" should break only if RSP is bigger than or equal to current value
     {
         if(data[0] == 0xC3 || data[0] == 0xC2) //retn instruction
@@ -1370,8 +1358,7 @@ static void cbTraceUniversalConditionalStep(duint cip, bool bStepInto, void(*cal
     }
     else //continue tracing
     {
-        if(bTraceRecordEnabledDuringTrace)
-            _dbg_dbgtraceexecute(cip);
+        dbgtraceexecute(cip);
         if(switchCondition) //switch (invert) the step type once
             bStepInto = !bStepInto;
         (bStepInto ? StepIntoWow64 : StepOverWrapper)((void*)callback);
@@ -1500,8 +1487,6 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* CreateProcessInfo)
             sprintf_s(command, "bp %p,\"%s\",ss", pDebuggedBase + pDebuggedEntry, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "entry breakpoint")));
             cmddirectexec(command);
         }
-
-        bTraceRecordEnabledDuringTrace = settingboolget("Engine", "TraceRecordEnabledDuringTrace");
     }
     else if(bFileIsDll && strstr(DebugFileName, "DLLLoader" ArchValue("32", "64"))) //DLL Loader
         gDllLoader = StringUtils::Utf8ToUtf16(DebugFileName);
@@ -1603,8 +1588,8 @@ static void cbCreateThread(CREATE_THREAD_DEBUG_INFO* CreateThread)
 
     auto entry = duint(CreateThread->lpStartAddress);
     auto parameter = GetContextDataEx(hActiveThread, ArchValue(UE_EBX, UE_RDX));
-    dprintf(QT_TRANSLATE_NOOP("DBG", "Thread %X created, Entry: %s, Parameter: %s\n"),
-            dwThreadId,
+    dprintf(QT_TRANSLATE_NOOP("DBG", "Thread %s created, Entry: %s, Parameter: %s\n"),
+            formatpidtid(dwThreadId).c_str(),
             SymGetSymbolicName(entry).c_str(),
             SymGetSymbolicName(parameter).c_str()
            );
@@ -1641,7 +1626,7 @@ static void cbCreateThread(CREATE_THREAD_DEBUG_INFO* CreateThread)
             MEMPAGE page;
             auto limit = duint(tib.StackLimit);
             auto base = duint(tib.StackBase);
-            sprintf_s(page.info, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Thread %X Stack")), dwThreadId);
+            sprintf_s(page.info, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Thread %s Stack")), formatpidtid(dwThreadId).c_str());
             page.mbi.BaseAddress = page.mbi.AllocationBase = tib.StackLimit;
             page.mbi.Protect = page.mbi.AllocationProtect = PAGE_READWRITE;
             page.mbi.RegionSize = base - limit;
@@ -1676,7 +1661,7 @@ static void cbExitThread(EXIT_THREAD_DEBUG_INFO* ExitThread)
     plugincbcall(CB_EXITTHREAD, &callbackInfo);
     HistoryClear();
     ThreadExit(dwThreadId);
-    dprintf(QT_TRANSLATE_NOOP("DBG", "Thread %X exit\n"), dwThreadId);
+    dprintf(QT_TRANSLATE_NOOP("DBG", "Thread %s exit\n"), formatpidtid(dwThreadId).c_str());
 
     if(settingboolget("Events", "ThreadEnd"))
     {
@@ -2709,7 +2694,7 @@ static void* InitDLLDebugW(const wchar_t* szFileName, const wchar_t* szCommandLi
     WString loaderPath = StringUtils::Utf8ToUtf16(szDllLoaderPath);
     if(!CopyFileW(loaderPath.c_str(), debuggeeLoaderPath.c_str(), FALSE))
     {
-        debuggeeLoaderPath = StringUtils::Utf8ToUtf16(szProgramDir);
+        debuggeeLoaderPath = StringUtils::Utf8ToUtf16(szUserDir);
         debuggeeLoaderPath += loaderFilename;
         if(!CopyFileW(loaderPath.c_str(), debuggeeLoaderPath.c_str(), FALSE))
         {
@@ -2934,7 +2919,7 @@ static void debugLoopFunction(INIT_STRUCT* init)
     ThreadClear();
     WatchClear();
     TraceRecord.clear();
-    _dbg_dbgenableRunTrace(false, nullptr); //Stop run trace
+    TraceRecord.enableTraceRecording(false, nullptr); // Stop trace recording
     GuiSetDebugState(stopped);
     GuiUpdateAllViews();
     dputs(QT_TRANSLATE_NOOP("DBG", "Debugging stopped!"));
@@ -2984,6 +2969,19 @@ void dbgsetforeground()
 
 void dbgcreatedebugthread(INIT_STRUCT* init)
 {
+    if(settingboolget("Misc", "CheckForAntiCheatDrivers"))
+    {
+        auto loadedDrivers = LoadedAntiCheatDrivers();
+        if(!loadedDrivers.empty())
+        {
+            auto translatedFormat = GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Drivers known to interfere with x64dbg's operation have been detected.\n\nList of drivers:\n%s\n\nDo you want to continue debugging?"));
+            auto message = StringUtils::sprintf(translatedFormat, loadedDrivers.c_str());
+            auto continueDebugging = GuiScriptMsgyn(message.c_str());
+            if(!continueDebugging)
+                return;
+        }
+    }
+
     auto event = init->event = CreateEventW(nullptr, false, false, nullptr);
     hDebugLoopThread = CreateThread(nullptr, 0, [](LPVOID lpParameter) -> DWORD
     {

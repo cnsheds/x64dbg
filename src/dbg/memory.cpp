@@ -111,73 +111,160 @@ static void ProcessFileSections(std::vector<MEMPAGE> & pageVector)
     if(pageVector.empty())
         return;
     const auto pagecount = (int)pageVector.size();
-    char curMod[MAX_MODULE_SIZE] = "";
+    // NOTE: this iteration is backwards
     for(int i = pagecount - 1; i > -1; i--)
     {
         if(!DbgIsDebugging())
             return;
 
         auto & currentPage = pageVector.at(i);
-        if(!currentPage.info[0] || (scmp(curMod, currentPage.info) && !bListAllPages))        //there is a module
-            continue; //skip non-modules
-        strcpy_s(curMod, pageVector.at(i).info);
-        auto modBase = ModBaseFromName(currentPage.info);
-        if(!modBase)
+
+        // Nothing to do for reserved or free pages
+        if(currentPage.mbi.State == MEM_RESERVE || currentPage.mbi.State == MEM_FREE)
             continue;
-        auto base = duint(currentPage.mbi.AllocationBase);
+
+        auto pageBase = duint(currentPage.mbi.BaseAddress);
+        auto pageSize = currentPage.mbi.RegionSize;
+
+        // Retrieve module info
+        duint modBase = 0;
         std::vector<MODSECTIONINFO> sections;
-        if(!ModSectionsFromAddr(base, &sections))
-            continue;
-        int SectionNumber = (int)sections.size();
-        if(!SectionNumber)        //no sections = skip
-            continue;
-        if(!bListAllPages)        //normal view
+        duint sectionAlignment = 0;
+        duint modSize = 0;
+        duint sizeOfImage = 0;
         {
-            // coherence check, rest of code assumes whole module resides in one region
-            // in other cases module information cannot be trusted
-            if(base != modBase || currentPage.mbi.RegionSize != ROUND_TO_PAGES(ModSizeFromAddr(modBase)))
+            SHARED_ACQUIRE(LockModules);
+            auto modInfo = ModInfoFromAddr(pageBase);
+
+            // Nothing to do for non-modules
+            if(!modInfo)
                 continue;
 
-            MEMPAGE newPage;
-            //remove the current module page (page = size of module at this point) and insert the module sections
-            pageVector.erase(pageVector.begin() + i); //remove the SizeOfImage page
-            for(int j = SectionNumber - 1; j > -1; j--)
+            modBase = modInfo->base;
+            modSize = modInfo->size;
+            sections = modInfo->sections;
+            if(modInfo->headers)
             {
-                const auto & currentSection = sections.at(j);
-                memset(&newPage, 0, sizeof(MEMPAGE));
-                VirtualQueryEx(fdProcessInfo->hProcess, (LPCVOID)currentSection.addr, &newPage.mbi, sizeof(MEMORY_BASIC_INFORMATION));
-                duint SectionSize = currentSection.size;
-                if(SectionSize % PAGE_SIZE)        //unaligned page size
-                    SectionSize += PAGE_SIZE - (SectionSize % PAGE_SIZE); //fix this
-                if(SectionSize)
-                    newPage.mbi.RegionSize = SectionSize;
-                sprintf_s(newPage.info, " \"%s\"", currentSection.name);
-                pageVector.insert(pageVector.begin() + i, newPage);
+                sectionAlignment = modInfo->headers->OptionalHeader.SectionAlignment;
+                sizeOfImage = ROUND_TO_PAGES(modInfo->headers->OptionalHeader.SizeOfImage);
             }
-            //insert the module itself (the module header)
-            memset(&newPage, 0, sizeof(MEMPAGE));
-            VirtualQueryEx(fdProcessInfo->hProcess, (LPCVOID)base, &newPage.mbi, sizeof(MEMORY_BASIC_INFORMATION));
-            strcpy_s(newPage.info, curMod);
-            newPage.mbi.RegionSize = sections.front().addr - base;
-            pageVector.insert(pageVector.begin() + i, newPage);
+            else
+            {
+                // This appears to happen under unknown circumstances
+                // https://github.com/x64dbg/x64dbg/issues/2945
+                // https://github.com/x64dbg/x64dbg/issues/2931
+                sectionAlignment = 0x1000;
+                sizeOfImage = modSize;
+
+                // Spam the user with errors to hopefully get more information
+                std::string summary;
+                summary = StringUtils::sprintf("The module at %p (%s%s) triggers a weird bug, please report an issue\n",  modBase, modInfo->name, modInfo->extension);
+                GuiAddLogMessage(summary.c_str());
+            }
         }
-        else //list all pages
+
+        // Nothing to do if the module doesn't have sections
+        if(sections.empty())
+            continue;
+
+        // It looks like a section alignment of 0x10000 becomes PAGE_SIZE in reality
+        // The rest of the space is mapped as RESERVED
+        sectionAlignment = min(sectionAlignment, PAGE_SIZE);
+
+        auto sectionAlign = [sectionAlignment](duint value)
         {
-            duint start = (duint)currentPage.mbi.BaseAddress;
-            duint end = start + currentPage.mbi.RegionSize;
-            duint infoOffset = 0;
-            // display module name in first region (useful if PE header and first section have same protection)
-            if(start == modBase)
+            return (value + (sectionAlignment - 1)) & ~(sectionAlignment - 1);
+        };
+
+        // Align the sections
+        for(size_t j = 0; j < sections.size(); j++)
+        {
+            auto & section = sections[j];
+            section.addr = sectionAlign(section.addr);
+            section.size = (section.size + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
+
+            // Extend the last section to SizeOfImage under the right circumstances
+            if(j + 1 == sections.size() && sectionAlignment < PAGE_SIZE)
+            {
+                auto totalSize = section.addr + section.size;
+                totalSize -= modBase;
+                if(sizeOfImage > totalSize)
+                    section.size += sizeOfImage - totalSize;
+            }
+        }
+
+        // Section view
+        if(!bListAllPages)
+        {
+            std::vector<MEMPAGE> newPages;
+            newPages.reserve(sections.size() + 1);
+
+            // Insert a page for the header if this is the header page
+            if(pageBase == modBase)
+            {
+                MEMPAGE headerPage = {};
+                VirtualQueryEx(fdProcessInfo->hProcess, (LPCVOID)modBase, &headerPage.mbi, sizeof(MEMORY_BASIC_INFORMATION));
+                headerPage.mbi.RegionSize = min(sections.front().addr - modBase, pageSize);
+                strcpy_s(headerPage.info, currentPage.info);
+                newPages.push_back(headerPage);
+            }
+
+            // Insert pages for the sections
+            for(const auto & section : sections)
+            {
+                // Only insert the sections that are within the current page
+                if(section.addr >= pageBase && section.addr + section.size <= pageBase + currentPage.mbi.RegionSize)
+                {
+                    MEMPAGE sectionPage = {};
+                    VirtualQueryEx(fdProcessInfo->hProcess, (LPCVOID)section.addr, &sectionPage.mbi, sizeof(MEMORY_BASIC_INFORMATION));
+                    sectionPage.mbi.BaseAddress = (PVOID)section.addr;
+                    sectionPage.mbi.RegionSize = section.size;
+                    sprintf_s(sectionPage.info, " \"%s\"", section.name);
+                    newPages.push_back(sectionPage);
+                }
+            }
+
+            // Make sure the total size matches the new fake pages
+            size_t totalSize = 0;
+            for(const auto & page : newPages)
+                totalSize += page.mbi.RegionSize;
+
+            // Replace the single module page with the sections
+            // newPages should never be empty, but try to avoid data loss if it is
+            if(!newPages.empty() && totalSize == pageSize)
+            {
+                pageVector.erase(pageVector.begin() + i); // remove the SizeOfImage page
+                pageVector.insert(pageVector.begin() + i, newPages.begin(), newPages.end());
+            }
+            else
+            {
+                // Report an error to make it easier to debug
+                auto summary = StringUtils::sprintf("Error replacing page: %p[%p] (%s)\n", pageBase, pageSize, currentPage.info);
+                summary += "Sections:\n";
+                for(const auto & section : sections)
+                    summary += StringUtils::sprintf("  \"%s\": %p[%p]\n", section.name, section.addr, section.size);
+                summary += "New pages:\n";
+                for(const auto & page : newPages)
+                    summary += StringUtils::sprintf(" \"%s\": %p[%p]\n", page.info, page.mbi.BaseAddress, page.mbi.RegionSize);
+                summary += "Please report an issue!\n";
+                GuiAddLogMessage(summary.c_str());
+                strncat_s(currentPage.info, " (error, see log)", _TRUNCATE);
+            }
+        }
+        // List all pages
+        else
+        {
+            size_t infoOffset = 0;
+            // Display module name in first region (useful if PE header and first section have same protection)
+            if(pageBase == modBase)
                 infoOffset = strlen(currentPage.info);
-            for(duint j = 0; (j < (duint)SectionNumber) && (infoOffset + IMAGE_SIZEOF_SHORT_NAME < sizeof(currentPage.info)); j++)
+            for(size_t j = 0; j < sections.size() && infoOffset + 1 < _countof(currentPage.info); j++)
             {
                 const auto & currentSection = sections.at(j);
-                duint secStart = currentSection.addr;
-                duint SectionSize = currentSection.size;
-                if(SectionSize % PAGE_SIZE)        //unaligned page size
-                    SectionSize += PAGE_SIZE - (SectionSize % PAGE_SIZE); //fix this
-                duint secEnd = secStart + SectionSize;
-                if(start < secEnd && end > secStart)        //the section and memory overlap
+                duint sectionStart = currentSection.addr;
+                duint sectionEnd = sectionStart + currentSection.size;
+                // Check if the section and page overlap
+                if(pageBase < sectionEnd && pageBase + pageSize > sectionStart)
                 {
                     if(infoOffset)
                         infoOffset += _snprintf_s(currentPage.info + infoOffset, sizeof(currentPage.info) - infoOffset, _TRUNCATE, ",");

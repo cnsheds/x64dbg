@@ -63,10 +63,10 @@ void SettingsDialog::LoadSettings()
     settings.engineUndecorateSymbolNames = true;
     settings.engineEnableDebugPrivilege = true;
     settings.engineEnableSourceDebugging = false;
-    settings.engineEnableTraceRecordDuringTrace = true;
     settings.engineNoScriptTimeout = false;
     settings.engineIgnoreInconsistentBreakpoints = false;
     settings.engineNoWow64SingleStepWorkaround = false;
+    settings.engineDisableAslr = false;
     settings.engineMaxTraceCount = 50000;
     settings.engineAnimateInterval = 50;
     settings.engineHardcoreThreadSwitchWarning = false;
@@ -157,7 +157,6 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Engine", "EnableSourceDebugging", &settings.engineEnableSourceDebugging);
     GetSettingBool("Engine", "SaveDatabaseInProgramDirectory", &settings.engineSaveDatabaseInProgramDirectory);
     GetSettingBool("Engine", "DisableDatabaseCompression", &settings.engineDisableDatabaseCompression);
-    GetSettingBool("Engine", "TraceRecordEnabledDuringTrace", &settings.engineEnableTraceRecordDuringTrace);
     GetSettingBool("Engine", "SkipInt3Stepping", &settings.engineSkipInt3Stepping);
     GetSettingBool("Engine", "BreakWhenCalcConditionsFails", &settings.engineBreakWhenCalcConditionsFails);
     GetSettingBool("Engine", "NoScriptTimeout", &settings.engineNoScriptTimeout);
@@ -165,6 +164,7 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Engine", "HardcoreThreadSwitchWarning", &settings.engineHardcoreThreadSwitchWarning);
     GetSettingBool("Engine", "VerboseExceptionLogging", &settings.engineVerboseExceptionLogging);
     GetSettingBool("Engine", "NoWow64SingleStepWorkaround", &settings.engineNoWow64SingleStepWorkaround);
+    GetSettingBool("Engine", "DisableAslr", &settings.engineDisableAslr);
     if(BridgeSettingGetUint("Engine", "MaxTraceCount", &cur))
         settings.engineMaxTraceCount = int(cur);
     if(BridgeSettingGetUint("Engine", "AnimateInterval", &cur))
@@ -204,7 +204,6 @@ void SettingsDialog::LoadSettings()
     ui->chkEnableSourceDebugging->setChecked(settings.engineEnableSourceDebugging);
     ui->chkSaveDatabaseInProgramDirectory->setChecked(settings.engineSaveDatabaseInProgramDirectory);
     ui->chkDisableDatabaseCompression->setChecked(settings.engineDisableDatabaseCompression);
-    ui->chkTraceRecordEnabledDuringTrace->setChecked(settings.engineEnableTraceRecordDuringTrace);
     ui->chkSkipInt3Stepping->setChecked(settings.engineSkipInt3Stepping);
     ui->chkBreakWhenCalcConditionsFails->setChecked(settings.engineBreakWhenCalcConditionsFails);
     ui->chkNoScriptTimeout->setChecked(settings.engineNoScriptTimeout);
@@ -212,6 +211,7 @@ void SettingsDialog::LoadSettings()
     ui->chkHardcoreThreadSwitchWarning->setChecked(settings.engineHardcoreThreadSwitchWarning);
     ui->chkVerboseExceptionLogging->setChecked(settings.engineVerboseExceptionLogging);
     ui->chkNoWow64SingleStepWorkaround->setChecked(settings.engineNoWow64SingleStepWorkaround);
+    ui->chkDisableAslr->setChecked(settings.engineDisableAslr);
     ui->spinMaxTraceCount->setValue(settings.engineMaxTraceCount);
     ui->spinAnimateInterval->setValue(settings.engineAnimateInterval);
 
@@ -338,7 +338,6 @@ void SettingsDialog::LoadSettings()
 #ifndef _WIN64
         isx64 = false;
 #endif
-        bool jit_auto_on;
         bool get_jit_works;
         get_jit_works = DbgFunctions()->GetJit(jit_entry, isx64);
         DbgFunctions()->GetDefJit(jit_def_entry);
@@ -355,18 +354,9 @@ void SettingsDialog::LoadSettings()
 
         ui->chkSetJIT->setCheckState(bool2check(settings.miscSetJIT));
 
-        bool get_jit_auto_works = DbgFunctions()->GetJitAuto(&jit_auto_on);
-        if(!get_jit_auto_works || !jit_auto_on)
-            settings.miscSetJITAuto = true;
-        else
-            settings.miscSetJITAuto = false;
-
-        ui->chkConfirmBeforeAtt->setCheckState(bool2check(settings.miscSetJITAuto));
-
         if(!BridgeIsProcessElevated())
         {
             ui->chkSetJIT->setDisabled(true);
-            ui->chkConfirmBeforeAtt->setDisabled(true);
             ui->lblAdminWarning->setText(QString(tr("<font color=\"red\"><b>Warning</b></font>: Run the debugger as Admin to enable JIT.")));
         }
         else
@@ -387,7 +377,6 @@ void SettingsDialog::LoadSettings()
         ui->editHelpOnSymbolicNameUrl->setText(QString(setting));
 
     bJitOld = settings.miscSetJIT;
-    bJitAutoOld = settings.miscSetJITAuto;
 
     GetSettingBool("Misc", "Utf16LogRedirect", &settings.miscUtf16LogRedirect);
     GetSettingBool("Misc", "UseLocalHelpFile", &settings.miscUseLocalHelpFile);
@@ -429,7 +418,6 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Engine", "EnableSourceDebugging", settings.engineEnableSourceDebugging);
     BridgeSettingSetUint("Engine", "SaveDatabaseInProgramDirectory", settings.engineSaveDatabaseInProgramDirectory);
     BridgeSettingSetUint("Engine", "DisableDatabaseCompression", settings.engineDisableDatabaseCompression);
-    BridgeSettingSetUint("Engine", "TraceRecordEnabledDuringTrace", settings.engineEnableTraceRecordDuringTrace);
     BridgeSettingSetUint("Engine", "SkipInt3Stepping", settings.engineSkipInt3Stepping);
     BridgeSettingSetUint("Engine", "BreakWhenCalcConditionsFails", settings.engineBreakWhenCalcConditionsFails);
     BridgeSettingSetUint("Engine", "NoScriptTimeout", settings.engineNoScriptTimeout);
@@ -439,6 +427,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Engine", "VerboseExceptionLogging", settings.engineVerboseExceptionLogging);
     BridgeSettingSetUint("Engine", "HardcoreThreadSwitchWarning", settings.engineHardcoreThreadSwitchWarning);
     BridgeSettingSetUint("Engine", "NoWow64SingleStepWorkaround", settings.engineNoWow64SingleStepWorkaround);
+    BridgeSettingSetUint("Engine", "DisableAslr", settings.engineDisableAslr);
 
     //Exceptions tab
     QString exceptionRange = "";
@@ -497,17 +486,13 @@ void SettingsDialog::SaveSettings()
         if(bJitOld != settings.miscSetJIT)
         {
             if(settings.miscSetJIT)
+            {
+                // Since Windows 10 WER will not trigger the JIT debugger at all without this
+                DbgCmdExec("setjitauto on");
                 DbgCmdExec("setjit oldsave");
+            }
             else
                 DbgCmdExec("setjit restore");
-        }
-
-        if(bJitAutoOld != settings.miscSetJITAuto)
-        {
-            if(!settings.miscSetJITAuto)
-                DbgCmdExec("setjitauto on");
-            else
-                DbgCmdExec("setjitauto off");
         }
     }
     if(settings.miscSymbolStore)
@@ -716,11 +701,6 @@ void SettingsDialog::on_chkThreadEntry_stateChanged(int arg1)
     settings.eventThreadEntry = arg1 != Qt::Unchecked;
 }
 
-void SettingsDialog::on_chkConfirmBeforeAtt_stateChanged(int arg1)
-{
-    settings.miscSetJITAuto = arg1 != Qt::Unchecked;
-}
-
 void SettingsDialog::on_chkSetJIT_stateChanged(int arg1)
 {
     if(arg1 == Qt::Unchecked)
@@ -870,12 +850,6 @@ void SettingsDialog::on_chkSaveDatabaseInProgramDirectory_stateChanged(int arg1)
 {
     settings.engineSaveDatabaseInProgramDirectory = arg1 == Qt::Checked;
 }
-
-void SettingsDialog::on_chkTraceRecordEnabledDuringTrace_stateChanged(int arg1)
-{
-    settings.engineEnableTraceRecordDuringTrace = arg1 == Qt::Checked;
-}
-
 void SettingsDialog::on_btnIgnoreRange_clicked()
 {
     ExceptionRangeDialog exceptionRange(this);
@@ -964,6 +938,7 @@ void SettingsDialog::on_radioDoNotBreak_clicked()
 
 void SettingsDialog::on_chkLogException_stateChanged(int arg1)
 {
+    Q_UNUSED(arg1);
     OnCurrentExceptionFilterSettingsChanged();
 }
 
@@ -1122,6 +1097,11 @@ void SettingsDialog::on_chkPermanentHighlightingMode_toggled(bool checked)
 void SettingsDialog::on_chkNoWow64SingleStepWorkaround_toggled(bool checked)
 {
     settings.engineNoWow64SingleStepWorkaround = checked;
+}
+
+void SettingsDialog::on_chkDisableAslr_toggled(bool checked)
+{
+    settings.engineDisableAslr = checked;
 }
 
 void SettingsDialog::on_chkNoCurrentModuleText_toggled(bool checked)

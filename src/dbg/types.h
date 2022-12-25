@@ -90,20 +90,21 @@ namespace Types
             int size = 0;
         };
 
-        explicit TypeManager();
-        bool AddType(const std::string & owner, const std::string & type, const std::string & name);
-        bool AddStruct(const std::string & owner, const std::string & name);
-        bool AddUnion(const std::string & owner, const std::string & name);
-        bool AddMember(const std::string & parent, const std::string & type, const std::string & name, int arrsize = 0, int offset = -1);
-        bool AppendMember(const std::string & type, const std::string & name, int arrsize = 0, int offset = -1);
-        bool AddFunction(const std::string & owner, const std::string & name, const std::string & rettype, CallingConvention callconv = Cdecl, bool noreturn = false);
-        bool AddArg(const std::string & function, const std::string & type, const std::string & name);
-        bool AppendArg(const std::string & type, const std::string & name);
-        int Sizeof(const std::string & type) const;
-        bool Visit(const std::string & type, const std::string & name, Visitor & visitor) const;
-        void Clear(const std::string & owner = "");
-        bool RemoveType(const std::string & type);
-        void Enum(std::vector<Summary> & typeList) const;
+        explicit    TypeManager();
+        bool        AddType(const std::string & owner, const std::string & type, const std::string & name);
+        bool        AddStruct(const std::string & owner, const std::string & name);
+        bool        AddUnion(const std::string & owner, const std::string & name);
+        bool        AddMember(const std::string & parent, const std::string & type, const std::string & name, int arrsize = 0, int offset = -1);
+        bool        AppendMember(const std::string & type, const std::string & name, int arrsize = 0, int offset = -1);
+        bool        AddFunction(const std::string & owner, const std::string & name, const std::string & rettype, CallingConvention callconv = Cdecl, bool noreturn = false);
+        bool        AddArg(const std::string & function, const std::string & type, const std::string & name);
+        bool        AppendArg(const std::string & type, const std::string & name);
+        int         Sizeof(const std::string & type) const;
+        bool        Visit(const std::string & type, const std::string & name, Visitor & visitor) const;
+        void        Clear(const std::string & owner = "");
+        bool        RemoveType(const std::string & type);
+        void        Enum(std::vector<Summary> & typeList) const;
+        void        Enum(std::string& kind, std::vector<Summary>& typeList) const;
         std::string StructUnionPtrType(const std::string & pointto) const;
 
     private:

@@ -78,7 +78,7 @@ QColor ZehSymbolTable::getSpecialColor(int r, int c)
 bool ZehSymbolTable::isValidIndex(int r, int c)
 {
     QMutexLocker lock(&mMutex);
-    return r >= 0 && r < mData.size() && c >= 0 && c <= ColUndecorated;
+    return r >= 0 && r < (int)mData.size() && c >= 0 && c <= ColUndecorated;
 }
 
 void ZehSymbolTable::sortRows(int column, bool ascending)

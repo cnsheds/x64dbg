@@ -1089,6 +1089,7 @@ RegistersView::RegistersView(QWidget* parent) : QScrollArea(parent), mVScrollOff
     connect(Config(), SIGNAL(fontsUpdated()), this, SLOT(fontsUpdatedSlot()));
     // self communication for repainting (maybe some other widgets needs this information, too)
     connect(this, SIGNAL(refresh()), this, SLOT(reload()));
+    connect(Bridge::getBridge(), SIGNAL(shutdown()), this, SLOT(shutdownSlot()));
 
     InitMappings();
 
@@ -1239,9 +1240,14 @@ void RegistersView::fontsUpdatedSlot()
     reload();
 }
 
+void RegistersView::shutdownSlot()
+{
+    isActive = false;
+}
+
 void RegistersView::displayCustomContextMenuSlot(QPoint pos)
 {
-
+    Q_UNUSED(pos);
 }
 
 void RegistersView::ShowFPU(bool set_showfpu)
@@ -1506,6 +1512,7 @@ void RegistersView::mouseMoveEvent(QMouseEvent* event)
 
 void RegistersView::mouseDoubleClickEvent(QMouseEvent* event)
 {
+    Q_UNUSED(event);
 }
 
 void RegistersView::paintEvent(QPaintEvent* event)
@@ -2428,6 +2435,7 @@ void RegistersView::onCopyAllAction()
 
 void RegistersView::debugStateChangedSlot(DBGSTATE state)
 {
+    Q_UNUSED(state);
 }
 
 void RegistersView::reload()

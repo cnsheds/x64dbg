@@ -76,16 +76,17 @@ AbstractTableView::AbstractTableView(QWidget* parent)
     connect(Config(), SIGNAL(colorsUpdated()), this, SLOT(updateColorsSlot()));
     connect(Config(), SIGNAL(fontsUpdated()), this, SLOT(updateFontsSlot()));
     connect(Config(), SIGNAL(shortcutsUpdated()), this, SLOT(updateShortcutsSlot()));
-    connect(Bridge::getBridge(), SIGNAL(close()), this, SLOT(closeSlot()));
+    connect(Bridge::getBridge(), SIGNAL(shutdown()), this, SLOT(shutdownSlot()));
 
     // todo: try Qt::QueuedConnection to init
     Initialize();
 }
 
-void AbstractTableView::closeSlot()
+void AbstractTableView::shutdownSlot()
 {
     if(!mNoSaveCfg && ConfigBool("Gui", "SaveColumnOrder"))
         saveColumnToConfig();
+    setAllowPainting(false);
 }
 
 /************************************************************************************
@@ -198,6 +199,13 @@ void AbstractTableView::setupColumnConfigDefaultValue(QMap<QString, duint> & map
         map.insert(QString("%1ColumnHidden%2").arg(viewName).arg(i), 2);
         map.insert(QString("%1ColumnOrder%2").arg(viewName).arg(i), 0);
     }
+}
+
+void AbstractTableView::editColumnDialog()
+{
+    ColumnReorderDialog reorderDialog(this);
+    reorderDialog.setWindowTitle(tr("Edit columns"));
+    reorderDialog.exec();
 }
 
 /************************************************************************************
@@ -501,9 +509,7 @@ void AbstractTableView::mousePressEvent(QMouseEvent* event)
     {
         if(event->y() < getHeaderHeight())
         {
-            ColumnReorderDialog reorderDialog(this);
-            reorderDialog.setWindowTitle(tr("Edit columns"));
-            reorderDialog.exec();
+            editColumnDialog();
             event->accept();
         }
     }
@@ -566,9 +572,7 @@ void AbstractTableView::mouseDoubleClickEvent(QMouseEvent* event)
 {
     if(event->y() < getHeaderHeight())
     {
-        ColumnReorderDialog reorderDialog(this);
-        reorderDialog.setWindowTitle(tr("Edit columns"));
-        reorderDialog.exec();
+        editColumnDialog();
         event->accept();
     }
 }

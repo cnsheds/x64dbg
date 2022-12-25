@@ -213,7 +213,7 @@ bool pluginload(const char* pluginName, bool loadall)
 
     //add plugin menus
     {
-        SectionLocker<LockPluginMenuList, false> menuLock; //exclusive lock
+        SectionLocker<LockPluginMenuList, false, false> menuLock; //exclusive lock
 
         auto addPluginMenu = [](GUIMENUTYPE type)
         {
@@ -765,7 +765,7 @@ void pluginmenucall(int hEntry)
     if(hEntry == -1)
         return;
 
-    SectionLocker<LockPluginMenuList, true> menuLock; //shared lock
+    SectionLocker<LockPluginMenuList, true, false> menuLock; //shared lock
     auto i = pluginMenuEntryList.begin();
     while(i != pluginMenuEntryList.end())
     {
@@ -1049,7 +1049,7 @@ bool pluginexprfuncregisterex(int pluginHandle, const char* name, const ValueTyp
 
     std::vector<ValueType> argTypesVec(argCount);
 
-    for(auto i = 0; i < argCount; i++)
+    for(size_t i = 0; i < argCount; i++)
         argTypesVec[i] = argTypes[i];
 
     if(!ExpressionFunctions::Register(name, returnType, argTypesVec, cbFunction, userdata))

@@ -302,6 +302,19 @@ void TypeManager::Enum(std::vector<Summary> & typeList) const
     });
 }
 
+void TypeManager::Enum(std::string& kind, std::vector<Summary>& typeList) const
+{
+    typeList.clear();
+    if (kind == "typedef")
+        enumType(types, typeList);
+    else if (kind == "struct")
+        enumType(structs, typeList);
+    else if (kind == "union")
+        enumType(structs, typeList);
+    else if (kind == "function")
+        enumType(functions, typeList);
+}
+
 std::string Types::TypeManager::StructUnionPtrType(const std::string & pointto) const
 {
     auto itr = structs.find(pointto);

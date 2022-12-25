@@ -56,7 +56,6 @@ private slots:
     void on_chkEnableSourceDebugging_stateChanged(int arg1);
     void on_chkDisableDatabaseCompression_stateChanged(int arg1);
     void on_chkSaveDatabaseInProgramDirectory_stateChanged(int arg1);
-    void on_chkTraceRecordEnabledDuringTrace_stateChanged(int arg1);
     void on_chkSkipInt3Stepping_toggled(bool checked);
     void on_chkBreakWhenCalcConditionsFails_toggled(bool checked);
     void on_chkNoScriptTimeout_stateChanged(int arg1);
@@ -64,6 +63,7 @@ private slots:
     void on_chkHardcoreThreadSwitchWarning_toggled(bool checked);
     void on_chkVerboseExceptionLogging_toggled(bool checked);
     void on_chkNoWow64SingleStepWorkaround_toggled(bool checked);
+    void on_chkDisableAslr_toggled(bool checked);
     void on_spinMaxTraceCount_valueChanged(int arg1);
     void on_spinAnimateInterval_valueChanged(int arg1);
     //Exception tab
@@ -109,7 +109,6 @@ private slots:
     void on_chkHideSeasonalIcons_toggled(bool checked);
     //Misc tab
     void on_chkSetJIT_stateChanged(int arg1);
-    void on_chkConfirmBeforeAtt_stateChanged(int arg1);
     void on_editSymbolStore_textEdited(const QString & arg1);
     void on_editSymbolCache_textEdited(const QString & arg1);
     void on_chkUtf16LogRedirect_toggled(bool checked);
@@ -201,7 +200,6 @@ private:
         bool engineEnableSourceDebugging;
         bool engineSaveDatabaseInProgramDirectory;
         bool engineDisableDatabaseCompression;
-        bool engineEnableTraceRecordDuringTrace;
         bool engineSkipInt3Stepping;
         bool engineBreakWhenCalcConditionsFails;
         bool engineNoScriptTimeout;
@@ -209,6 +207,7 @@ private:
         bool engineHardcoreThreadSwitchWarning;
         bool engineVerboseExceptionLogging;
         bool engineNoWow64SingleStepWorkaround;
+        bool engineDisableAslr;
         int engineMaxTraceCount;
         int engineAnimateInterval;
         //Exception Tab
@@ -247,7 +246,6 @@ private:
         bool guiEnableQtHighDpiScaling;
         //Misc Tab
         bool miscSetJIT;
-        bool miscSetJITAuto;
         bool miscSymbolStore;
         bool miscSymbolCache;
         bool miscUtf16LogRedirect;
@@ -263,7 +261,6 @@ private:
     QList<ExceptionFilter> realExceptionFilters;
     std::unordered_map<duint, const char*> exceptionNames;
     bool bJitOld;
-    bool bJitAutoOld;
     bool bGuiOptionsUpdated;
     bool bTokenizerConfigUpdated;
     bool bDisableAutoCompleteUpdated;

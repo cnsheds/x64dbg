@@ -116,7 +116,7 @@ void ExpressionFunctions::Init()
     //Trace record
     RegisterEasy("tr.enabled", trenabled);
     RegisterEasy("tr.hitcount,tr.count", trhitcount);
-    RegisterEasy("tr.runtraceenabled", trisruntraceenabled);
+    RegisterEasy("tr.isrecording,tr.runtraceenabled", trisrecording);
 
     //Byte/Word/Dword/Qword/Pointer
     RegisterEasy("ReadByte,Byte,byte", readbyte);
@@ -156,7 +156,9 @@ void ExpressionFunctions::Init()
     ExpressionFunctions::Register("utf8", ValueTypeString, { ValueTypeNumber }, Exprfunc::utf8, nullptr);
     ExpressionFunctions::Register("utf16", ValueTypeString, { ValueTypeNumber }, Exprfunc::utf16, nullptr);
     ExpressionFunctions::Register("strstr", ValueTypeNumber, { ValueTypeString, ValueTypeString }, Exprfunc::strstr, nullptr);
+    ExpressionFunctions::Register("stristr", ValueTypeNumber, { ValueTypeString, ValueTypeString }, Exprfunc::stristr, nullptr);
     ExpressionFunctions::Register("streq", ValueTypeNumber, { ValueTypeString, ValueTypeString }, Exprfunc::streq, nullptr);
+    ExpressionFunctions::Register("strieq", ValueTypeNumber, { ValueTypeString, ValueTypeString }, Exprfunc::strieq, nullptr);
     ExpressionFunctions::Register("strlen", ValueTypeNumber, { ValueTypeString }, Exprfunc::strlen, nullptr);
 }
 
