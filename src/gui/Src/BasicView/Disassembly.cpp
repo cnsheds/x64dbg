@@ -229,7 +229,7 @@ QString Disassembly::paintContent(QPainter* painter, dsint rowBase, int rowOffse
             {
                 if(bpxtype & bp_normal) //normal breakpoint
                 {
-                    QColor & bpColor = mBreakpointBackgroundColor;
+                    QColor bpColor = mBreakpointBackgroundColor;
                     if(!bpColor.alpha()) //we don't want transparent text
                         bpColor = mBreakpointColor;
                     if(bpColor == mCipBackgroundColor)
@@ -1829,6 +1829,9 @@ void Disassembly::paintEvent(QPaintEvent* event)
 {
     AbstractTableView::paintEvent(event);
 
+    if(!mAllowPainting)
+        return;
+
     // Delay paint the rich text
     QPainter painter(this->viewport());
     painter.setFont(font());
@@ -2155,6 +2158,7 @@ void Disassembly::disassembleClear()
     mDisasm->getEncodeMap()->setMemoryRegion(0);
     setRowCount(0);
     setTableOffset(0);
+    mInstBuffer.clear();
     reloadData();
 }
 

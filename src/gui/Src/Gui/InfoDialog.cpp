@@ -426,7 +426,7 @@ void InfoDialog::UpdateInfo(uint64 value)
     {
         /* format: YYYY/MM/DD HH24:MI:SS */
         showText.sprintf("%04d/%02d/%02d %02d:%02d:%02d",
-                         1900 + ptm->tm_year, ptm->tm_mon, ptm->tm_mday,
+                         1900 + ptm->tm_year, ptm->tm_mon+1, ptm->tm_mday,
                          ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
         ui->edit_timet->setText(showText);
     }

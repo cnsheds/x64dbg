@@ -214,7 +214,6 @@ private:
     bool mShouldReload;
     bool mDrawDebugOnly;
     bool mPopupEnabled;
-    bool mAllowPainting;
     bool mNoSaveCfg;
     int mPopupTimer;
 
@@ -232,6 +231,8 @@ protected:
     QColor mHeaderTextColor;
     QColor mSelectionColor;
     QString mViewName;
+
+    bool mAllowPainting;
 
     // Font metrics
     CachedFontMetrics* mFontMetrics;
