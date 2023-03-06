@@ -122,6 +122,8 @@ static void registercommands()
     dbgcmdnew("eStepOut,ertr", cbDebugeStepOut, true); //rtr + skip first chance exceptions
     dbgcmdnew("skip", cbDebugSkip, true); //skip one instruction
     dbgcmdnew("InstrUndo", cbInstrInstrUndo, true); //Instruction undo
+    dbgcmdnew("StepUser,StepUserInto", cbDebugStepUserInto, true); // step into until reaching user code
+    dbgcmdnew("StepSystem,StepUserInto", cbDebugStepSystemInto, true); // step into until reaching system code
 
     //breakpoint control
     dbgcmdnew("SetBPX,bp,bpx", cbDebugSetBPX, true); //breakpoint
@@ -220,7 +222,6 @@ static void registercommands()
     dbgcmdnew("RunToUserCode,rtu", cbDebugRunToUserCode, true); //Run to user code
     dbgcmdnew("TraceSetLog,SetTraceLog", cbDebugTraceSetLog, true); //Set trace log text + condition
     dbgcmdnew("TraceSetCommand,SetTraceCommand", cbDebugTraceSetCommand, true); //Set trace command text + condition
-    dbgcmdnew("TraceSetSwitchCondition,SetTraceSwitchCondition", cbDebugTraceSetSwitchCondition, true); //Set trace switch condition
     dbgcmdnew("TraceSetLogFile,SetTraceLogFile", cbDebugTraceSetLogFile, true); //Set trace log file
     dbgcmdnew("StartTraceRecording,StartRunTrace,opentrace", cbDebugStartTraceRecording, true); //start run trace (Ollyscript command "opentrace" "opens run trace window")
     dbgcmdnew("StopTraceRecording,StopRunTrace,tc", cbDebugStopTraceRecording, true); //stop run trace (and Ollyscript command)
@@ -641,51 +642,6 @@ static WString escape(WString cmdline)
     StringUtils::ReplaceAll(cmdline, L"\"", L"\\\"");
     return cmdline;
 }
-
-#include <delayimp.h>
-
-// https://devblogs.microsoft.com/oldnewthing/20170126-00/?p=95265
-static FARPROC WINAPI delayHook(unsigned dliNotify, PDelayLoadInfo pdli)
-{
-    if(dliNotify == dliNotePreLoadLibrary && _stricmp(pdli->szDll, "TitanEngine.dll") == 0)
-    {
-        String fullPath = szProgramDir;
-        fullPath += '\\';
-
-        switch(DbgGetDebugEngine())
-        {
-        case DebugEngineGleeBug:
-            fullPath += "GleeBug\\TitanEngine.dll";
-            break;
-        case DebugEngineStaticEngine:
-            fullPath += "StaticEngine\\TitanEngine.dll";
-            break;
-        case DebugEngineTitanEngine:
-        default:
-            return 0;
-        }
-
-        auto hModule = LoadLibraryW(StringUtils::Utf8ToUtf16(fullPath).c_str());
-        if(hModule)
-        {
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Successfully loaded %s!\n"), fullPath.c_str());
-        }
-        else
-        {
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Failed to load %s, falling back to regular TitanEngine.dll"), fullPath.c_str());
-        }
-        return (FARPROC)hModule;
-    }
-
-    return 0;
-}
-
-// Visual Studio 2015 Update 3 made this const per default
-// https://dev.to/yumetodo/list-of-mscver-and-mscfullver-8nd
-#if _MSC_FULL_VER >= 190024210
-const
-#endif // _MSC_FULL_VER
-PfnDliHook __pfnDliNotifyHook2 = delayHook;
 
 extern "C" DLL_EXPORT const char* _dbg_dbginit()
 {

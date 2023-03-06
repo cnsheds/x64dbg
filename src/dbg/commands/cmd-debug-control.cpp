@@ -36,8 +36,14 @@ static bool skipInt3Stepping(int argc, char* argv[])
     return false;
 }
 
-bool cbDebugRunInternal(int argc, char* argv[])
+bool cbDebugRunInternal(int argc, char* argv[], HistoryAction history)
 {
+    // History handling
+    if(history == history_record)
+        HistoryRecord();
+    else
+        HistoryClear();
+    // Set a singleshot breakpoint at the first parameter
     if(argc >= 2 && !DbgCmdExecDirect(StringUtils::sprintf("bp \"%s\", ss", argv[1]).c_str()))
         return false;
     // Don't "run" twice if the program is already running
@@ -81,7 +87,7 @@ bool cbDebugInit(int argc, char* argv[])
         dputs(QT_TRANSLATE_NOOP("DBG", "Could not open file!"));
         return false;
     }
-    GetFileNameFromHandle(hFile, arg1); //get full path of the file
+    GetFileNameFromHandle(hFile, arg1, _countof(arg1)); //get full path of the file
     dprintf(QT_TRANSLATE_NOOP("DBG", "Debugging: %s\n"), arg1);
     hFile.Close();
 
@@ -240,7 +246,7 @@ bool cbDebugAttach(int argc, char* argv[])
 #endif // _WIN64
         return false;
     }
-    if(!GetFileNameFromProcessHandle(hProcess, szDebuggeePath))
+    if(!GetFileNameFromProcessHandle(hProcess, szDebuggeePath, _countof(szDebuggeePath)))
     {
         dprintf(QT_TRANSLATE_NOOP("DBG", "Could not get module filename %X!\n"), DWORD(pid));
         return false;
@@ -299,14 +305,12 @@ bool cbDebugDetach(int argc, char* argv[])
 
 bool cbDebugRun(int argc, char* argv[])
 {
-    HistoryClear();
     skipInt3Stepping(1, argv);
-    return cbDebugRunInternal(argc, argv);
+    return cbDebugRunInternal(argc, argv, history_clear);
 }
 
 bool cbDebugErun(int argc, char* argv[])
 {
-    HistoryClear();
     if(!dbgisrunning())
         dbgsetskipexceptions(true);
     else
@@ -314,13 +318,13 @@ bool cbDebugErun(int argc, char* argv[])
         dbgsetskipexceptions(false);
         return true;
     }
-    return cbDebugRunInternal(argc, argv);
+    return cbDebugRunInternal(argc, argv, history_clear);
 }
 
 bool cbDebugSerun(int argc, char* argv[])
 {
     cbDebugContinue(argc, argv);
-    return cbDebugRunInternal(argc, argv);
+    return cbDebugRunInternal(argc, argv, history_clear);
 }
 
 bool cbDebugPause(int argc, char* argv[])
@@ -333,6 +337,11 @@ bool cbDebugPause(int argc, char* argv[])
     if(dbgtraceactive())
     {
         dbgforcebreaktrace(); // pause when tracing
+        return true;
+    }
+    if(dbgstepactive())
+    {
+        dbgforcebreakstep(); // pause when stepping (out/user/system)
         return true;
     }
     if(!DbgIsDebugging())
@@ -356,7 +365,7 @@ bool cbDebugPause(int argc, char* argv[])
         return false;
     }
     duint CIP = GetContextDataEx(hActiveThread, UE_CIP);
-    if(!SetBPX(CIP, UE_BREAKPOINT, (void*)cbPauseBreakpoint))
+    if(!SetBPX(CIP, UE_BREAKPOINT, cbPauseBreakpoint))
     {
         dprintf(QT_TRANSLATE_NOOP("DBG", "Error setting breakpoint at %p! (SetBPX)\n"), CIP);
         if(ResumeThread(hActiveThread) == -1)
@@ -402,11 +411,9 @@ bool cbDebugStepInto(int argc, char* argv[])
         return true;
     if(skipInt3Stepping(1, argv) && !--steprepeat)
         return true;
-    StepIntoWow64((void*)cbStep);
-    // History
-    HistoryAdd();
+    StepIntoWow64(cbStep);
     dbgsetsteprepeat(true, steprepeat);
-    return cbDebugRunInternal(1, argv);
+    return cbDebugRunInternal(1, argv, steprepeat == 1 ? history_record : history_clear);
 }
 
 bool cbDebugeStepInto(int argc, char* argv[])
@@ -421,6 +428,50 @@ bool cbDebugseStepInto(int argc, char* argv[])
     return cbDebugStepInto(argc, argv);
 }
 
+static bool IsRepeated(const Zydis & zydis)
+{
+    // https://www.felixcloutier.com/x86/rep:repe:repz:repne:repnz
+    // TODO: allow extracting the affected range
+    switch(zydis.GetId())
+    {
+    // INS
+    case ZYDIS_MNEMONIC_INSB:
+    case ZYDIS_MNEMONIC_INSW:
+    case ZYDIS_MNEMONIC_INSD:
+    // OUTS
+    case ZYDIS_MNEMONIC_OUTSB:
+    case ZYDIS_MNEMONIC_OUTSW:
+    case ZYDIS_MNEMONIC_OUTSD:
+    // MOVS
+    case ZYDIS_MNEMONIC_MOVSB:
+    case ZYDIS_MNEMONIC_MOVSW:
+    case ZYDIS_MNEMONIC_MOVSD:
+    case ZYDIS_MNEMONIC_MOVSQ:
+    // LODS
+    case ZYDIS_MNEMONIC_LODSB:
+    case ZYDIS_MNEMONIC_LODSW:
+    case ZYDIS_MNEMONIC_LODSD:
+    case ZYDIS_MNEMONIC_LODSQ:
+    // STOS
+    case ZYDIS_MNEMONIC_STOSB:
+    case ZYDIS_MNEMONIC_STOSW:
+    case ZYDIS_MNEMONIC_STOSD:
+    case ZYDIS_MNEMONIC_STOSQ:
+    // CMPS
+    case ZYDIS_MNEMONIC_CMPSB:
+    case ZYDIS_MNEMONIC_CMPSW:
+    case ZYDIS_MNEMONIC_CMPSD:
+    case ZYDIS_MNEMONIC_CMPSQ:
+    // SCAS
+    case ZYDIS_MNEMONIC_SCASB:
+    case ZYDIS_MNEMONIC_SCASW:
+    case ZYDIS_MNEMONIC_SCASD:
+    case ZYDIS_MNEMONIC_SCASQ:
+        return (zydis.GetInstr()->attributes & ZYDIS_ATTRIB_HAS_REP | ZYDIS_ATTRIB_HAS_REPZ | ZYDIS_ATTRIB_HAS_REPNZ) != 0;
+    }
+    return false;
+}
+
 bool cbDebugStepOver(int argc, char* argv[])
 {
     duint steprepeat = 1;
@@ -430,11 +481,17 @@ bool cbDebugStepOver(int argc, char* argv[])
         return true;
     if(skipInt3Stepping(1, argv) && !--steprepeat)
         return true;
-    StepOverWrapper((void*)cbStep);
-    // History
-    HistoryClear();
+    auto history = history_clear;
+    if(steprepeat == 1)
+    {
+        Zydis zydis;
+        disasm(zydis, GetContextDataEx(hActiveThread, UE_CIP));
+        if(!zydis.IsBranchType(Zydis::BTCallSem) && !IsRepeated(zydis))
+            history = history_record;
+    }
+    StepOverWrapper(cbStep);
     dbgsetsteprepeat(false, steprepeat);
-    return cbDebugRunInternal(1, argv);
+    return cbDebugRunInternal(1, argv, history);
 }
 
 bool cbDebugeStepOver(int argc, char* argv[])
@@ -456,11 +513,10 @@ bool cbDebugStepOut(int argc, char* argv[])
         return false;
     if(!steprepeat) //nothing to be done
         return true;
-    HistoryClear();
-    mRtrPreviousCSP = GetContextDataEx(hActiveThread, UE_CSP);
-    StepOverWrapper((void*)cbRtrStep);
+    gRtrPreviousCSP = GetContextDataEx(hActiveThread, UE_CSP);
+    StepOverWrapper(cbRtrStep);
     dbgsetsteprepeat(false, steprepeat);
-    return cbDebugRunInternal(1, argv);
+    return cbDebugRunInternal(1, argv, history_clear);
 }
 
 bool cbDebugeStepOut(int argc, char* argv[])
@@ -493,4 +549,16 @@ bool cbInstrInstrUndo(int argc, char* argv[])
     HistoryRestore();
     GuiUpdateAllViews();
     return true;
+}
+
+bool cbDebugStepUserInto(int argc, char* argv[])
+{
+    StepIntoUser(cbStep);
+    return cbDebugRunInternal(1, argv, history_clear);
+}
+
+bool cbDebugStepSystemInto(int argc, char* argv[])
+{
+    StepIntoSystem(cbStep);
+    return cbDebugRunInternal(1, argv, history_clear);
 }

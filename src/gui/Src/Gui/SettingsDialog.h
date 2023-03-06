@@ -42,6 +42,7 @@ private slots:
     void on_chkDllUnloadSystem_stateChanged(int arg1);
     void on_chkThreadStart_stateChanged(int arg1);
     void on_chkThreadEnd_stateChanged(int arg1);
+    void on_chkThreadNameSet_stateChanged(int arg1);
     void on_chkDebugStrings_stateChanged(int arg1);
     //Engine tab
     void on_radioUnsigned_clicked();
@@ -121,6 +122,7 @@ private slots:
 
     void on_chkQtHighDpiScaling_toggled(bool checked);
     void on_chkShowInfoWindow_toggled(bool checked);
+    void on_chkWindowLongPath_toggled(bool checked);
 
 private:
     //enums
@@ -190,6 +192,7 @@ private:
         bool eventDllUnloadSystem;
         bool eventThreadStart;
         bool eventThreadEnd;
+        bool eventThreadNameSet;
         bool eventDebugStrings;
         //Engine Tab
         CalcType engineCalcType;
@@ -244,6 +247,7 @@ private:
         bool guiAutoFollowInStack;
         bool guiHideSeasonalIcons;
         bool guiEnableQtHighDpiScaling;
+        bool guiEnableWindowLongPath;
         //Misc Tab
         bool miscSetJIT;
         bool miscSymbolStore;

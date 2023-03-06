@@ -263,6 +263,7 @@ MainWindow::MainWindow(QWidget* parent)
         loadTabSavedOrder();
 
     setCentralWidget(mTabWidget);
+    displayCpuWidget();
 
     // Accept drops
     setAcceptDrops(true);
@@ -859,11 +860,11 @@ void MainWindow::loadTabDefaultOrder()
     clearTabWidget();
 
     // Setup tabs
-    //TODO
     for(int i = 0; i < mWidgetList.size(); i++)
         addQWidgetTab(mWidgetList[i].widget, mWidgetList[i].nativeName);
 
     // Add plugin tabs to the end
+    // TODO: this collection is always empty
     for(const auto & widget : mPluginWidgetList)
         addQWidgetTab(widget.widget, widget.nativeName);
 }
@@ -875,10 +876,20 @@ void MainWindow::loadTabSavedOrder()
     QMap<duint, std::pair<QWidget*, QString>> tabIndexToWidget;
 
     // Get tabIndex for each widget and add them to tabIndexToWidget
+    duint lastValidTabIndex = 0;
     for(int i = 0; i < mWidgetList.size(); i++)
     {
-        QString tabName = mWidgetList[i].nativeName;
-        duint tabIndex = Config()->getUint("TabOrder", tabName);
+        auto tabName = mWidgetList[i].nativeName;
+        duint tabIndex = 0;
+        if(BridgeSettingGetUint("TabOrder", tabName.toUtf8().constData(), &tabIndex))
+        {
+            lastValidTabIndex = tabIndex;
+        }
+        else
+        {
+            tabIndex = lastValidTabIndex;
+        }
+
         if(!tabIndexToWidget.contains(tabIndex))
             tabIndexToWidget.insert(tabIndex, std::make_pair(mWidgetList[i].widget, tabName));
         else
@@ -910,6 +921,7 @@ void MainWindow::loadTabSavedOrder()
     }
 
     // Add plugin tabs to the end
+    // TODO: this collection is always empty
     for(const auto & widget : mPluginWidgetList)
         addQWidgetTab(widget.widget, widget.nativeName);
 }
@@ -2185,7 +2197,11 @@ void MainWindow::addQWidgetTab(QWidget* qWidget, QString nativeName)
 
 void MainWindow::addQWidgetTab(QWidget* qWidget)
 {
-    WidgetInfo info(qWidget, qWidget->metaObject()->className());
+    QString nativeName = qWidget->objectName();
+    if(nativeName.isEmpty())
+        nativeName = qWidget->metaObject()->className();
+    nativeName = "Plugin" + nativeName.replace(" ", "_").replace("=", "_");
+    WidgetInfo info(qWidget, nativeName);
     addQWidgetTab(info.widget, info.nativeName);
     mPluginWidgetList.append(info);
 }
@@ -2220,15 +2236,8 @@ void MainWindow::tabMovedSlot(int from, int to)
     Q_UNUSED(to);
     for(int i = 0; i < mTabWidget->count(); i++)
     {
-        // Remove space in widget name and append Tab to get config settings (CPUTab, MemoryMapTab, etc...)
-        //QString tabName = mTabWidget->tabText(i).replace(" ", "") + "Tab";
-        QString tabName = mTabWidget->getNativeName(i);
-        auto found = std::find_if(mWidgetList.begin(), mWidgetList.end(), [&tabName](const WidgetInfo & info)
-        {
-            return info.nativeName == tabName;
-        });
-        if(found != mWidgetList.end())
-            Config()->setUint("TabOrder", tabName, i);
+        auto tabName = mTabWidget->getNativeName(i);
+        BridgeSettingSetUint("TabOrder", tabName.toUtf8().constData(), i);
     }
 }
 

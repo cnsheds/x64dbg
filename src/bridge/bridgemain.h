@@ -50,6 +50,10 @@ extern "C"
 /// <returns>On error it returns a non-null error message.</returns>
 BRIDGE_IMPEXP const wchar_t* BridgeInit();
 
+BRIDGE_IMPEXP HMODULE WINAPI BridgeLoadLibraryCheckedW(const wchar_t* szDll, bool allowFailure);
+
+BRIDGE_IMPEXP HMODULE WINAPI BridgeLoadLibraryCheckedA(const char* szDll, bool allowFailure);
+
 /// <summary>
 /// Start the bridge.
 /// </summary>
@@ -1213,6 +1217,7 @@ typedef enum
     GUI_SHOW_TRACE,                 // param1=unused,               param2=unused
     GUI_GET_MAIN_THREAD_ID,         // param1=unused,               param2=unused
     GUI_ADD_MSG_TO_LOG_HTML,        // param1=(const char*)msg,     param2=unused
+    GUI_IS_LOG_ENABLED,             // param1=unused,               param2=unused
 } GUIMSG;
 
 //GUI Typedefs
@@ -1375,6 +1380,7 @@ BRIDGE_IMPEXP duint GuiGraphAt(duint addr);
 BRIDGE_IMPEXP void GuiUpdateGraphView();
 BRIDGE_IMPEXP void GuiDisableLog();
 BRIDGE_IMPEXP void GuiEnableLog();
+BRIDGE_IMPEXP bool GuiIsLogEnabled();
 BRIDGE_IMPEXP void GuiAddFavouriteTool(const char* name, const char* description);
 BRIDGE_IMPEXP void GuiAddFavouriteCommand(const char* name, const char* shortcut);
 BRIDGE_IMPEXP void GuiSetFavouriteToolShortcut(const char* name, const char* shortcut);
@@ -1403,6 +1409,57 @@ BRIDGE_IMPEXP DWORD GuiGetMainThreadId();
 #ifdef __cplusplus
 }
 #endif
+
+// Some useful C++ wrapper classes
+#ifdef __cplusplus
+
+class GuiDisableLogScope
+{
+    bool wasEnabled;
+
+public:
+    GuiDisableLogScope(const GuiDisableLogScope &) = delete;
+
+    GuiDisableLogScope()
+    {
+        wasEnabled = GuiIsLogEnabled();
+        if(wasEnabled)
+            GuiDisableLog();
+    }
+
+    ~GuiDisableLogScope()
+    {
+        if(wasEnabled)
+            GuiEnableLog();
+    }
+};
+
+class GuiDisableUpdateScope
+{
+    bool updateAfter;
+    bool wasEnabled;
+
+public:
+    GuiDisableUpdateScope(const GuiDisableUpdateScope &) = delete;
+
+    explicit GuiDisableUpdateScope(bool updateAfter = true)
+        : updateAfter(updateAfter)
+    {
+        wasEnabled = !GuiIsUpdateDisabled();
+        if(wasEnabled)
+            GuiUpdateDisable();
+    }
+
+    ~GuiDisableUpdateScope()
+    {
+        if(wasEnabled)
+            GuiUpdateEnable(updateAfter);
+    }
+};
+
+class GuiDisableScope : GuiDisableUpdateScope, GuiDisableLogScope { };
+
+#endif // __cplusplus
 
 #pragma pack(pop)
 

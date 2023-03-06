@@ -92,6 +92,7 @@ void SettingsDialog::LoadSettings()
     settings.guiAutoFollowInStack = false;
     settings.guiHideSeasonalIcons = false;
     settings.guiEnableQtHighDpiScaling = true;
+    settings.guiEnableWindowLongPath = false;
 
     //Events tab
     GetSettingBool("Events", "SystemBreakpoint", &settings.eventSystemBreakpoint);
@@ -108,6 +109,7 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Events", "DllUnloadSystem", &settings.eventDllUnloadSystem);
     GetSettingBool("Events", "ThreadStart", &settings.eventThreadStart);
     GetSettingBool("Events", "ThreadEnd", &settings.eventThreadEnd);
+    GetSettingBool("Events", "ThreadNameSet", &settings.eventThreadNameSet);
     GetSettingBool("Events", "DebugStrings", &settings.eventDebugStrings);
     ui->chkSystemBreakpoint->setCheckState(bool2check(settings.eventSystemBreakpoint));
     ui->chkExitBreakpoint->setCheckState(bool2check(settings.eventExitBreakpoint));
@@ -123,6 +125,7 @@ void SettingsDialog::LoadSettings()
     ui->chkDllUnloadSystem->setCheckState(bool2check(settings.eventDllUnloadSystem));
     ui->chkThreadStart->setCheckState(bool2check(settings.eventThreadStart));
     ui->chkThreadEnd->setCheckState(bool2check(settings.eventThreadEnd));
+    ui->chkThreadNameSet->setCheckState(bool2check(settings.eventThreadNameSet));
     ui->chkDebugStrings->setCheckState(bool2check(settings.eventDebugStrings));
 
     //Engine tab
@@ -312,6 +315,7 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Gui", "AutoFollowInStack", &settings.guiAutoFollowInStack);
     GetSettingBool("Gui", "NoSeasons", &settings.guiHideSeasonalIcons);
     GetSettingBool("Gui", "EnableQtHighDpiScaling", &settings.guiEnableQtHighDpiScaling);
+    GetSettingBool("Gui", "WindowLongPath", &settings.guiEnableWindowLongPath);
     ui->chkFpuRegistersLittleEndian->setChecked(settings.guiFpuRegistersLittleEndian);
     ui->chkSaveColumnOrder->setChecked(settings.guiSaveColumnOrder);
     ui->chkNoCloseDialog->setChecked(settings.guiNoCloseDialog);
@@ -328,6 +332,7 @@ void SettingsDialog::LoadSettings()
     ui->chkHideSeasonalIcons->setChecked(settings.guiHideSeasonalIcons);
     ui->chkHideSeasonalIcons->setVisible(isSeasonal());
     ui->chkQtHighDpiScaling->setChecked(settings.guiEnableQtHighDpiScaling);
+    ui->chkWindowLongPath->setChecked(settings.guiEnableWindowLongPath);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -407,6 +412,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Events", "DllUnloadSystem", settings.eventDllUnloadSystem);
     BridgeSettingSetUint("Events", "ThreadStart", settings.eventThreadStart);
     BridgeSettingSetUint("Events", "ThreadEnd", settings.eventThreadEnd);
+    BridgeSettingSetUint("Events", "ThreadNameSet", settings.eventThreadNameSet);
     BridgeSettingSetUint("Events", "DebugStrings", settings.eventDebugStrings);
 
     //Engine tab
@@ -479,6 +485,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Gui", "AutoFollowInStack", settings.guiAutoFollowInStack);
     BridgeSettingSetUint("Gui", "NoSeasons", settings.guiHideSeasonalIcons);
     BridgeSettingSetUint("Gui", "EnableQtHighDpiScaling", settings.guiEnableQtHighDpiScaling);
+    BridgeSettingSetUint("Gui", "WindowLongPath", settings.guiEnableWindowLongPath);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -768,6 +775,11 @@ void SettingsDialog::on_chkThreadStart_stateChanged(int arg1)
 void SettingsDialog::on_chkThreadEnd_stateChanged(int arg1)
 {
     settings.eventThreadEnd = arg1 != Qt::Unchecked;
+}
+
+void SettingsDialog::on_chkThreadNameSet_stateChanged(int arg1)
+{
+    settings.eventThreadNameSet = arg1 != Qt::Unchecked;
 }
 
 void SettingsDialog::on_chkDebugStrings_stateChanged(int arg1)
@@ -1196,3 +1208,7 @@ void SettingsDialog::on_chkQtHighDpiScaling_toggled(bool checked)
     settings.guiEnableQtHighDpiScaling = checked;
 }
 
+void SettingsDialog::on_chkWindowLongPath_toggled(bool checked)
+{
+    settings.guiEnableWindowLongPath = checked;
+}

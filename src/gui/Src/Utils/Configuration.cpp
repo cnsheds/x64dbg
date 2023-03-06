@@ -363,26 +363,6 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     disasmUint.insert("MaxModuleSize", -1);
     defaultUints.insert("Disassembler", disasmUint);
 
-    QMap<QString, duint> tabOrderUint;
-    int curTab = 0;
-    tabOrderUint.insert("CPUTab", curTab++);
-    tabOrderUint.insert("GraphTab", curTab++);
-    tabOrderUint.insert("LogTab", curTab++);
-    tabOrderUint.insert("NotesTab", curTab++);
-    tabOrderUint.insert("BreakpointsTab", curTab++);
-    tabOrderUint.insert("MemoryMapTab", curTab++);
-    tabOrderUint.insert("CallStackTab", curTab++);
-    tabOrderUint.insert("SEHTab", curTab++);
-    tabOrderUint.insert("ScriptTab", curTab++);
-    tabOrderUint.insert("SymbolsTab", curTab++);
-    tabOrderUint.insert("SourceTab", curTab++);
-    tabOrderUint.insert("ReferencesTab", curTab++);
-    tabOrderUint.insert("ThreadsTab", curTab++);
-    curTab++; // removed SnowmanTab
-    tabOrderUint.insert("HandlesTab", curTab++);
-    tabOrderUint.insert("TraceTab", curTab++);
-    defaultUints.insert("TabOrder", tabOrderUint);
-
     //font settings
     QFont font("Lucida Console", 9, QFont::Normal, false);
     defaultFonts.insert("AbstractTableView", font);
@@ -543,7 +523,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultShortcuts.insert("ActionToggleLogging", Shortcut({tr("Actions"), tr("Enable/Disable Logging")}, ""));
     defaultShortcuts.insert("ActionAllocateMemory", Shortcut({tr("Actions"), tr("Allocate Memory")}, ""));
     defaultShortcuts.insert("ActionFreeMemory", Shortcut({tr("Actions"), tr("Free Memory")}, ""));
-    defaultShortcuts.insert("ActionSyncWithExpression", Shortcut({tr("Actions"), tr("Sync With Expression")}, ""));
+    defaultShortcuts.insert("ActionSync", Shortcut({tr("Actions"), tr("Sync")}, "S"));
     defaultShortcuts.insert("ActionCopyAllRegisters", Shortcut({tr("Actions"), tr("Copy All Registers")}, ""));
     defaultShortcuts.insert("ActionMarkAsUser", Shortcut({tr("Actions"), tr("Mark As User Module")}, ""));
     defaultShortcuts.insert("ActionMarkAsSystem", Shortcut({tr("Actions"), tr("Mark As System Module")}, ""));
@@ -609,7 +589,6 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultShortcuts.insert("ActionGraphSaveImage", Shortcut({tr("Actions"), tr("Graph"), tr("Save as image")}, "I"));
     defaultShortcuts.insert("ActionGraphToggleOverview", Shortcut({tr("Actions"), tr("Graph"), tr("Toggle overview")}, "O"));
     defaultShortcuts.insert("ActionGraphToggleSummary", Shortcut({tr("Actions"), tr("Graph"), tr("Toggle summary")}, "U"));
-    defaultShortcuts.insert("ActionGraphSyncOrigin", Shortcut({tr("Actions"), tr("Graph"), tr("Toggle sync with %1").arg(ArchValue("EIP", "RIP"))}, "S"));
     defaultShortcuts.insert("ActionIncrementx87Stack", Shortcut({tr("Actions"), tr("Increment x87 Stack")}));
     defaultShortcuts.insert("ActionDecrementx87Stack", Shortcut({tr("Actions"), tr("Decrement x87 Stack")}));
     defaultShortcuts.insert("ActionRedirectLog", Shortcut({tr("Actions"), tr("Redirect Log")}));
@@ -740,21 +719,13 @@ void Configuration::readUints()
 
 void Configuration::writeUints()
 {
-    duint setting;
-    bool bSaveLoadTabOrder = ConfigBool("Gui", "LoadSaveTabOrder");
-
     //write config
     for(auto itMap = Uints.cbegin(); itMap != Uints.cend(); ++itMap)
     {
         const QString & category = itMap.key();
         for(auto it = itMap.value().cbegin(); it != itMap.value().cend(); it++)
         {
-            // Do not save settings to file if saveLoadTabOrder checkbox is Unchecked
-            const QString & id = it.key();
-            if(!bSaveLoadTabOrder && category == "TabOrder" && BridgeSettingGetUint(category.toUtf8().constData(), id.toUtf8().constData(), &setting))
-                continue;
-
-            uintToConfig(category, id, it.value());
+            uintToConfig(category, it.key(), it.value());
         }
     }
 }

@@ -77,7 +77,7 @@ static void cbDebugLoadLibBPX()
     MemFreeRemote(ASMAddr);
     ThreadResumeAll();
     //update GUI
-    DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), true);
+    DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), paused);
     //lock
     lock(WAITID_RUN);
     dbgsetforeground();
@@ -145,7 +145,7 @@ bool cbDebugLoadLib(int argc, char* argv[])
         return false;
     }
 
-    if(!SetBPX(ASMAddr + sizeof(loader) - 1, UE_SINGLESHOOT | UE_BREAKPOINT_TYPE_INT3, (void*)cbDebugLoadLibBPX))
+    if(!SetBPX(ASMAddr + sizeof(loader) - 1, UE_SINGLESHOOT | UE_BREAKPOINT_TYPE_INT3, cbDebugLoadLibBPX))
     {
         MemFreeRemote(ASMAddr);
         dputs(QT_TRANSLATE_NOOP("DBG", "Error: couldn't SetBPX"));
@@ -177,7 +177,7 @@ static void cbDebugFreeLibBPX()
     MemFreeRemote(ASMAddr);
     ThreadResumeAll();
     //update GUI
-    DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), true);
+    DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), paused);
     //lock
     lock(WAITID_RUN);
     dbgsetforeground();
@@ -244,7 +244,7 @@ bool cbDebugFreeLib(int argc, char* argv[])
         return false;
     }
 
-    if(!SetBPX(ASMAddr + sizeof(loader) - 1, UE_SINGLESHOOT | UE_BREAKPOINT_TYPE_INT3, (void*)cbDebugFreeLibBPX))
+    if(!SetBPX(ASMAddr + sizeof(loader) - 1, UE_SINGLESHOOT | UE_BREAKPOINT_TYPE_INT3, cbDebugFreeLibBPX))
     {
         MemFreeRemote(ASMAddr);
         dputs(QT_TRANSLATE_NOOP("DBG", "Error: couldn't SetBPX"));
@@ -631,7 +631,7 @@ bool cbDebugGetCmdline(int argc, char* argv[])
     char* cmd_line;
     cmdline_error_t cmdline_error = { (cmdline_error_type_t)0, 0 };
 
-    if(!dbggetcmdline(&cmd_line, &cmdline_error))
+    if(!dbggetcmdline(&cmd_line, &cmdline_error, fdProcessInfo->hProcess))
     {
         showcommandlineerror(&cmdline_error);
         return false;
