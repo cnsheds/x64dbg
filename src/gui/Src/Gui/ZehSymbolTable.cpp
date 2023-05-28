@@ -79,7 +79,7 @@ QColor ZehSymbolTable::getSpecialColor(int r, int c)
     if(!isValidIndex(r, c))
         return QString();
     SymbolInfoWrapper info;
-    DbgGetSymbolInfo(&mData.at(r), &info);
+    DbgGetSymbolInfo(&mData.at(r), info.put());
     if(info->type == sym_import)
         return mBkColorOfImport;
     else
