@@ -556,7 +556,7 @@ void HexDump::wheelEvent(QWheelEvent* event)
 void HexDump::keyPressEvent(QKeyEvent* event)
 {
     int key = event->key();
-    duint selStart = getInitialSelection();
+    auto selStart = getInitialSelection();
     char granularity = 1; //Size of a data word.
     char action = 0; //Where to scroll the scrollbar
     Qt::KeyboardModifiers modifiers = event->modifiers();
@@ -1210,9 +1210,9 @@ void HexDump::twordToString(duint rva, void* tword, TwordViewMode mode, RichText
     richText.text = wStr;
 }
 
-int HexDump::getSizeOf(DataSize size)
+size_t HexDump::getSizeOf(DataSize size)
 {
-    return int(size);
+    return size_t(size);
 }
 
 static int getStringMaxLength(HexDump::DataDescriptor desc)

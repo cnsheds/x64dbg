@@ -190,7 +190,7 @@ BRIDGE_IMPEXP const wchar_t* BridgeInit()
     LOADLIBRARY(L"XEDParse.dll");
     //loadIfExists(L"asmjit.dll"); // only loaded with user interaction
     //loadIfExists(L"Scylla.dll"); // only loaded with user interaction
-    loadIfExists(L"msdia140.dll"); // only loaded with user interaction
+    loadIfExists(L"msdia140.dll");
 
     // DBG
     LOADLIBRARY(dbg_lib);
@@ -237,8 +237,8 @@ BRIDGE_IMPEXP const wchar_t* BridgeInit()
     loadIfExists(L"bearer\\qgenericbearer.dll");
     loadIfExists(L"bearer\\qnativewifibearer.dll");
     loadIfExists(L"iconengines\\qsvgicon.dll");
-    //loadIfExists(L"libeay32.dll"); // only loaded with user interaction
-    //loadIfExists(L"ssleay32.dll"); // only loaded with user interaction
+    loadIfExists(L"libeay32.dll");
+    loadIfExists(L"ssleay32.dll");
 
     // GUI
     LOADLIBRARY(gui_lib);
@@ -1299,6 +1299,16 @@ BRIDGE_IMPEXP DEBUG_ENGINE DbgGetDebugEngine()
         BridgeSettingSetUint("Engine", "DebugEngine", setting);
     }
     return (DEBUG_ENGINE)setting;
+}
+
+BRIDGE_IMPEXP bool DbgGetSymbolInfoAt(duint addr, SYMBOLINFO* info)
+{
+    return !!_dbg_sendmessage(DBG_GET_SYMBOL_INFO_AT, (void*)addr, info);
+}
+
+BRIDGE_IMPEXP duint DbgXrefAddMulti(const XREF_EDGE* edges, duint count)
+{
+    return (duint)_dbg_sendmessage(DBG_XREF_ADD_MULTI, (void*)edges, (void*)count);
 }
 
 BRIDGE_IMPEXP const char* GuiTranslateText(const char* Source)

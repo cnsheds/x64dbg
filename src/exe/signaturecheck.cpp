@@ -142,7 +142,7 @@ static bool FileExists(const wchar_t* szFullPath)
     return (attrib != INVALID_FILE_ATTRIBUTES && !(attrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-SIGNATURE_EXPORT HMODULE LoadLibraryCheckedW(const wchar_t* szDll, bool allowFailure)
+HMODULE WINAPI LoadLibraryCheckedW(const wchar_t* szDll, bool allowFailure)
 {
     std::wstring fullDllPath = szApplicationDir;
     fullDllPath += szDll;
@@ -190,7 +190,7 @@ SIGNATURE_EXPORT HMODULE LoadLibraryCheckedW(const wchar_t* szDll, bool allowFai
     return hModule;
 }
 
-SIGNATURE_EXPORT HMODULE LoadLibraryCheckedA(const char* szDll, bool allowFailure)
+HMODULE WINAPI LoadLibraryCheckedA(const char* szDll, bool allowFailure)
 {
     return LoadLibraryCheckedW(Utf8ToUtf16(szDll).c_str(), allowFailure);
 }
@@ -312,7 +312,6 @@ static VOID CALLBACK MyLdrDllNotification(
 }
 #endif // DEBUG_SIGNATURE_CHECKS
 
-#define LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR    0x00000100
 #define LOAD_LIBRARY_SEARCH_APPLICATION_DIR 0x00000200
 #define LOAD_LIBRARY_SEARCH_USER_DIRS       0x00000400
 #define LOAD_LIBRARY_SEARCH_SYSTEM32        0x00000800

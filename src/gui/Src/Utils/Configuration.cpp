@@ -39,7 +39,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultColors.insert("DisassemblyBreakpointColor", QColor("#000000"));
     defaultColors.insert("DisassemblyBreakpointBackgroundColor", QColor("#FF0000"));
     defaultColors.insert("DisassemblyHardwareBreakpointColor", QColor("#000000"));
-    defaultColors.insert("DisassemblyHardwareBreakpointBackgroundColor", Qt::transparent);
+    defaultColors.insert("DisassemblyHardwareBreakpointBackgroundColor", QColor("#FF8080"));
     defaultColors.insert("DisassemblyBookmarkColor", QColor("#000000"));
     defaultColors.insert("DisassemblyBookmarkBackgroundColor", QColor("#FEE970"));
     defaultColors.insert("DisassemblyLabelColor", QColor("#FF0000"));
@@ -249,6 +249,8 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultColors.insert("SymbolLoadedTextColor", QColor("#008000"));
     defaultColors.insert("BackgroundFlickerColor", QColor("#ff6961"));
     defaultColors.insert("LinkColor", QColor("#0000ff"));
+    defaultColors.insert("LogColor", QColor("#000000"));
+    defaultColors.insert("LogBackgroundColor", QColor("#FFF8F0"));
 
     //bool settings
     QMap<QString, bool> disassemblyBool;

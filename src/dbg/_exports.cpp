@@ -1668,6 +1668,26 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
         return debugEngine;
     }
     break;
+
+    case DBG_GET_SYMBOL_INFO_AT:
+    {
+        SHARED_ACQUIRE(LockModules);
+
+        SymbolInfo symInfo;
+        if(!SymbolFromAddressExact((duint)param1, symInfo))
+            return false;
+
+        auto modbase = ModBaseFromAddr((duint)param1);
+        symInfo.copyToGuiSymbol(modbase, (SYMBOLINFO*)param2);
+        return true;
+    }
+    break;
+
+    case DBG_XREF_ADD_MULTI:
+    {
+        return XrefAddMulti((const XREF_EDGE*)param1, (duint)param2);
+    }
+    break;
     }
     return 0;
 }

@@ -116,7 +116,7 @@ public:
 
     virtual bool findSymbolExactOrLower(duint rva, SymbolInfo & symInfo) override;
 
-    virtual void enumSymbols(const CbEnumSymbol & cbEnum) override;
+    virtual void enumSymbols(const CbEnumSymbol & cbEnum, duint beginRva, duint endRva) override;
 
     virtual bool findSourceLineInfo(duint rva, LineInfo & lineInfo) override;
 
