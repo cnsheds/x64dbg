@@ -52,25 +52,6 @@ void SettingsDialog::LoadSettings()
     Config()->save();
 
     //Defaults
-    memset(&settings, 0, sizeof(SettingsStruct));
-    settings.eventSystemBreakpoint = true;
-    settings.eventTlsCallbacks = true;
-    settings.eventEntryBreakpoint = true;
-    settings.eventExitBreakpoint = false;
-    settings.engineType = DebugEngineTitanEngine;
-    settings.engineCalcType = calc_unsigned;
-    settings.engineBreakpointType = break_int3short;
-    settings.engineUndecorateSymbolNames = true;
-    settings.engineEnableDebugPrivilege = true;
-    settings.engineEnableSourceDebugging = false;
-    settings.engineNoScriptTimeout = false;
-    settings.engineIgnoreInconsistentBreakpoints = false;
-    settings.engineNoWow64SingleStepWorkaround = false;
-    settings.engineDisableAslr = false;
-    settings.engineMaxTraceCount = 50000;
-    settings.engineAnimateInterval = 50;
-    settings.engineHardcoreThreadSwitchWarning = false;
-    settings.engineVerboseExceptionLogging = true;
     settings.exceptionFilters = &realExceptionFilters;
     settings.disasmArgumentSpaces = false;
     settings.disasmHidePointerSizes = false;
@@ -316,6 +297,7 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Gui", "NoSeasons", &settings.guiHideSeasonalIcons);
     GetSettingBool("Gui", "EnableQtHighDpiScaling", &settings.guiEnableQtHighDpiScaling);
     GetSettingBool("Gui", "WindowLongPath", &settings.guiEnableWindowLongPath);
+    GetSettingBool("Gui", "NoIcons", &settings.guiNoIcons);
     ui->chkFpuRegistersLittleEndian->setChecked(settings.guiFpuRegistersLittleEndian);
     ui->chkSaveColumnOrder->setChecked(settings.guiSaveColumnOrder);
     ui->chkNoCloseDialog->setChecked(settings.guiNoCloseDialog);
@@ -333,6 +315,7 @@ void SettingsDialog::LoadSettings()
     ui->chkHideSeasonalIcons->setVisible(isSeasonal());
     ui->chkQtHighDpiScaling->setChecked(settings.guiEnableQtHighDpiScaling);
     ui->chkWindowLongPath->setChecked(settings.guiEnableWindowLongPath);
+    ui->chkNoIcons->setChecked(settings.guiNoIcons);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -486,6 +469,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Gui", "NoSeasons", settings.guiHideSeasonalIcons);
     BridgeSettingSetUint("Gui", "EnableQtHighDpiScaling", settings.guiEnableQtHighDpiScaling);
     BridgeSettingSetUint("Gui", "WindowLongPath", settings.guiEnableWindowLongPath);
+    BridgeSettingSetUint("Gui", "NoIcons", settings.guiNoIcons);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -1192,7 +1176,6 @@ void SettingsDialog::on_chkQueryWorkingSet_toggled(bool checked)
     settings.miscQueryWorkingSet = checked;
 }
 
-
 void SettingsDialog::on_chkShowInfoWindow_toggled(bool checked)
 {
     settings.guiShowInfoWindow = checked;
@@ -1212,3 +1195,9 @@ void SettingsDialog::on_chkWindowLongPath_toggled(bool checked)
 {
     settings.guiEnableWindowLongPath = checked;
 }
+
+void SettingsDialog::on_chkNoIcons_toggled(bool checked)
+{
+    settings.guiNoIcons = checked;
+}
+

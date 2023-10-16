@@ -6,11 +6,12 @@
 #include "QCompleter"
 #include "SymbolAutoCompleteModel.h"
 
-GotoDialog::GotoDialog(QWidget* parent, bool allowInvalidExpression, bool allowInvalidAddress)
+GotoDialog::GotoDialog(QWidget* parent, bool allowInvalidExpression, bool allowInvalidAddress, bool allowNotDebugging)
     : QDialog(parent),
       ui(new Ui::GotoDialog),
       allowInvalidExpression(allowInvalidExpression),
-      allowInvalidAddress(allowInvalidAddress || allowInvalidExpression)
+      allowInvalidAddress(allowInvalidAddress || allowInvalidExpression),
+      allowNotDebugging(allowNotDebugging)
 {
     //setup UI first
     ui->setupUi(this);
@@ -18,7 +19,7 @@ GotoDialog::GotoDialog(QWidget* parent, bool allowInvalidExpression, bool allowI
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint | Qt::MSWindowsFixedSizeDialogHint);
 
     //initialize stuff
-    if(!DbgIsDebugging()) //not debugging
+    if(!allowNotDebugging && !DbgIsDebugging()) //not debugging
         ui->labelError->setText(tr("<font color='red'><b>Not debugging...</b></font>"));
     else
         ui->labelError->setText(tr("<font color='red'><b>Invalid expression...</b></font>"));
@@ -46,14 +47,14 @@ GotoDialog::GotoDialog(QWidget* parent, bool allowInvalidExpression, bool allowI
     connect(this, SIGNAL(finished(int)), this, SLOT(finishedSlot(int)));
     connect(Config(), SIGNAL(disableAutoCompleteUpdated()), this, SLOT(disableAutoCompleteUpdated()));
 
-    Config()->setupWindowPos(this);
+    Config()->loadWindowGeometry(this);
 }
 
 GotoDialog::~GotoDialog()
 {
     mValidateThread->stop();
     mValidateThread->wait();
-    Config()->saveWindowPos(this);
+    Config()->saveWindowGeometry(this);
     delete ui;
 }
 
@@ -106,7 +107,7 @@ void GotoDialog::expressionChanged(bool validExpression, bool validPointer, dsin
     }
     if(expressionText == expression)
         return;
-    if(!DbgIsDebugging()) //not debugging
+    if(!allowNotDebugging && !DbgIsDebugging()) //not debugging
     {
         ui->labelError->setText(tr("<font color='red'><b>Not debugging...</b></font>"));
         setOkEnabled(false);

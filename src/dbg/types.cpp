@@ -547,6 +547,7 @@ static void loadTypes(const JSON troot, std::vector<Member> & types)
     size_t i;
     JSON vali;
     Member curType;
+    types.reserve(json_array_size(troot));
     json_array_foreach(troot, i, vali)
     {
         auto type = json_string_value(json_object_get(vali, "type"));
@@ -601,6 +602,7 @@ static void loadFunctions(const JSON froot, std::vector<Function> & functions)
     size_t i;
     JSON vali;
     Function curFunction;
+    functions.reserve(json_array_size(froot));
     json_array_foreach(froot, i, vali)
     {
         auto rettype = json_string_value(json_object_get(vali, "rettype"));
@@ -626,6 +628,7 @@ static void loadFunctions(const JSON froot, std::vector<Function> & functions)
         size_t j;
         JSON valj;
         Member curArg;
+        curFunction.args.reserve(json_array_size(args));
         json_array_foreach(args, j, valj)
         {
             auto type = json_string_value(json_object_get(valj, "type"));

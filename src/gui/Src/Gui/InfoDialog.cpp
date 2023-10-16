@@ -8,6 +8,7 @@
 #include "CPUDump.h"
 #include "CPUStack.h"
 #include <QDesktopWidget>
+#include <QTextCodec>
 
 //=============================================================
 InfoDialog::InfoDialog(QWidget* parent)
@@ -68,14 +69,14 @@ InfoDialog::InfoDialog(QWidget* parent)
     connect(Bridge::getBridge(), SIGNAL(dbgStateChanged(DBGSTATE)), this, SLOT(dbgStateChanged(DBGSTATE)));
 
     SetButtonStyle(ui->btn_close, ":/icons/images/btn_close.png", 3);
-    Config()->setupWindowPos(this);
+    Config()->loadWindowGeometry(this);
 }
 
 InfoDialog::~InfoDialog()
 {
     ui->label_timet->removeEventFilter(this);
     ui->label_int->removeEventFilter(this);
-    Config()->saveWindowPos(this);
+    Config()->saveWindowGeometry(this);
     delete ui;
 }
 

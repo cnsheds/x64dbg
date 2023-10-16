@@ -128,8 +128,7 @@ MainWindow::MainWindow(QWidget* parent)
     Bridge::getBridge()->emitMenuAddToList(this, ui->menuPlugins, GUI_PLUGIN_MENU);
 
     m_initAlpha = 255;
-
-    // Set window title
+    // Set window title to executable name
     if(BridgeIsProcessElevated())
     {
         mWindowMainTitle = tr("%1 [Elevated]").arg(QCoreApplication::applicationName());
@@ -198,7 +197,7 @@ MainWindow::MainWindow(QWidget* parent)
     mScriptView->hide();
 
     // CPU view
-    mCpuWidget = new CPUWidget();
+    mCpuWidget = new CPUWidget(Bridge::getArchitecture());
     mCpuWidget->setWindowTitle(tr("CPU"));
 #ifdef _WIN64
     mCpuWidget->setWindowIcon(DIcon("processor64"));
@@ -301,10 +300,10 @@ MainWindow::MainWindow(QWidget* parent)
     makeCommandAction(ui->actionRtu, "TraceOverConditional mod.user(cip)");
     connect(ui->actionTicnd, SIGNAL(triggered()), this, SLOT(execTicnd()));
     connect(ui->actionTocnd, SIGNAL(triggered()), this, SLOT(execTocnd()));
-    connect(ui->actionTRBit, SIGNAL(triggered()), this, SLOT(execTRBit()));
-    connect(ui->actionTRByte, SIGNAL(triggered()), this, SLOT(execTRByte()));
-    connect(ui->actionTRWord, SIGNAL(triggered()), this, SLOT(execTRWord()));
-    connect(ui->actionTRNone, SIGNAL(triggered()), this, SLOT(execTRNone()));
+    connect(ui->actionTRBit, SIGNAL(triggered()), mCpuWidget->getDisasmWidget(), SLOT(traceCoverageBitSlot()));
+    connect(ui->actionTRByte, SIGNAL(triggered()), mCpuWidget->getDisasmWidget(), SLOT(traceCoverageByteSlot()));
+    connect(ui->actionTRWord, SIGNAL(triggered()), mCpuWidget->getDisasmWidget(), SLOT(traceCoverageWordSlot()));
+    connect(ui->actionTRNone, SIGNAL(triggered()), mCpuWidget->getDisasmWidget(), SLOT(traceCoverageDisableSlot()));
     makeCommandAction(ui->actionTRTIBT, "tibt");
     makeCommandAction(ui->actionTRTOBT, "tobt");
     makeCommandAction(ui->actionTRTIIT, "tiit");
@@ -341,6 +340,7 @@ MainWindow::MainWindow(QWidget* parent)
     connect(ui->actionReportBug, SIGNAL(triggered()), this, SLOT(reportBug()));
     connect(ui->actionBlog, SIGNAL(triggered()), this, SLOT(blog()));
     connect(ui->actionCrashDump, SIGNAL(triggered()), this, SLOT(crashDump()));
+    connect(ui->actionMnemonic_Help, SIGNAL(triggered()), this, SLOT(mnemonicHelp()));
     connect(ui->actionAttach, SIGNAL(triggered()), this, SLOT(displayAttach()));
     makeCommandAction(ui->actionDetach, "detach");
     connect(ui->actionChangeCommandLine, SIGNAL(triggered()), this, SLOT(changeCommandLine()));
@@ -422,6 +422,28 @@ MainWindow::MainWindow(QWidget* parent)
     QTimer::singleShot(0, this, SLOT(loadWindowSettings()));
 
     updateDarkTitleBar(this);
+
+    // Hide the menu icons if the setting is enabled
+    duint noIcons = 0;
+    BridgeSettingGetUint("Gui", "NoIcons", &noIcons);
+    if(noIcons)
+    {
+        QList<QList<QAction*>> stack;
+        stack.push_back(ui->menuBar->actions());
+        while(!stack.isEmpty())
+        {
+            auto actions = stack.back();
+            stack.pop_back();
+            for(auto action : actions)
+            {
+                action->setIconVisibleInMenu(false);
+                if(action->menu())
+                {
+                    stack.push_back(action->menu()->actions());
+                }
+            }
+        }
+    }
 }
 
 MainWindow::~MainWindow()
@@ -561,6 +583,7 @@ void MainWindow::loadSelectedTheme(bool reloadOnlyStyleCss)
 
     QString stylePath(":/css/default.css");
     QString settingsPath;
+    QString applicationDirPath = QCoreApplication::applicationDirPath();
     if(*selectedTheme)
     {
         // Handle the icon theme
@@ -568,7 +591,7 @@ void MainWindow::loadSelectedTheme(bool reloadOnlyStyleCss)
         if(strcmp(selectedTheme, "Default") == 0)
         {
             // The Default theme needs some special handling to allow overriding
-            auto overrideDir = QCoreApplication::applicationDirPath() + "/../themes/Default";
+            auto overrideDir = applicationDirPath + "/../themes/Default";
             if(QDir(overrideDir).exists("index.theme"))
             {
                 /*
@@ -596,7 +619,7 @@ void MainWindow::loadSelectedTheme(bool reloadOnlyStyleCss)
         }
         else
         {
-            auto themesDir = QCoreApplication::applicationDirPath() + "/../themes";
+            auto themesDir = applicationDirPath + "/../themes";
             if(QDir(themesDir).exists(QString("%1/index.theme").arg(selectedTheme)))
             {
                 searchPaths << themesDir;
@@ -610,17 +633,17 @@ void MainWindow::loadSelectedTheme(bool reloadOnlyStyleCss)
             QIcon::setThemeSearchPaths(searchPaths);
         }
 
-        QString themePath = QString("%1/../themes/%2/style.css").arg(QCoreApplication::applicationDirPath()).arg(selectedTheme);
+        QString themePath = QString("%1/../themes/%2/style.css").arg(applicationDirPath).arg(selectedTheme);
         if(!QFile(themePath).exists())
-            themePath = QString("%1/../themes/%2/theme.css").arg(QCoreApplication::applicationDirPath()).arg(selectedTheme);
+            themePath = QString("%1/../themes/%2/theme.css").arg(applicationDirPath).arg(selectedTheme);
         if(QFile(themePath).exists())
             stylePath = themePath;
 
-        auto tryIni = [&settingsPath, &selectedTheme](const char* name)
+        auto tryIni = [&applicationDirPath, &settingsPath, &selectedTheme](const char* name)
         {
             if(!settingsPath.isEmpty())
                 return;
-            QString iniPath = QString("%1/../themes/%2/%3").arg(QCoreApplication::applicationDirPath(), selectedTheme, name);
+            QString iniPath = QString("%1/../themes/%2/%3").arg(applicationDirPath, selectedTheme, name);
             if(QFile(iniPath).exists())
                 settingsPath = iniPath;
         };
@@ -639,10 +662,11 @@ void MainWindow::loadSelectedTheme(bool reloadOnlyStyleCss)
     {
         auto style = QTextStream(&cssFile).readAll();
         cssFile.close();
-        style = style.replace("url(./", QString("url(../themes/%2/").arg(selectedTheme));
-        style = style.replace("url(\"./", QString("url(\"../themes/%2/").arg(selectedTheme));
-        style = style.replace("url('./", QString("url('../themes/%2/").arg(selectedTheme));
-        style = style.replace("$RELPATH", QString("../themes/%2/").arg(selectedTheme));
+
+        style = style.replace("url(./", QString("url(approot:/themes/%1/").arg(selectedTheme));
+        style = style.replace("url(\"./", QString("url(\"approot:/themes/%1/").arg(selectedTheme));
+        style = style.replace("url('./", QString("url('approot:/themes/%1/").arg(selectedTheme));
+        style = style.replace("$RELPATH", QString("approot:/themes/%1").arg(selectedTheme));
         qApp->setStyleSheet(style);
     }
 
@@ -718,7 +742,7 @@ void MainWindow::setupLanguagesMenu2()
     QMenu* languageMenu = dynamic_cast<QMenu*>(sender()); //The only sender is languageMenu
     QAction* action_enUS = languageMenu->actions()[0]; //There is only one action "action_enUS" created by setupLanguagesMenu()
     QDir translationsDir(QString("%1/../translations/").arg(QCoreApplication::applicationDirPath()));
-    QString wCurrentLocale(currentLocale);
+    QString currentLocale(gCurrentLocale);
 
     if(!translationsDir.exists())
     {
@@ -727,7 +751,7 @@ void MainWindow::setupLanguagesMenu2()
         disconnect(languageMenu, SIGNAL(aboutToShow()), this, 0);
         return;
     }
-    if(wCurrentLocale == QString("en_US"))
+    if(currentLocale == QString("en_US"))
         action_enUS->setChecked(true);
     QStringList filter;
     filter << "x64dbg_*.qm";
@@ -743,7 +767,7 @@ void MainWindow::setupLanguagesMenu2()
                 QAction* actionLanguage = new QAction(QString("[%1] %2 - %3").arg(localeName).arg(j.nativeLanguageName()).arg(j.nativeCountryName()), languageMenu);
                 connect(actionLanguage, SIGNAL(triggered()), this, SLOT(chooseLanguage()));
                 actionLanguage->setCheckable(true);
-                actionLanguage->setChecked(localeName == wCurrentLocale);
+                actionLanguage->setChecked(localeName == currentLocale);
                 languageMenu->addAction(actionLanguage);
                 break;
             }
@@ -818,7 +842,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
         bExecuteThread = false;
         Sleep(100);
         mCloseThread->start();
-        emit Bridge::getBridge()->shutdown();
+        emit Bridge::getBridge()->close();
     }
     if(bCanClose)
     {
@@ -1156,30 +1180,17 @@ void MainWindow::setFocusToCommandBar()
     mCmdLineEdit->setFocus();
 }
 
-void MainWindow::execTRBit()
-{
-    mCpuWidget->getDisasmWidget()->traceCoverageBitSlot();
-}
-
-void MainWindow::execTRByte()
-{
-    mCpuWidget->getDisasmWidget()->traceCoverageByteSlot();
-}
-
-void MainWindow::execTRWord()
-{
-    mCpuWidget->getDisasmWidget()->traceCoverageWordSlot();
-}
-
-void MainWindow::execTRNone()
-{
-    mCpuWidget->getDisasmWidget()->traceCoverageDisableSlot();
-}
-
 void MainWindow::execTicnd()
 {
     if(!DbgIsDebugging())
         return;
+
+    if(DbgIsRunning())
+    {
+        SimpleErrorBox(this, tr("Error"), tr("Cannot start a trace when running, pause execution first."));
+        return;
+    }
+
     mSimpleTraceDialog->setTraceCommand("TraceIntoConditional");
     mSimpleTraceDialog->setWindowTitle(tr("Trace into..."));
     mSimpleTraceDialog->setWindowIcon(DIcon("traceinto"));
@@ -1190,6 +1201,13 @@ void MainWindow::execTocnd()
 {
     if(!DbgIsDebugging())
         return;
+
+    if(DbgIsRunning())
+    {
+        SimpleErrorBox(this, tr("Error"), tr("Cannot start a trace when running, pause execution first."));
+        return;
+    }
+
     mSimpleTraceDialog->setTraceCommand("TraceOverConditional");
     mSimpleTraceDialog->setWindowTitle(tr("Trace over..."));
     mSimpleTraceDialog->setWindowIcon(DIcon("traceover"));
@@ -1534,24 +1552,24 @@ void MainWindow::addMenu(int hMenu, QString title)
         QMutexLocker locker(mMenuMutex);
 
         // Abort if another thread deleted the entry or the parent menu
-        auto menu = findMenu(hMenuNew);
-        if(!menu)
+        auto menuInfo = findMenu(hMenuNew);
+        if(!menuInfo)
             return;
-        auto parentMenu = findMenu(menu->hParentMenu);
-        if(parentMenu == nullptr && menu->hParentMenu != -1)
+        auto parentMenu = findMenu(menuInfo->hParentMenu);
+        if(parentMenu == nullptr && menuInfo->hParentMenu != -1)
             return;
 
         // Actually create the menu
-        QWidget* parent = menu->hParentMenu == -1 ? this : parentMenu->parent;
-        menu->parent = parent;
-        QMenu* wMenu = new QMenu(title, parent);
-        menu->mMenu = wMenu;
-        wMenu->menuAction()->setVisible(false);
-        if(menu->hParentMenu == -1) //top-level
-            ui->menuBar->addMenu(wMenu);
+        QWidget* parent = menuInfo->hParentMenu == -1 ? this : parentMenu->parent;
+        menuInfo->parent = parent;
+        QMenu* menu = new QMenu(title, parent);
+        menuInfo->mMenu = menu;
+        menu->menuAction()->setVisible(false);
+        if(menuInfo->hParentMenu == -1) //top-level
+            ui->menuBar->addMenu(menu);
         else //deeper level
         {
-            parentMenu->mMenu->addMenu(wMenu);
+            parentMenu->mMenu->addMenu(menu);
             parentMenu->mMenu->menuAction()->setVisible(true);
         }
     });
@@ -1588,18 +1606,18 @@ void MainWindow::addMenuEntry(int hMenu, QString title)
 
         // Actually create the menu action
         QWidget* parent = entry->hParentMenu == -1 ? this : menu->parent;
-        QAction* wAction = new QAction(title, parent);
-        parent->addAction(wAction);
-        wAction->setObjectName(QString().sprintf("ENTRY|%d", hEntryNew));
-        wAction->setShortcutContext((!menu || menu->globalMenu) ? Qt::ApplicationShortcut : Qt::WidgetShortcut);
-        parent->addAction(wAction); // TODO: something is wrong here
-        connect(wAction, SIGNAL(triggered()), this, SLOT(menuEntrySlot()));
-        entry->mAction = wAction;
+        QAction* action = new QAction(title, parent);
+        parent->addAction(action);
+        action->setObjectName(QString().sprintf("ENTRY|%d", hEntryNew));
+        action->setShortcutContext((!menu || menu->globalMenu) ? Qt::ApplicationShortcut : Qt::WidgetShortcut);
+        parent->addAction(action); // TODO: something is wrong here
+        connect(action, SIGNAL(triggered()), this, SLOT(menuEntrySlot()));
+        entry->mAction = action;
         if(entry->hParentMenu == -1) //top level
-            ui->menuBar->addAction(wAction);
+            ui->menuBar->addAction(action);
         else //deeper level
         {
-            menu->mMenu->addAction(wAction);
+            menu->mMenu->addAction(action);
             menu->mMenu->menuAction()->setVisible(true);
         }
     });
@@ -2103,6 +2121,16 @@ void MainWindow::crashDump()
     SimpleWarningBox(this, tr("Have fun debugging the debugger!"), tr("Debugger detected!"));
 }
 
+void MainWindow::mnemonicHelp()
+{
+    QString mnemonic;
+    if(SimpleInputBox(this, tr("Mnemonic help"), "", mnemonic, "call"))
+    {
+        DbgCmdExec(QString("mnemonichelp ").append(mnemonic).toUtf8().constData());
+        showQWidgetTab(mLogView);
+    }
+}
+
 void MainWindow::displayAttach()
 {
     AttachDialog attach(this);
@@ -2483,7 +2511,7 @@ void MainWindow::chooseLanguage()
     QAction* action = qobject_cast<QAction*>(sender());
     QString localeName = action->text();
     localeName = localeName.mid(1, localeName.indexOf(QChar(']')) - 1);
-    action->setChecked(localeName == QString(currentLocale));
+    action->setChecked(localeName == QString(gCurrentLocale));
     if(localeName != "en_US")
     {
         QDir translationsDir(QString("%1/../translations/").arg(QCoreApplication::applicationDirPath()));

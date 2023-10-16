@@ -4,6 +4,7 @@
 #include <QThread>
 #include "MiscUtil.h"
 #include "StringUtil.h"
+#include <sysinfoapi.h>
 
 TraceFileReader::TraceFileReader(QObject* parent) : QObject(parent)
 {
@@ -17,7 +18,8 @@ TraceFileReader::TraceFileReader(QObject* parent) : QObject(parent)
     EXEPath.clear();
 
     int maxModuleSize = (int)ConfigUint("Disassembler", "MaxModuleSize");
-    mDisasm = new QBeaEngine(maxModuleSize);
+    // TODO: refactor this to come from the parent TraceWidget
+    mDisasm = new QZydis(maxModuleSize, Bridge::getArchitecture());
     connect(Config(), SIGNAL(tokenizerConfigUpdated()), this, SLOT(tokenizerUpdatedSlot()));
     connect(Config(), SIGNAL(colorsUpdated()), this, SLOT(tokenizerUpdatedSlot()));
 }
@@ -221,6 +223,29 @@ void TraceFileReader::MemoryAccessInfo(unsigned long long index, duint* address,
         return page->MemoryAccessInfo(index - base, address, oldMemory, newMemory, isValid);
 }
 
+static size_t getMaxCachedPages()
+{
+#ifdef _WIN64
+    MEMORYSTATUSEX meminfo;
+    memset(&meminfo, 0, sizeof(meminfo));
+    meminfo.dwLength = sizeof(meminfo);
+    if(GlobalMemoryStatusEx(&meminfo))
+    {
+        meminfo.ullAvailPhys >>= 20;
+        if(meminfo.ullAvailPhys >= 4096) // more than 4GB free memory!
+            return 2048;
+        else if(meminfo.ullAvailPhys <= 1024) // less than 1GB free memory!
+            return 100;
+        else
+            return 512;
+    } // GlobalMemoryStatusEx failed?
+    else
+        return 100;
+#else //x86
+    return 100;
+#endif
+}
+
 // Used internally to get the page for the given index and read from disk if necessary
 TraceFilePage* TraceFileReader::getPage(unsigned long long index, unsigned long long* base)
 {
@@ -251,7 +276,8 @@ TraceFilePage* TraceFileReader::getPage(unsigned long long index, unsigned long 
     else if(index >= Length()) //Out of bound
         return nullptr;
     // Remove an oldest page from system memory to make room for a new one.
-    if(pages.size() >= 2048) //TODO: trim resident pages based on system memory usage, instead of a hard limit.
+    size_t maxPages = getMaxCachedPages();
+    while(pages.size() >= maxPages)
     {
         FILETIME pageOutTime = pages.begin()->second.lastAccessed;
         Range pageOutIndex = pages.begin()->first;
@@ -447,12 +473,13 @@ void TraceFileParser::run()
     }
     try
     {
-        if(that->traceFile.size() == 0)
+        auto filesize = that->traceFile.size();
+        if(filesize == 0)
             throw std::wstring(L"File is empty");
         //Process file header
         readFileHeader(that);
         //Update progress
-        that->progress.store(that->traceFile.pos() * 100 / that->traceFile.size());
+        that->progress.store(that->traceFile.pos() * 100 / filesize);
         //Process file content
         while(!that->traceFile.atEnd())
         {
@@ -465,7 +492,7 @@ void TraceFileParser::run()
                 that->fileIndex.push_back(std::make_pair(index, TraceFileReader::Range(blockStart, 0)));
                 lastIndex = index + 1;
                 //Update progress
-                that->progress.store(that->traceFile.pos() * 100 / that->traceFile.size());
+                that->progress.store(that->traceFile.pos() * 100 / filesize);
                 if(that->progress == 100)
                     that->progress = 99;
                 if(this->isInterruptionRequested() && !that->traceFile.atEnd()) //Cancel loading
@@ -679,7 +706,7 @@ void TraceFilePage::OpCode(unsigned long long index, unsigned char* buffer, int*
     memcpy(buffer, opcodes.constData() + opcodeOffset.at(index), *opcodeSize);
 }
 
-const Instruction_t & TraceFilePage::Instruction(unsigned long long index, QBeaEngine & mDisasm)
+const Instruction_t & TraceFilePage::Instruction(unsigned long long index, QZydis & mDisasm)
 {
     if(instructions.size() == 0)
     {

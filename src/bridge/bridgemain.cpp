@@ -78,6 +78,9 @@ static const wchar_t* InitializeUserDirectory()
 
     *backslash = L'\0';
 
+    // Set the current directory to the application directory
+    SetCurrentDirectoryW(szUserDirectory);
+
     // Extract the file name of the x64dbg executable (without extension)
     auto fileNameWithoutExtension = backslash + 1;
     auto period = wcschr(fileNameWithoutExtension, L'.');
@@ -291,7 +294,7 @@ BRIDGE_IMPEXP void* BridgeAlloc(size_t size)
 
 BRIDGE_IMPEXP void BridgeFree(void* ptr)
 {
-    if(ptr)
+    if(ptr != nullptr)
         GlobalFree(ptr);
 }
 
@@ -838,23 +841,35 @@ BRIDGE_IMPEXP bool DbgScriptGetBranchInfo(int line, SCRIPTBRANCH* info)
 }
 
 // FIXME all
-BRIDGE_IMPEXP void DbgSymbolEnum(duint base, CBSYMBOLENUM cbSymbolEnum, void* user)
+BRIDGE_IMPEXP bool DbgSymbolEnum(duint base, CBSYMBOLENUM cbSymbolEnum, void* user)
 {
     SYMBOLCBINFO cbInfo;
     cbInfo.base = base;
     cbInfo.cbSymbolEnum = cbSymbolEnum;
     cbInfo.user = user;
-    _dbg_sendmessage(DBG_SYMBOL_ENUM, &cbInfo, 0);
+    // These fields are ignored if base != -1, but set them anyway to be safe
+    cbInfo.start = 0;
+    cbInfo.end = -1;
+    cbInfo.symbolMask = SYMBOL_MASK_ALL;
+    return !!_dbg_sendmessage(DBG_SYMBOL_ENUM, &cbInfo, 0);
 }
 
 // FIXME all
-BRIDGE_IMPEXP void DbgSymbolEnumFromCache(duint base, CBSYMBOLENUM cbSymbolEnum, void* user)
+BRIDGE_IMPEXP bool DbgSymbolEnumFromCache(duint base, CBSYMBOLENUM cbSymbolEnum, void* user)
+{
+    return DbgSymbolEnum(base, cbSymbolEnum, user);
+}
+
+BRIDGE_IMPEXP bool DbgSymbolEnumRange(duint start, duint end, unsigned int symbolMask, CBSYMBOLENUM cbSymbolEnum, void* user)
 {
     SYMBOLCBINFO cbInfo;
-    cbInfo.base = base;
+    cbInfo.base = -1; // This indicates that start/end/mask is used
     cbInfo.cbSymbolEnum = cbSymbolEnum;
     cbInfo.user = user;
-    _dbg_sendmessage(DBG_SYMBOL_ENUM_FROMCACHE, &cbInfo, 0);
+    cbInfo.start = start;
+    cbInfo.end = end;
+    cbInfo.symbolMask = symbolMask;
+    return !!_dbg_sendmessage(DBG_SYMBOL_ENUM, &cbInfo, 0);
 }
 
 BRIDGE_IMPEXP bool DbgAssembleAt(duint addr, const char* instruction)
@@ -1347,6 +1362,21 @@ BRIDGE_IMPEXP void GuiAddLogMessageHtml(const char* msg)
 BRIDGE_IMPEXP void GuiLogClear()
 {
     _gui_sendmessage(GUI_CLEAR_LOG, 0, 0);
+}
+
+BRIDGE_IMPEXP void GuiLogSave(const char* filename)
+{
+    _gui_sendmessage(GUI_SAVE_LOG, (void*)filename, 0);
+}
+
+BRIDGE_IMPEXP void GuiLogRedirect(const char* filename)
+{
+    _gui_sendmessage(GUI_REDIRECT_LOG, (void*)filename, 0);
+}
+
+BRIDGE_IMPEXP void GuiLogRedirectStop()
+{
+    _gui_sendmessage(GUI_STOP_REDIRECT_LOG, 0, 0);
 }
 
 BRIDGE_IMPEXP void GuiUpdateEnable(bool updateNow)

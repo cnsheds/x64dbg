@@ -47,7 +47,7 @@ AttachDialog::AttachDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Attach
     // Highlight the search box
     mSearchListView->mCurList->setFocus();
 
-    Config()->setupWindowPos(this);
+    Config()->loadWindowGeometry(this);
 
     // Populate the process list atleast once
     refresh();
@@ -55,7 +55,7 @@ AttachDialog::AttachDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Attach
 
 AttachDialog::~AttachDialog()
 {
-    Config()->saveWindowPos(this);
+    Config()->saveWindowGeometry(this);
     delete ui;
 }
 
@@ -112,7 +112,7 @@ retryFindWindow:
             refresh();
             QString pidText = QString().sprintf(ConfigBool("Gui", "PidTidInHex") ? "%.8X" : "%u", pid);
             bool found = false;
-            for(int i = 0; i < mSearchListView->mCurList->getRowCount(); i++)
+            for(duint i = 0; i < mSearchListView->mCurList->getRowCount(); i++)
             {
                 if(mSearchListView->mCurList->getCellContent(i, ColPid) == pidText)
                 {
@@ -138,12 +138,12 @@ retryFindWindow:
     }
 }
 
-void AttachDialog::processListContextMenu(QMenu* wMenu)
+void AttachDialog::processListContextMenu(QMenu* menu)
 {
     // Don't show menu options if nothing is listed
     if(!mSearchListView->mCurList->getRowCount())
         return;
 
-    wMenu->addAction(mAttachAction);
-    wMenu->addAction(mRefreshAction);
+    menu->addAction(mAttachAction);
+    menu->addAction(mRefreshAction);
 }

@@ -16,13 +16,6 @@ inline void insertMenuBuilderBools(QMap<QString, bool>* config, const char* id, 
         config->insert(QString("Menu%1Hidden%2").arg(id).arg(i), false);
 }
 
-inline static void addWindowPosConfig(QMap<QString, duint> & guiUint, const char* windowName)
-{
-    QString n(windowName);
-    guiUint.insert(n + "X", 0);
-    guiUint.insert(n + "Y", 0);
-}
-
 Configuration::Configuration() : QObject(), noMoreMsgbox(false)
 {
     mPtr = this;
@@ -32,6 +25,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultColors.insert("AbstractTableViewBackgroundColor", QColor("#FFF8F0"));
     defaultColors.insert("AbstractTableViewTextColor", QColor("#000000"));
     defaultColors.insert("AbstractTableViewHeaderTextColor", QColor("#000000"));
+    defaultColors.insert("AbstractTableViewHeaderBackgroundColor", QColor("#C0C0C0"));
     defaultColors.insert("AbstractTableViewSelectionColor", QColor("#C0C0C0"));
 
     defaultColors.insert("DisassemblyCipColor", QColor("#FFFFFF"));
@@ -270,6 +264,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     disassemblyBool.insert("0xPrefixValues", false);
     disassemblyBool.insert("NoBranchDisasmPreview", false);
     disassemblyBool.insert("NoCurrentModuleText", false);
+    disassemblyBool.insert("ShowMnemonicBrief", false);
     defaultBools.insert("Disassembler", disassemblyBool);
 
     QMap<QString, bool> engineBool;
@@ -315,10 +310,11 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     //"Favourites" menu cannot be customized for item hiding.
     insertMenuBuilderBools(&guiBool, "Help", 50); //Main Menu : Help
     insertMenuBuilderBools(&guiBool, "View", 50); //Main Menu : View
+    insertMenuBuilderBools(&guiBool, "TraceBrowser", 50); //TraceBrowser
     defaultBools.insert("Gui", guiBool);
 
     QMap<QString, duint> guiUint;
-    AbstractTableView::setupColumnConfigDefaultValue(guiUint, "CPUDisassembly", 4);
+    AbstractTableView::setupColumnConfigDefaultValue(guiUint, "CPUDisassembly", 5);
     AbstractTableView::setupColumnConfigDefaultValue(guiUint, "CPUStack", 3);
     for(int i = 1; i <= 5; i++)
         AbstractTableView::setupColumnConfigDefaultValue(guiUint, QString("CPUDump%1").arg(i), 4);
@@ -340,16 +336,6 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     AbstractTableView::setupColumnConfigDefaultValue(guiUint, "Trace", 7);
     guiUint.insert("SIMDRegistersDisplayMode", 0);
     guiUint.insert("EditFloatRegisterDefaultMode", 0);
-    addWindowPosConfig(guiUint, "AssembleDialog");
-    addWindowPosConfig(guiUint, "AttachDialog");
-    addWindowPosConfig(guiUint, "GotoDialog");
-    addWindowPosConfig(guiUint, "EditBreakpointDialog");
-    addWindowPosConfig(guiUint, "BrowseDialog");
-    addWindowPosConfig(guiUint, "FavouriteTools");
-    addWindowPosConfig(guiUint, "HexEditDialog");
-    addWindowPosConfig(guiUint, "WordEditDialog");
-    addWindowPosConfig(guiUint, "InfoDialog");
-    addWindowPosConfig(guiUint, "SystemBreakpointScriptDialog");
     defaultUints.insert("Gui", guiUint);
 
     //uint settings
@@ -1152,24 +1138,27 @@ static bool IsPointVisible(QPoint pos)
 }
 
 /**
- * @brief Configuration::setupWindowPos Moves the dialog to the saved position
+ * @brief Configuration::setupWindowPos Loads the position/size of a dialog.
  * @param window this
  */
-void Configuration::setupWindowPos(QWidget* window)
+void Configuration::loadWindowGeometry(QWidget* window)
 {
-    QPoint pos;
-    pos.setX(getUint("Gui", QString(window->metaObject()->className()) + "X"));
-    pos.setY(getUint("Gui", QString(window->metaObject()->className()) + "Y"));
-    if(pos.x() != 0 && pos.y() != 0 && IsPointVisible(pos))
-        window->move(pos);
+    QString name = window->metaObject()->className();
+    char setting[MAX_SETTING_SIZE] = "";
+    if(!BridgeSettingGet("Gui", (name + "Geometry").toUtf8().constData(), setting))
+        return;
+    auto oldPos = window->pos();
+    window->restoreGeometry(QByteArray::fromBase64(QByteArray(setting)));
+    if(!IsPointVisible(window->pos()))
+        window->move(oldPos);
 }
 
 /**
- * @brief Configuration::saveWindowPos Saves the position of a dialog.
+ * @brief Configuration::saveWindowPos Saves the position/size of a dialog.
  * @param window this
  */
-void Configuration::saveWindowPos(QWidget* window)
+void Configuration::saveWindowGeometry(QWidget* window)
 {
-    setUint("Gui",  QString(window->metaObject()->className()) + "X", window->pos().x());
-    setUint("Gui",  QString(window->metaObject()->className()) + "Y", window->pos().y());
+    QString name = window->metaObject()->className();
+    BridgeSettingSet("Gui", (name + "Geometry").toUtf8().constData(), window->saveGeometry().toBase64().data());
 }

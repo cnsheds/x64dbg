@@ -80,9 +80,9 @@ template<typename T>
 inline QString ToFloatingString(const void* buffer, int precision)
 {
     auto value = *(const T*)buffer;
-    std::stringstream wFloatingStr;
-    wFloatingStr << std::setprecision(precision) << value;
-    return QString::fromStdString(wFloatingStr.str());
+    std::stringstream floatingStr;
+    floatingStr << std::setprecision(precision) << value;
+    return QString::fromStdString(floatingStr.str());
 }
 
 template<typename T>
@@ -103,6 +103,9 @@ inline QString ToDoubleString(const void* buffer, int precision = std::numeric_l
 }
 
 QString ToLongDoubleString(const void* buffer);
+
+// yyyyMMdd-HHmmss (useful for file suffix)
+QString isoDateTime();
 
 QString ToDateString(const QDate & date);
 

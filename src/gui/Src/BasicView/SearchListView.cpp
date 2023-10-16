@@ -62,7 +62,9 @@ SearchListView::SearchListView(QWidget* parent, AbstractSearchList* abstractSear
             QHBoxLayout* horzLayout = new QHBoxLayout();
             horzLayout->setContentsMargins(4, 0, (enableRegex || enableLock) ? 0 : 4, 0);
             horzLayout->setSpacing(2);
-            horzLayout->addWidget(new QLabel(tr("Search: ")));
+            QLabel* label = new QLabel(tr("Search: "), this);
+            label->setBuddy(mSearchBox);
+            horzLayout->addWidget(label);
             horzLayout->addWidget(mSearchBox);
             horzLayout->addWidget(mLockCheckbox);
             horzLayout->addWidget(mRegexCheckbox);
@@ -91,7 +93,6 @@ SearchListView::SearchListView(QWidget* parent, AbstractSearchList* abstractSear
 
     // Set global variables
     mCurList = abstractSearchList->list();
-    mSearchStartCol = 0;
 
     // Install input event filter
     mSearchBox->installEventFilter(this);
@@ -203,9 +204,9 @@ void SearchListView::filterEntries()
     bool hasSetSingleSelection = false;
     if(!mLastFirstColValue.isEmpty())
     {
-        int rows = mCurList->getRowCount();
+        auto rows = mCurList->getRowCount();
         mCurList->setTableOffset(0);
-        for(int i = 0; i < rows; i++)
+        for(duint i = 0; i < rows; i++)
         {
             if(mCurList->getCellContent(i, 0) == mLastFirstColValue)
             {
@@ -295,16 +296,16 @@ void SearchListView::clearFilter()
 
 void SearchListView::listContextMenu(const QPoint & pos)
 {
-    QMenu wMenu(this);
-    emit listContextMenuSignal(&wMenu);
-    wMenu.addSeparator();
-    wMenu.addAction(mSearchAction);
-    QMenu wCopyMenu(tr("&Copy"), this);
-    wCopyMenu.setIcon(DIcon("copy"));
-    mCurList->setupCopyMenu(&wCopyMenu);
-    if(wCopyMenu.actions().length())
-        wMenu.addMenu(&wCopyMenu);
-    wMenu.exec(mCurList->mapToGlobal(pos));
+    QMenu menu(this);
+    emit listContextMenuSignal(&menu);
+    menu.addSeparator();
+    menu.addAction(mSearchAction);
+    QMenu copyMenu(tr("&Copy"), this);
+    copyMenu.setIcon(DIcon("copy"));
+    mCurList->setupCopyMenu(&copyMenu);
+    if(copyMenu.actions().length())
+        menu.addMenu(&copyMenu);
+    menu.exec(mCurList->mapToGlobal(pos));
 }
 
 void SearchListView::doubleClickedSlot()
@@ -344,47 +345,57 @@ bool SearchListView::eventFilter(QObject* obj, QEvent* event)
     if(obj == mSearchBox && event->type() == QEvent::KeyPress)
     {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-
-        switch(keyEvent->key())
+        int key = keyEvent->key();
+        if(key == Qt::Key_Return || key == Qt::Key_Enter)
         {
-        // The user pressed enter/return
-        case Qt::Key_Return:
-        case Qt::Key_Enter:
+            // The user pressed enter/return
             if(mCurList->getCellContent(mCurList->getInitialSelection(), 0).length())
                 emit enterPressedSignal();
             return true;
-
-        // Search box misc controls
-        case Qt::Key_Escape:
-            mSearchBox->clear();
-        case Qt::Key_Left:
-        case Qt::Key_Right:
-        case Qt::Key_Backspace:
-        case Qt::Key_Delete:
-        case Qt::Key_Home:
-        case Qt::Key_End:
-        case Qt::Key_Insert:
-            return QWidget::eventFilter(obj, event);
-
+        }
+        if(key == Qt::Key_Escape)
+        {
+            if(mFilterText.isEmpty())
+                return QWidget::eventFilter(obj, event);
+            else
+                clearFilter();
+        }
+        if(!mSearchBox->text().isEmpty())
+        {
+            switch(key)
+            {
+            // Search box misc controls
+            case Qt::Key_Left:
+            case Qt::Key_Right:
+            case Qt::Key_Backspace:
+            case Qt::Key_Delete:
+            case Qt::Key_Home:
+            case Qt::Key_End:
+            case Qt::Key_Insert:
+                return QWidget::eventFilter(obj, event);
+            // Search box shortcuts reliant on mSearchBox not being empty
+            case Qt::Key_X: //Ctrl+X
+            case Qt::Key_A: //Ctrl+A
+                if(keyEvent->modifiers() == Qt::ControlModifier)
+                    return QWidget::eventFilter(obj, event);
+            }
+        }
+        switch(key)
+        {
         // Search box shortcuts
         case Qt::Key_V: //Ctrl+V
-        case Qt::Key_X: //Ctrl+X
         case Qt::Key_Z: //Ctrl+Z
-        case Qt::Key_A: //Ctrl+A
         case Qt::Key_Y: //Ctrl+Y
-            if(keyEvent->modifiers() == Qt::CTRL)
+            if(keyEvent->modifiers() == Qt::ControlModifier)
                 return QWidget::eventFilter(obj, event);
         }
-
         // Printable characters go to the search box
         QString keyText = keyEvent->text();
         if(!keyText.isEmpty() && QChar(keyText.toUtf8().at(0)).isPrint())
             return QWidget::eventFilter(obj, event);
-
         // By default, all other keys are forwarded to the search view
         return QApplication::sendEvent(mCurList, event);
     }
-
     return QWidget::eventFilter(obj, event);
 }
 

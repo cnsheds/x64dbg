@@ -35,7 +35,7 @@
 #include "TraceRecord.h"
 #include "recursiveanalysis.h"
 #include "dbghelp_safe.h"
-#include "symcache.h"
+#include "symbolinfo.h"
 
 static bool bOnlyCipAutoComments = false;
 static bool bNoSourceLineAutoComments = false;
@@ -102,8 +102,8 @@ extern "C" DLL_EXPORT bool _dbg_isjumpgoingtoexecute(duint addr)
     unsigned char data[16];
     if(MemRead(addr, data, sizeof(data), nullptr, true))
     {
-        Zydis cp;
-        if(cp.Disassemble(addr, data))
+        Zydis zydis;
+        if(zydis.Disassemble(addr, data))
         {
             CONTEXT ctx;
             memset(&ctx, 0, sizeof(ctx));
@@ -116,7 +116,7 @@ extern "C" DLL_EXPORT bool _dbg_isjumpgoingtoexecute(duint addr)
             auto cflags = ctx.EFlags;
             auto ccx = ctx.Ecx;
 #endif //_WIN64
-            return cp.IsBranchGoingToExecute(cflags, ccx);
+            return zydis.IsBranchGoingToExecute(cflags, ccx);
         }
     }
     return false;
@@ -190,31 +190,35 @@ static bool getLabel(duint addr, char* label, bool noFuncOffset)
     else //no user labels
     {
         DWORD64 displacement = 0;
-        SymbolInfo symInfo;
-
-        bool res;
-        if(noFuncOffset)
-            res = SymbolFromAddressExact(addr, symInfo);
-        else
-            res = SymbolFromAddressExactOrLower(addr, symInfo);
-
-        if(res)
         {
-            displacement = (DWORD64)symInfo.disp;
+            SYMBOLINFOCPP symInfo;
 
-            //auto name = demanglePE32ExternCFunc(symInfo.decoratedName.c_str());
-            if(bUndecorateSymbolNames && !symInfo.undecoratedName.empty())
-                strncpy_s(label, MAX_LABEL_SIZE, symInfo.undecoratedName.c_str(), _TRUNCATE);
+            bool res;
+            if(noFuncOffset)
+                res = SymbolFromAddressExact(addr, &symInfo);
             else
-                strncpy_s(label, MAX_LABEL_SIZE, symInfo.decoratedName.c_str(), _TRUNCATE);
-            retval = !shouldFilterSymbol(label);
-            if(retval && displacement)
+                res = SymbolFromAddressExactOrLower(addr, &symInfo);
+
+            if(res)
             {
-                char temp[32];
-                sprintf_s(temp, "+%llX", displacement);
-                strncat_s(label, MAX_LABEL_SIZE, temp, _TRUNCATE);
+                displacement = (int32_t)(addr - symInfo.addr);
+
+                //auto name = demanglePE32ExternCFunc(symInfo.decoratedName.c_str());
+                if(bUndecorateSymbolNames && *symInfo.undecoratedSymbol != '\0')
+                    strncpy_s(label, MAX_LABEL_SIZE, symInfo.undecoratedSymbol, _TRUNCATE);
+                else
+                    strncpy_s(label, MAX_LABEL_SIZE, symInfo.decoratedSymbol, _TRUNCATE);
+
+                retval = !shouldFilterSymbol(label);
+                if(retval && displacement != 0)
+                {
+                    char temp[32];
+                    sprintf_s(temp, "+%llX", displacement);
+                    strncat_s(label, MAX_LABEL_SIZE, temp, _TRUNCATE);
+                }
             }
         }
+
         if(!retval)  //search for CALL <jmp.&user32.MessageBoxA>
         {
             BASIC_INSTRUCTION_INFO basicinfo;
@@ -224,21 +228,22 @@ static bool getLabel(duint addr, char* label, bool noFuncOffset)
                 duint val = 0;
                 if(MemRead(basicinfo.memory.value, &val, sizeof(val), nullptr, true))
                 {
+                    SYMBOLINFOCPP symInfo;
                     bool res;
                     if(noFuncOffset)
-                        res = SymbolFromAddressExact(val, symInfo);
+                        res = SymbolFromAddressExact(val, &symInfo);
                     else
-                        res = SymbolFromAddressExactOrLower(val, symInfo);
+                        res = SymbolFromAddressExactOrLower(val, &symInfo);
 
                     if(res)
                     {
                         //pSymbol->Name[pSymbol->MaxNameLen - 1] = '\0';
 
                         //auto name = demanglePE32ExternCFunc(pSymbol->Name);
-                        if(bUndecorateSymbolNames && !symInfo.undecoratedName.empty())
-                            _snprintf_s(label, MAX_LABEL_SIZE, _TRUNCATE, "JMP.&%s", symInfo.undecoratedName.c_str());
+                        if(bUndecorateSymbolNames && *symInfo.undecoratedSymbol != '\0')
+                            _snprintf_s(label, MAX_LABEL_SIZE, _TRUNCATE, "JMP.&%s", symInfo.undecoratedSymbol);
                         else
-                            _snprintf_s(label, MAX_LABEL_SIZE, _TRUNCATE, "JMP.&%s", symInfo.decoratedName.c_str());
+                            _snprintf_s(label, MAX_LABEL_SIZE, _TRUNCATE, "JMP.&%s", symInfo.decoratedSymbol);
                         retval = !shouldFilterSymbol(label);
                         if(retval && displacement)
                         {
@@ -324,11 +329,11 @@ static bool getAutoComment(duint addr, String & comment)
     BRIDGE_ADDRINFO newinfo;
     char string_text[MAX_STRING_SIZE] = "";
 
-    Zydis cp;
+    Zydis zydis;
     auto getregs = !bOnlyCipAutoComments || addr == lastContext.cip;
-    disasmget(cp, addr, &instr, getregs);
+    disasmget(zydis, addr, &instr, getregs);
     // Some nop variants have 'operands' that should be ignored
-    if(cp.Success() && !cp.IsNop())
+    if(zydis.Success() && !zydis.IsNop())
     {
         //Ignore register values when not on CIP and OnlyCipAutoComments is enabled: https://github.com/x64dbg/x64dbg/issues/1383
         if(!getregs)
@@ -337,7 +342,7 @@ static bool getAutoComment(duint addr, String & comment)
                 instr.arg[i].value = instr.arg[i].constant;
         }
 
-        if(addr == lastContext.cip && (cp.GetId() == ZYDIS_MNEMONIC_SYSCALL || (cp.GetId() == ZYDIS_MNEMONIC_INT && cp[0].imm.value.u == 0x2e)))
+        if(addr == lastContext.cip && (zydis.GetId() == ZYDIS_MNEMONIC_SYSCALL || (zydis.GetId() == ZYDIS_MNEMONIC_INT && zydis[0].imm.value.u == 0x2e)))
         {
             auto syscallName = SyscallToName((unsigned int)lastContext.cax);
             if(!syscallName.empty())
@@ -362,9 +367,9 @@ static bool getAutoComment(duint addr, String & comment)
             if(instr.arg[i].constant == instr.arg[i].value)  //avoid: call <module.label> ; addr:label
             {
                 auto constant = instr.arg[i].constant;
-                if(instr.arg[i].type == arg_normal && instr.arg[i].value == addr + instr.instr_size && cp.IsCall())
+                if(instr.arg[i].type == arg_normal && instr.arg[i].value == addr + instr.instr_size && zydis.IsCall())
                     temp_string.assign("call $0");
-                else if(instr.arg[i].type == arg_normal && instr.arg[i].value == addr + instr.instr_size && cp.IsJump())
+                else if(instr.arg[i].type == arg_normal && instr.arg[i].value == addr + instr.instr_size && zydis.IsJump())
                     temp_string.assign("jmp $0");
                 else if(instr.type == instr_branch)
                     continue;
@@ -876,12 +881,12 @@ extern "C" DLL_EXPORT duint _dbg_getbranchdestination(duint addr)
     unsigned char data[MAX_DISASM_BUFFER];
     if(!MemIsValidReadPtr(addr, true) || !MemRead(addr, data, sizeof(data)))
         return 0;
-    Zydis cp;
-    if(!cp.Disassemble(addr, data))
+    Zydis zydis;
+    if(!zydis.Disassemble(addr, data))
         return 0;
-    if(cp.IsBranchType(Zydis::BTJmp | Zydis::BTCall | Zydis::BTLoop | Zydis::BTXbegin))
+    if(zydis.IsBranchType(Zydis::BTJmp | Zydis::BTCall | Zydis::BTLoop | Zydis::BTXbegin))
     {
-        auto opValue = cp.ResolveOpValue(0, [](ZydisRegister reg) -> size_t
+        auto opValue = (duint)zydis.ResolveOpValue(0, [](ZydisRegister reg) -> uint64_t
         {
             switch(reg)
             {
@@ -944,10 +949,10 @@ extern "C" DLL_EXPORT duint _dbg_getbranchdestination(duint addr)
                 return 0;
             }
         });
-        if(cp.OpCount() && cp[0].type == ZYDIS_OPERAND_TYPE_MEMORY)
+        if(zydis.OpCount() && zydis[0].type == ZYDIS_OPERAND_TYPE_MEMORY)
         {
             auto const tebseg = ArchValue(ZYDIS_REGISTER_FS, ZYDIS_REGISTER_GS);
-            if(cp[0].mem.segment == tebseg)
+            if(zydis[0].mem.segment == tebseg)
                 opValue += duint(GetTEBLocation(hActiveThread));
             if(MemRead(opValue, &opValue, sizeof(opValue)))
                 return opValue;
@@ -955,7 +960,7 @@ extern "C" DLL_EXPORT duint _dbg_getbranchdestination(duint addr)
         else
             return opValue;
     }
-    if(cp.IsRet())
+    if(zydis.IsRet())
     {
         auto csp = lastContext.csp;
         duint dest = 0;
@@ -1062,16 +1067,32 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
     break;
 
     case DBG_SYMBOL_ENUM:
-    {
-        SYMBOLCBINFO* cbInfo = (SYMBOLCBINFO*)param1;
-        SymEnum(cbInfo->base, cbInfo->cbSymbolEnum, cbInfo->user);
-    }
-    break;
-
     case DBG_SYMBOL_ENUM_FROMCACHE:
     {
         SYMBOLCBINFO* cbInfo = (SYMBOLCBINFO*)param1;
-        SymEnumFromCache(cbInfo->base, cbInfo->cbSymbolEnum, cbInfo->user);
+        if(cbInfo->base == -1)
+        {
+            SHARED_ACQUIRE(LockModules);
+            auto info = ModInfoFromAddr(cbInfo->start);
+            if(info != nullptr && cbInfo->end >= info->base && cbInfo->end < info->base + info->size)
+            {
+                auto beginRva = cbInfo->start - info->base;
+                auto endRva = cbInfo->end - info->base;
+                if(beginRva > endRva)
+                {
+                    return false;
+                }
+                return SymEnum(info->base, cbInfo->cbSymbolEnum, cbInfo->user, beginRva, endRva, cbInfo->symbolMask);
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return SymEnum(cbInfo->base, cbInfo->cbSymbolEnum, cbInfo->user, 0, -1, SYMBOL_MASK_ALL);
+        }
     }
     break;
 
@@ -1671,15 +1692,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
 
     case DBG_GET_SYMBOL_INFO_AT:
     {
-        SHARED_ACQUIRE(LockModules);
-
-        SymbolInfo symInfo;
-        if(!SymbolFromAddressExact((duint)param1, symInfo))
-            return false;
-
-        auto modbase = ModBaseFromAddr((duint)param1);
-        symInfo.copyToGuiSymbol(modbase, (SYMBOLINFO*)param2);
-        return true;
+        return SymbolFromAddressExact((duint)param1, (SYMBOLINFO*)param2);
     }
     break;
 

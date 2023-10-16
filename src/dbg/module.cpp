@@ -82,7 +82,7 @@ static void ReadExportDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
     // Get the export directory and its size
     ULONG exportDirSize;
     auto exportDir = (PIMAGE_EXPORT_DIRECTORY)RtlImageDirectoryEntryToData((PVOID)FileMapVA,
-                     FALSE,
+                     Info.isVirtual,
                      IMAGE_DIRECTORY_ENTRY_EXPORT,
                      &exportDirSize);
     if(exportDirSize == 0 || exportDir == nullptr ||
@@ -97,7 +97,7 @@ static void ReadExportDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
 
     auto rva2offset = [&Info](ULONG64 rva)
     {
-        return ModRvaToOffset(0, Info.headers, rva);
+        return Info.isVirtual ? rva : ModRvaToOffset(0, Info.headers, rva);
     };
 
     auto addressOfFunctionsOffset = rva2offset(exportDir->AddressOfFunctions);
@@ -139,7 +139,7 @@ static void ReadExportDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
         auto & entry = Info.exports.back();
         entry.ordinal = i + exportDir->Base;
         entry.rva = addressOfFunctions[i];
-        const auto entryVa = ModRvaToOffset(FileMapVA, Info.headers, entry.rva);
+        const auto entryVa = Info.isVirtual ? entry.rva : ModRvaToOffset(FileMapVA, Info.headers, entry.rva);
         entry.forwarded = entryVa >= (ULONG64)exportDir && entryVa < (ULONG64)exportDir + exportDirSize;
         if(entry.forwarded)
         {
@@ -227,7 +227,7 @@ static void ReadImportDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
     // Get the import directory and its size
     ULONG importDirSize;
     auto importDescriptor = (PIMAGE_IMPORT_DESCRIPTOR)RtlImageDirectoryEntryToData((PVOID)FileMapVA,
-                            FALSE,
+                            Info.isVirtual,
                             IMAGE_DIRECTORY_ENTRY_IMPORT,
                             &importDirSize);
     if(importDirSize == 0 || importDescriptor == nullptr ||
@@ -238,7 +238,7 @@ static void ReadImportDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
     const ULONG64 ordinalFlag = IMAGE64(Info.headers) ? IMAGE_ORDINAL_FLAG64 : IMAGE_ORDINAL_FLAG32;
     auto rva2offset = [&Info](ULONG64 rva)
     {
-        return ModRvaToOffset(0, Info.headers, rva);
+        return Info.isVirtual ? rva : ModRvaToOffset(0, Info.headers, rva);
     };
 
     for(size_t moduleIndex = 0; importDescriptor->Name != 0; ++importDescriptor, ++moduleIndex)
@@ -325,7 +325,7 @@ static void ReadTlsCallbacks(MODINFO & Info, ULONG_PTR FileMapVA)
     // Get the TLS directory
     ULONG tlsDirSize;
     auto tlsDir = (PIMAGE_TLS_DIRECTORY)RtlImageDirectoryEntryToData((PVOID)FileMapVA,
-                  FALSE,
+                  Info.isVirtual,
                   IMAGE_DIRECTORY_ENTRY_TLS,
                   &tlsDirSize);
     if(tlsDir == nullptr /*|| tlsDirSize == 0*/ || // The loader completely ignores the directory size. Setting it to 0 is an anti-debug trick
@@ -340,7 +340,8 @@ static void ReadTlsCallbacks(MODINFO & Info, ULONG_PTR FileMapVA)
         return;
 
     auto imageBase = HEADER_FIELD(Info.headers, ImageBase);
-    auto tlsArrayOffset = ModRvaToOffset(0, Info.headers, tlsDir->AddressOfCallBacks - imageBase);
+    auto rva = tlsDir->AddressOfCallBacks - imageBase;
+    auto tlsArrayOffset = Info.isVirtual ? rva : ModRvaToOffset(0, Info.headers, rva);
     if(!tlsArrayOffset)
         return;
 
@@ -370,7 +371,7 @@ static void ReadBaseRelocationTable(MODINFO & Info, ULONG_PTR FileMapVA)
     // Get address and size of base relocation table
     ULONG totalBytes;
     auto baseRelocBlock = (PIMAGE_BASE_RELOCATION)RtlImageDirectoryEntryToData((PVOID)FileMapVA,
-                          FALSE,
+                          Info.isVirtual,
                           IMAGE_DIRECTORY_ENTRY_BASERELOC,
                           &totalBytes);
     if(baseRelocBlock == nullptr || totalBytes == 0 ||
@@ -442,7 +443,7 @@ static void ReadDebugDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
     // Get the debug directory and its size
     ULONG debugDirSize;
     auto debugDir = (PIMAGE_DEBUG_DIRECTORY)RtlImageDirectoryEntryToData((PVOID)FileMapVA,
-                    FALSE,
+                    Info.isVirtual,
                     IMAGE_DIRECTORY_ENTRY_DEBUG,
                     &debugDirSize);
     if(debugDirSize == 0 || debugDir == nullptr ||
@@ -474,12 +475,12 @@ static void ReadDebugDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
         BYTE PdbFileName[1];
     };
 
-    const auto supported = [&Info](PIMAGE_DEBUG_DIRECTORY entry)
+    const auto supported = [&Info, FileMapVA](PIMAGE_DEBUG_DIRECTORY entry)
     {
         // Check for valid RVA
         ULONG_PTR offset = 0;
         if(entry->AddressOfRawData)
-            offset = (ULONG_PTR)ModRvaToOffset(0, Info.headers, entry->AddressOfRawData);
+            offset = Info.isVirtual ? entry->AddressOfRawData : (ULONG_PTR)ModRvaToOffset(0, Info.headers, entry->AddressOfRawData);
         else if(entry->PointerToRawData)
             offset = entry->PointerToRawData;
         if(!offset)
@@ -494,7 +495,7 @@ static void ReadDebugDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
         if(entry->Type == IMAGE_DEBUG_TYPE_CODEVIEW) // TODO: support other types (DBG)?
         {
             // Get the CV signature and do a final size check if it is valid
-            auto signature = *(DWORD*)(Info.fileMapVA + offset);
+            auto signature = *(DWORD*)(FileMapVA + offset);
             if(signature == '01BN')
                 return entry->SizeOfData >= sizeof(CV_INFO_PDB20) && entry->SizeOfData < sizeof(CV_INFO_PDB20) + DOS_MAX_PATH_LENGTH;
             else if(signature == 'SDSR')
@@ -576,7 +577,7 @@ static void ReadDebugDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
     // At this point we know the entry is a valid CV one
     ULONG_PTR offset = 0;
     if(entry->AddressOfRawData)
-        offset = (ULONG_PTR)ModRvaToOffset(0, Info.headers, entry->AddressOfRawData);
+        offset = Info.isVirtual ? entry->AddressOfRawData : (ULONG_PTR)ModRvaToOffset(0, Info.headers, entry->AddressOfRawData);
     else if(entry->PointerToRawData)
         offset = entry->PointerToRawData;
     auto cvData = (unsigned char*)(FileMapVA + offset);
@@ -667,7 +668,7 @@ static void ReadExceptionDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
     // Get address and size of exception directory
     ULONG totalBytes;
     auto baseRuntimeFunctions = (PRUNTIME_FUNCTION)RtlImageDirectoryEntryToData((PVOID)FileMapVA,
-                                FALSE,
+                                Info.isVirtual,
                                 IMAGE_DIRECTORY_ENTRY_EXCEPTION,
                                 &totalBytes);
     if(baseRuntimeFunctions == nullptr || totalBytes == 0 ||
@@ -854,15 +855,19 @@ bool ModLoad(duint Base, duint Size, const char* FullPath, bool loadSymbols)
     }
 
     // Load module data
-    bool virtualModule = strstr(FullPath, "virtual:\\") == FullPath;
+    info.isVirtual = strstr(FullPath, "virtual:\\") == FullPath;
 
-    if(!virtualModule)
+    if(!info.isVirtual)
     {
         auto wszFullPath = StringUtils::Utf8ToUtf16(FullPath);
 
         // Load the physical module from disk
         if(StaticFileLoadW(wszFullPath.c_str(), UE_ACCESS_READ, false, &info.fileHandle, &info.loadedSize, &info.fileMap, &info.fileMapVA))
         {
+            // Fix an anti-debug trick, which opens exclusive access to the file
+            CloseHandle(info.fileHandle);
+            info.fileHandle = (HANDLE)1; // Set to non-zero for TitanEngine compatibility
+
             GetModuleInfo(info, info.fileMapVA);
 
             Size = GetPE32DataFromMappedFile(info.fileMapVA, 0, UE_SIZEOFIMAGE);
@@ -879,12 +884,13 @@ bool ModLoad(duint Base, duint Size, const char* FullPath, bool loadSymbols)
     else
     {
         // This was a virtual module -> read it remotely
-        Memory<unsigned char*> data(Size);
-        MemRead(Base, data(), data.size());
+        info.mappedData.realloc(Size);
+        MemRead(Base, info.mappedData(), info.mappedData.size());
 
         // Get information from the local buffer
         // TODO: this does not properly work for file offset -> rva conversions (since virtual modules are SEC_IMAGE)
-        GetModuleInfo(info, (ULONG_PTR)data());
+        info.loadedSize = (DWORD)Size;
+        GetModuleInfo(info, (ULONG_PTR)info.mappedData());
     }
 
     info.symbols = &EmptySymbolSource; // empty symbol source per default
@@ -900,11 +906,11 @@ bool ModLoad(duint Base, duint Size, const char* FullPath, bool loadSymbols)
 
     // Add module to list
     EXCLUSIVE_ACQUIRE(LockModules);
-    modinfo.insert(std::make_pair(Range(Base, Base + Size - 1), std::move(infoPtr)));
+    modinfo.emplace(Range(Base, Base + Size - 1), std::move(infoPtr));
     EXCLUSIVE_RELEASE();
 
     // Put labels for virtual module exports
-    if(virtualModule)
+    if(info.isVirtual)
     {
         if(info.entry >= Base && info.entry < Base + Size)
             LabelSet(info.entry, "EntryPoint", false, true);
@@ -1353,6 +1359,21 @@ const MODEXPORT* MODINFO::findExport(duint rva) const
         found = found != exportsByRva.end() && rva >= exports.at(*found).rva ? found : exportsByRva.end();
         if(found != exportsByRva.end())
             return &exports[*found];
+    }
+    return nullptr;
+}
+
+const MODIMPORT* MODINFO::findImport(duint rva) const
+{
+    if(imports.size())
+    {
+        auto found = std::lower_bound(importsByRva.begin(), importsByRva.end(), rva, [this](size_t index, duint rva)
+        {
+            return imports.at(index).iatRva < rva;
+        });
+        found = found != importsByRva.end() && rva >= imports.at(*found).iatRva ? found : importsByRva.end();
+        if(found != importsByRva.end())
+            return &imports[*found];
     }
     return nullptr;
 }

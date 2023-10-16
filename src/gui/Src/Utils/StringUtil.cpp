@@ -219,6 +219,19 @@ QString GetDataTypeString(const void* buffer, duint size, ENCODETYPE type)
     }
 }
 
+QString isoDateTime()
+{
+    auto now = QDateTime::currentDateTime();
+    return QString().sprintf("%04d%02d%02d-%02d%02d%02d",
+                             now.date().year(),
+                             now.date().month(),
+                             now.date().day(),
+                             now.time().hour(),
+                             now.time().minute(),
+                             now.time().second()
+                            );
+}
+
 QString ToDateString(const QDate & date)
 {
     static const char* months[] =
@@ -251,7 +264,7 @@ QString FILETIMEToDate(const FILETIME & date)
     localdate.dwHighDateTime = time100ns >> 32;
     localdate.dwLowDateTime = time100ns & 0xFFFFFFFF;
     if(qdate != QDate::currentDate())
-        return QLocale(QString(currentLocale)).toString(qdate) + FILETIMEToTime(localdate);
+        return QLocale(QString(gCurrentLocale)).toString(qdate) + FILETIMEToTime(localdate);
     else // today
         return FILETIMEToTime(localdate);
 }

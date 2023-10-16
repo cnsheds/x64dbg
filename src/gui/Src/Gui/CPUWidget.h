@@ -24,8 +24,9 @@ class CPUWidget : public QWidget
     Q_OBJECT
 
 public:
-    explicit CPUWidget(QWidget* parent = 0);
+    explicit CPUWidget(Architecture* architecture, QWidget* parent = nullptr);
     ~CPUWidget();
+    Architecture* getArchitecture() const;
 
     // Misc
     void setDefaultDisposition();
@@ -50,7 +51,7 @@ public slots:
 
 protected:
     CPUSideBar* mSideBar;
-    CPUDisassembly* mDisas;
+    CPUDisassembly* mDisassembly;
     DisassemblerGraphView* mGraph;
     MHDetachedWindow* mGraphWindow;
     CPUMultiDump* mDump;
@@ -62,6 +63,7 @@ protected:
     int disasMode;
 
 private:
+    Architecture* mArchitecture = nullptr;
     Ui::CPUWidget* ui;
     QByteArray mDisasmSidebarSplitterStatus;
 

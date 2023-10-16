@@ -85,7 +85,7 @@ bool bEnableSourceDebugging = false;
 bool bSkipInt3Stepping = false;
 bool bBreakCalcConditionsFails = false;
 bool bIgnoreInconsistentBreakpoints = false;
-bool bNoForegroundWindow = false;
+bool bNoForegroundWindow = true;
 bool bVerboseExceptionLogging = true;
 bool bNoWow64SingleStepWorkaround = false;
 bool bTraceBrowserNeedsUpdate = false;
@@ -942,8 +942,9 @@ static void cbGenericBreakpoint(BP_TYPE bptype, const void* ExceptionAddress = n
     }
     else
     {
+        // NOTE: This behavior was changed in a breaking way, but too many people were confused
         if(breakCondition != -1)
-            commandCondition = breakCondition; //if no condition is set, execute the command when the debugger would break
+            commandCondition = 1; // If no condition is set, always execute the command
         else
             commandCondition = 0; // Don't execute any command if an error occurs
     }
@@ -1287,8 +1288,8 @@ void cbRtrStep()
 #endif //_WIN64
                )
         {
-            Zydis cp;
-            if(cp.Disassemble(cip, data) && cp.IsRet())
+            Zydis zydis;
+            if(zydis.Disassemble(cip, data) && zydis.IsRet())
                 reachedReturn = true;
         }
     }
@@ -2759,7 +2760,7 @@ static void debugLoopFunction(INIT_STRUCT* init)
     else
     {
         gInitExe = StringUtils::Utf8ToUtf16(init->exe);
-        strcpy_s(szDebuggeePath, init->exe);
+        strncpy_s(szDebuggeePath, init->exe.c_str(), _TRUNCATE);
     }
 
     pDebuggedEntry = GetPE32DataW(gInitExe.c_str(), 0, UE_OEP);

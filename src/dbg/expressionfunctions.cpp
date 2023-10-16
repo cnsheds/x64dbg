@@ -83,6 +83,7 @@ void ExpressionFunctions::Init()
     RegisterEasy("bswap", bswap);
     RegisterEasy("ternary,tern", ternary);
     RegisterEasy("GetTickCount,gettickcount", gettickcount);
+    RegisterEasy("rdtsc", rdtsc);
 
     //Memory
     RegisterEasy("mem.valid,mem.isvalid", memvalid);
@@ -152,9 +153,17 @@ void ExpressionFunctions::Init()
     //Undocumented
     RegisterEasy("bpgoto", bpgoto);
 
+    //Other
+    RegisterEasy("isdebuggerfocused", isdebuggerfocused);
+    RegisterEasy("isdebuggeefocused", isdebuggeefocused);
+
     // Strings
+    ExpressionFunctions::Register("ansi", ValueTypeString, { ValueTypeNumber }, Exprfunc::ansi, nullptr);
+    ExpressionFunctions::Register("ansi.strict", ValueTypeString, { ValueTypeNumber }, Exprfunc::ansi_strict, nullptr);
     ExpressionFunctions::Register("utf8", ValueTypeString, { ValueTypeNumber }, Exprfunc::utf8, nullptr);
+    ExpressionFunctions::Register("utf8.strict", ValueTypeString, { ValueTypeNumber }, Exprfunc::utf8_strict, nullptr);
     ExpressionFunctions::Register("utf16", ValueTypeString, { ValueTypeNumber }, Exprfunc::utf16, nullptr);
+    ExpressionFunctions::Register("utf16.strict", ValueTypeString, { ValueTypeNumber }, Exprfunc::utf16_strict, nullptr);
     ExpressionFunctions::Register("strstr", ValueTypeNumber, { ValueTypeString, ValueTypeString }, Exprfunc::strstr, nullptr);
     ExpressionFunctions::Register("stristr", ValueTypeNumber, { ValueTypeString, ValueTypeString }, Exprfunc::stristr, nullptr);
     ExpressionFunctions::Register("streq", ValueTypeNumber, { ValueTypeString, ValueTypeString }, Exprfunc::streq, nullptr);

@@ -51,6 +51,29 @@ static bool cbClearLog(int argc, char* argv[])
     return true;
 }
 
+static bool cbSaveLog(int argc, char* argv[])
+{
+    if(argc < 2)
+        GuiLogSave(nullptr);
+    else
+        GuiLogSave(argv[1]);
+    return true;
+}
+
+static bool cbRedirectLog(int argc, char* argv[])
+{
+    if(IsArgumentsLessThan(argc, 2))
+        return false;
+    GuiLogRedirect(argv[1]);
+    return true;
+}
+
+static bool cbStopRedirectLog(int argc, char* argv[])
+{
+    GuiLogRedirectStop();
+    return true;
+}
+
 static bool cbPrintf(int argc, char* argv[])
 {
     if(argc < 2)
@@ -101,6 +124,9 @@ static void registercommands()
     dbgcmdnew("test", cbInstrTest, false);
     dbgcmdnew("cmp", cbInstrCmp, false);
     dbgcmdnew("mov,set", cbInstrMov, false); //mov a variable, arg1:dest,arg2:src
+
+    //general purpose (SSE/AVX)
+    dbgcmdnew("movdqu,movups,movupd", cbInstrMovdqu, true); //move from and to XMM register
 
     //debug control
     dbgcmdnew("InitDebug,init,initdbg", cbDebugInit, false); //init debugger arg1:exefile,[arg2:commandline]
@@ -404,6 +430,9 @@ static void registercommands()
     dbgcmdnew("EnableLog,LogEnable", cbInstrEnableLog, false); //enable log
     dbgcmdnew("DisableLog,LogDisable", cbInstrDisableLog, false); //disable log
     dbgcmdnew("ClearLog,cls,lc,lclr", cbClearLog, false); //clear the log
+    dbgcmdnew("SaveLog,LogSave", cbSaveLog, false); //save the log
+    dbgcmdnew("RedirectLog,LogRedirect", cbRedirectLog, false); //redirect the log
+    dbgcmdnew("StopRedirectLog,LogRedirectStop", cbStopRedirectLog, false); //stop redirecting the log
     dbgcmdnew("AddFavouriteTool", cbInstrAddFavTool, false); //add favourite tool
     dbgcmdnew("AddFavouriteCommand", cbInstrAddFavCmd, false); //add favourite command
     dbgcmdnew("AddFavouriteToolShortcut,SetFavouriteToolShortcut", cbInstrSetFavToolShortcut, false); //set favourite tool shortcut
@@ -671,8 +700,6 @@ extern "C" DLL_EXPORT const char* _dbg_dbginit()
     dputs(QT_TRANSLATE_NOOP("DBG", "Setting JSON memory management functions..."));
     json_set_alloc_funcs(json_malloc, json_free);
     //#endif //ENABLE_MEM_TRACE
-    dputs(QT_TRANSLATE_NOOP("DBG", "Initializing Zydis..."));
-    Zydis::GlobalInitialize();
     dputs(QT_TRANSLATE_NOOP("DBG", "Getting directory information..."));
 
     strcpy_s(scriptDllDir, szUserDir);
@@ -724,7 +751,6 @@ extern "C" DLL_EXPORT const char* _dbg_dbginit()
         }
     }
     dprintf(QT_TRANSLATE_NOOP("DBG", "Symbol Path: %s\n"), szSymbolCachePath);
-    SetCurrentDirectoryW(StringUtils::Utf8ToUtf16(szProgramDir).c_str());
     dputs(QT_TRANSLATE_NOOP("DBG", "Allocating message stack..."));
     gMsgStack = MsgAllocStack();
     if(!gMsgStack)
@@ -807,7 +833,6 @@ extern "C" DLL_EXPORT void _dbg_dbgexitsignal()
     dputs(QT_TRANSLATE_NOOP("DBG", "Cleaning up allocated data..."));
     cmdfree();
     varfree();
-    Zydis::GlobalFinalize();
     dputs(QT_TRANSLATE_NOOP("DBG", "Cleaning up wait objects..."));
     waitdeinitialize();
     SafeDbghelpDeinitialize();

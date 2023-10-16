@@ -119,6 +119,8 @@ struct MODINFO
     ULONG_PTR fileMapVA = 0;
 
     MODULEPARTY party;  // Party. Currently used value: 0: User, 1: System
+    bool isVirtual = false;
+    Memory<unsigned char*> mappedData;
 
     MODINFO()
     {
@@ -138,6 +140,7 @@ struct MODINFO
     void unloadSymbols();
     void unmapFile();
     const MODEXPORT* findExport(duint rva) const;
+    const MODIMPORT* findImport(duint iatRva) const;
     duint getProcAddress(const String & name, int maxForwardDepth = 10) const;
 };
 
