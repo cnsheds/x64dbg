@@ -27,7 +27,7 @@ QString AbstractStdTable::paintContent(QPainter* painter, duint row, duint col, 
     bool isaddr = DbgIsDebugging() && getRowCount() > 0 && col == mAddressColumn;
     bool rowSelected = isSelected(row);
     QString text = getCellContent(row, col);
-    QColor colorSpecial = getSpecialColor(row + col, col);
+    QColor colorSpecial = getSpecialColor(row, col);
 
     duint va = isaddr ? duint(text.toULongLong(&isaddr, 16)) : 0;
     auto rowTraced = isaddr && DbgFunctions()->GetTraceRecordHitCount(va) != 0;
