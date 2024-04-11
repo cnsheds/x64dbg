@@ -101,4 +101,7 @@ namespace Exprfunc
     bool utf8_strict(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata);
     bool utf16(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata);
     bool utf16_strict(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata);
+
+    bool syscall_name(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata);
+    bool syscall_id(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata);
 }

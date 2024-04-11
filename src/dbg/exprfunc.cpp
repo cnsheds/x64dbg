@@ -11,7 +11,7 @@
 #include "value.h"
 #include "TraceRecord.h"
 #include "exhandlerinfo.h"
-#include <regex>
+#include "exception.h"
 #include <vector>
 #include <regex>
 #include <string>
@@ -812,5 +812,21 @@ namespace Exprfunc
     bool utf16_strict(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
     {
         return utf16<true>(result, argc, argv, userdata);
+    }
+
+    bool syscall_name(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
+    {
+        *result = ValueString(SyscallToName(argv[0].number));
+        return true;
+    }
+
+    bool syscall_id(ExpressionValue* result, int argc, const ExpressionValue* argv, void* userdata)
+    {
+        auto id = SyscallToId(argv[0].string.ptr);
+        if(id == -1)
+            return false;
+
+        *result = ValueNumber(id);
+        return true;
     }
 }

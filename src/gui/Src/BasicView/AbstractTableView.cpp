@@ -1149,7 +1149,7 @@ void AbstractTableView::deleteAllColumns()
 
 void AbstractTableView::setColTitle(duint col, const QString & title)
 {
-    if(mColumnList.size() > 0 && col < mColumnList.size())
+    if(mColumnList.size() > 0 && col < (duint)mColumnList.size())
     {
         Column column = mColumnList.takeAt(col);
         column.title = title;
@@ -1159,7 +1159,7 @@ void AbstractTableView::setColTitle(duint col, const QString & title)
 
 QString AbstractTableView::getColTitle(duint col) const
 {
-    if(mColumnList.size() > 0 && col < mColumnList.size())
+    if(mColumnList.size() > 0 && col < (duint)mColumnList.size())
         return mColumnList[col].title;
     return QString();
 }

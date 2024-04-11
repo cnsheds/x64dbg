@@ -62,14 +62,40 @@ void ZehSymbolTable::updateColors()
     mBkColorOfImport = ConfigColor("SymbolImportBackgroundColor");
 }
 
-QString ZehSymbolTable::getCellContent(duint r, duint c)
+QString ZehSymbolTable::getCellContent(duint row, duint column)
 {
     QMutexLocker lock(&mMutex);
-    if(!isValidIndex(r, c))
+    if(!isValidIndex(row, column))
         return QString();
     SymbolInfoWrapper info;
-    DbgGetSymbolInfo(&mData.at(r), info.put());
-    return symbolInfoString(info.get(), c);
+    DbgGetSymbolInfo(&mData.at(row), info.put());
+    return symbolInfoString(info.get(), column);
+}
+
+duint ZehSymbolTable::getCellUserdata(duint row, duint column)
+{
+    QMutexLocker lock(&mMutex);
+    if(!isValidIndex(row, column))
+        return 0;
+    SymbolInfoWrapper info;
+    DbgGetSymbolInfo(&mData.at(row), info.put());
+    switch(column)
+    {
+    case ColAddr:
+        return info->addr;
+    case ColOrdinal:
+        return info->ordinal;
+    case ColType:
+        return info->type;
+    default:
+        return 0;
+    }
+}
+
+bool ZehSymbolTable::isValidIndex(duint row, duint column)
+{
+    QMutexLocker lock(&mMutex);
+    return row >= 0 && row < (int)mData.size() && column >= 0 && column <= ColUndecorated;
 }
 
 QColor ZehSymbolTable::getSpecialColor(int r, int c)
@@ -83,12 +109,6 @@ QColor ZehSymbolTable::getSpecialColor(int r, int c)
         return mBkColorOfImport;
     else
         return QColor("#000000");
-}
-
-bool ZehSymbolTable::isValidIndex(duint r, duint c)
-{
-    QMutexLocker lock(&mMutex);
-    return r >= 0 && r < (int)mData.size() && c >= 0 && c <= ColUndecorated;
 }
 
 void ZehSymbolTable::sortRows(duint column, bool ascending)
