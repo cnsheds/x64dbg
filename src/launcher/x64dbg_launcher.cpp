@@ -309,7 +309,7 @@ static void restartInstall()
     ShellExecute(nullptr, operation, szApplicationDir, TEXT("::install"), szCurrentDir, SW_SHOWNORMAL);
 }
 
-static BOOL CALLBACK DlgLauncher(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+static INT_PTR CALLBACK DlgLauncher(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     switch(uMsg)
     {
@@ -421,8 +421,22 @@ static void deleteZoneData(const std::wstring & rootDir)
     }
 }
 
+typedef BOOL(WINAPI* LPFN_SetProcessDpiAwarenessContext)(int);
+
+static void EnableHiDPI()
+{
+    // Windows 10 Build 1607
+    LPFN_SetProcessDpiAwarenessContext SetProcessDpiAwarenessContext = (LPFN_SetProcessDpiAwarenessContext)GetProcAddress(GetModuleHandle(TEXT("user32.dll")), "SetProcessDpiAwarenessContext");
+    if(SetProcessDpiAwarenessContext != nullptr)
+    {
+        // Windows 10 Build 1703
+        SetProcessDpiAwarenessContext(-4);  //DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+    }
+}
+
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+    EnableHiDPI();
     InitCommonControls();
 
     //Initialize COM

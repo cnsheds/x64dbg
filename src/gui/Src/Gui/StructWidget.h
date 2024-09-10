@@ -45,6 +45,15 @@ private:
     QString highlightTypeName(QString name) const;
     duint selectedValue() const;
 
+    enum
+    {
+        ColField,
+        ColOffset,
+        ColAddress,
+        ColSize,
+        ColValue,
+    };
+
 private slots:
     void on_treeWidget_customContextMenuRequested(const QPoint & pos);
 
@@ -58,4 +67,5 @@ private slots:
     void parseFileSlot();
     void changeAddrSlot();
     void refreshSlot();
+    void copyColumnSlot();
 };

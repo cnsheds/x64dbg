@@ -456,7 +456,7 @@ static bool getAutoComment(duint addr, String & comment)
             if(!temp_string.empty())
                 temp_string += ", ";
         };
-        if(*bp.breakCondition)
+        if(!bp.breakCondition.empty())
         {
             next();
             temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "breakif"));
@@ -472,10 +472,10 @@ static bool getAutoComment(duint addr, String & comment)
         }
         else //fast resume skips all other steps
         {
-            if(*bp.logText)
+            if(!bp.logText.empty())
             {
                 next();
-                if(*bp.logCondition)
+                if(!bp.logCondition.empty())
                 {
                     temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "logif"));
                     temp_string += "(";
@@ -491,10 +491,10 @@ static bool getAutoComment(duint addr, String & comment)
                 temp_string += ")";
             }
 
-            if(*bp.commandText)
+            if(!bp.commandText.empty())
             {
                 next();
-                if(*bp.commandCondition)
+                if(!bp.commandCondition.empty())
                 {
                     temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "cmdif"));
                     temp_string += "(";
@@ -1146,7 +1146,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
         bNoWow64SingleStepWorkaround = settingboolget("Engine", "NoWow64SingleStepWorkaround");
         bQueryWorkingSet = settingboolget("Misc", "QueryWorkingSet");
         bForceLoadSymbols = settingboolget("Misc", "ForceLoadSymbols");
-        bPidTidInHex = settingboolget("Gui", "PidTidInHex");
+        bTruncateBreakpointLogs = settingboolget("Engine", "TruncateBreakpointLogs");
         stackupdatesettings();
 
         duint setting;
@@ -1378,7 +1378,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
     {
         BREAKPOINT bp;
         if(BpGet((duint)param1, BPNORMAL, 0, &bp))
-            return !(duint)bp.enabled;
+            return (duint)!bp.enabled;
         return (duint)false;
     }
     break;

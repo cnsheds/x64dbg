@@ -78,6 +78,7 @@ signals:
     void keyPressedSignal(QKeyEvent* event);
     void doubleClickedSignal();
     void contextMenuSignal(const QPoint & pos);
+    void sortChangedSignal();
 
 public slots:
     void copyLineSlot();

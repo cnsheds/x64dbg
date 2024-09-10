@@ -3,7 +3,6 @@
 \brief Implements the global class.
 */
 
-#include <windows.h>
 #include "_global.h"
 #include <objbase.h>
 #include <shlobj.h>
@@ -403,7 +402,7 @@ duint GetThreadCount()
 {
     duint threadCount = std::thread::hardware_concurrency();
 
-    typedef BOOL(*WINAPI GetLogicalProcessorInformationEx_t)(
+    typedef BOOL(WINAPI * GetLogicalProcessorInformationEx_t)(
         LOGICAL_PROCESSOR_RELATIONSHIP,
         PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
         PDWORD

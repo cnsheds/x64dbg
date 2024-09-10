@@ -284,7 +284,6 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Gui", "FpuRegistersLittleEndian", &settings.guiFpuRegistersLittleEndian);
     GetSettingBool("Gui", "SaveColumnOrder", &settings.guiSaveColumnOrder);
     GetSettingBool("Gui", "NoCloseDialog", &settings.guiNoCloseDialog);
-    GetSettingBool("Gui", "PidTidInHex", &settings.guiPidTidInHex);
     GetSettingBool("Gui", "SidebarWatchLabels", &settings.guiSidebarWatchLabels);
     GetSettingBool("Gui", "NoForegroundWindow", &settings.guiNoForegroundWindow);
     GetSettingBool("Gui", "LoadSaveTabOrder", &settings.guiLoadSaveTabOrder);
@@ -298,10 +297,10 @@ void SettingsDialog::LoadSettings()
     GetSettingBool("Gui", "EnableQtHighDpiScaling", &settings.guiEnableQtHighDpiScaling);
     GetSettingBool("Gui", "WindowLongPath", &settings.guiEnableWindowLongPath);
     GetSettingBool("Gui", "NoIcons", &settings.guiNoIcons);
+    GetSettingBool("Gui", "AutoTraceDump", &settings.guiAutoTraceDump);
     ui->chkFpuRegistersLittleEndian->setChecked(settings.guiFpuRegistersLittleEndian);
     ui->chkSaveColumnOrder->setChecked(settings.guiSaveColumnOrder);
     ui->chkNoCloseDialog->setChecked(settings.guiNoCloseDialog);
-    ui->chkPidTidInHex->setChecked(settings.guiPidTidInHex);
     ui->chkSidebarWatchLabels->setChecked(settings.guiSidebarWatchLabels);
     ui->chkNoForegroundWindow->setChecked(settings.guiNoForegroundWindow);
     ui->chkSaveLoadTabOrder->setChecked(settings.guiLoadSaveTabOrder);
@@ -316,6 +315,7 @@ void SettingsDialog::LoadSettings()
     ui->chkQtHighDpiScaling->setChecked(settings.guiEnableQtHighDpiScaling);
     ui->chkWindowLongPath->setChecked(settings.guiEnableWindowLongPath);
     ui->chkNoIcons->setChecked(settings.guiNoIcons);
+    ui->chkAutoTraceDump->setChecked(settings.guiAutoTraceDump);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -455,8 +455,7 @@ void SettingsDialog::SaveSettings()
     //Gui tab
     BridgeSettingSetUint("Gui", "FpuRegistersLittleEndian", settings.guiFpuRegistersLittleEndian);
     BridgeSettingSetUint("Gui", "SaveColumnOrder", settings.guiSaveColumnOrder);
-    BridgeSettingSetUint("Gui", "NoCloseDialog", settings.guiNoCloseDialog);
-    BridgeSettingSetUint("Gui", "PidTidInHex", settings.guiPidTidInHex);
+    BridgeSettingSetUint("Gui", "NoCloseDialog", settings.guiNoCloseDialog);;
     BridgeSettingSetUint("Gui", "SidebarWatchLabels", settings.guiSidebarWatchLabels);
     BridgeSettingSetUint("Gui", "NoForegroundWindow", settings.guiNoForegroundWindow);
     BridgeSettingSetUint("Gui", "LoadSaveTabOrder", settings.guiLoadSaveTabOrder);
@@ -470,6 +469,7 @@ void SettingsDialog::SaveSettings()
     BridgeSettingSetUint("Gui", "EnableQtHighDpiScaling", settings.guiEnableQtHighDpiScaling);
     BridgeSettingSetUint("Gui", "WindowLongPath", settings.guiEnableWindowLongPath);
     BridgeSettingSetUint("Gui", "NoIcons", settings.guiNoIcons);
+    BridgeSettingSetUint("Gui", "AutoTraceDump", settings.guiAutoTraceDump);
 
     //Misc tab
     if(DbgFunctions()->GetJit)
@@ -1038,11 +1038,6 @@ void SettingsDialog::on_chkBreakWhenCalcConditionsFails_toggled(bool checked)
     settings.engineBreakWhenCalcConditionsFails = checked;
 }
 
-void SettingsDialog::on_chkPidTidInHex_clicked(bool checked)
-{
-    settings.guiPidTidInHex = checked;
-}
-
 void SettingsDialog::on_chkNoScriptTimeout_stateChanged(int arg1)
 {
     settings.engineNoScriptTimeout = arg1 != Qt::Unchecked;
@@ -1201,3 +1196,7 @@ void SettingsDialog::on_chkNoIcons_toggled(bool checked)
     settings.guiNoIcons = checked;
 }
 
+void SettingsDialog::on_chkAutoTraceDump_toggled(bool checked)
+{
+    settings.guiAutoTraceDump = checked;
+}

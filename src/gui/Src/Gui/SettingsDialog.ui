@@ -875,13 +875,6 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="chkPidTidInHex">
-         <property name="text">
-          <string>Show PID/TID in HEX</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <widget class="QCheckBox" name="chkSaveLoadTabOrder">
          <property name="text">
           <string>Enable Load/Save Tab Order</string>
@@ -972,6 +965,16 @@
         <widget class="QCheckBox" name="chkNoIcons">
          <property name="text">
           <string>Disable icons*</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="chkAutoTraceDump">
+         <property name="toolTip">
+          <string>Dump in trace view consumes significant memory. It is used by many features in trace view that need to search for access to memory. If disabled, it will not be loaded by default. The user can always load the dump manually. Dump in already opened trace tabs are not disabled until you close them.</string>
+         </property>
+         <property name="text">
+          <string>Automatically load dump in trace view</string>
          </property>
         </widget>
        </item>

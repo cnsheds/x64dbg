@@ -33,7 +33,7 @@ class SettingsDialog;
 class SimpleTraceDialog;
 class MRUList;
 class UpdateChecker;
-class TraceWidget;
+class TraceManager;
 class InfoDialog;
 
 namespace Ui
@@ -176,7 +176,7 @@ private:
     CalculatorDialog* mCalculatorDialog;
     HandlesView* mHandlesView;
     NotesManager* mNotesManager;
-    TraceWidget* mTraceWidget;
+    TraceManager* mTraceWidget;
     SimpleTraceDialog* mSimpleTraceDialog;
     UpdateChecker* mUpdateChecker;
     DebugStatusLabel* mStatusLabel;

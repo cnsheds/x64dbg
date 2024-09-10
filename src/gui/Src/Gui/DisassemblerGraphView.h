@@ -272,7 +272,7 @@ public slots:
     void toggleSummarySlot();
     void selectionGetSlot(SELECTIONDATA* selection);
     void tokenizerConfigUpdatedSlot();
-    void loadCurrentGraph();
+    void loadCurrentGraphSlot();
     void disassembleAtSlot(duint va, duint cip);
     void gotoExpressionSlot();
     void gotoOriginSlot();
@@ -342,7 +342,6 @@ private:
     qreal overviewScale;
     duint mCip = 0;
     bool forceCenter = false;
-    bool saveGraph;
     bool mHistoryLock = false; //Don't add a history while going to previous/next
     LayoutType layoutType;
 

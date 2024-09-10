@@ -101,7 +101,6 @@ private slots:
     void on_chkSaveColumnOrder_stateChanged(int arg1);
     void on_chkSaveLoadTabOrder_stateChanged(int arg1);
     void on_chkNoCloseDialog_toggled(bool checked);
-    void on_chkPidTidInHex_clicked(bool checked);
     void on_chkSidebarWatchLabels_stateChanged(int arg1);
     void on_chkNoForegroundWindow_toggled(bool checked);
     void on_chkShowExitConfirmation_toggled(bool checked);
@@ -112,6 +111,7 @@ private slots:
     void on_chkWindowLongPath_toggled(bool checked);
     void on_chkNoIcons_toggled(bool checked);
     void on_chkShowInfoWindow_toggled(bool checked);
+    void on_chkAutoTraceDump_toggled(bool checked);
     //Misc tab
     void on_chkSetJIT_stateChanged(int arg1);
     void on_editSymbolStore_textEdited(const QString & arg1);
@@ -238,7 +238,6 @@ private:
         bool guiFpuRegistersLittleEndian = false;
         bool guiSaveColumnOrder = false;
         bool guiNoCloseDialog = false;
-        bool guiPidTidInHex = false;
         bool guiSidebarWatchLabels = false;
         bool guiNoForegroundWindow = true;
         bool guiLoadSaveTabOrder = true;
@@ -253,6 +252,7 @@ private:
         bool guiNoIcons = false;
         bool guiShowInfoWindow = true;
 
+        bool guiAutoTraceDump = false;
         //Misc Tab
         bool miscSetJIT = false;
         bool miscSymbolStore = false;

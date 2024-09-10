@@ -53,8 +53,8 @@
 #include "MRUList.h"
 #include "AboutDialog.h"
 #include "UpdateChecker.h"
-#include "Tracer/TraceBrowser.h"
-#include "Tracer/TraceWidget.h"
+#include "Tracer/TraceManager.h"
+//#include "Tracer/TraceWidget.h"
 #include "Utils/MethodInvoker.h"
 #include "InfoDialog.h"
 
@@ -104,6 +104,8 @@ MainWindow::MainWindow(QWidget* parent)
     connect(Bridge::getBridge(), SIGNAL(symbolSelectModule(duint)), this, SLOT(displaySymbolWidget()));
     connect(Bridge::getBridge(), SIGNAL(closeApplication()), this, SLOT(close()));
     connect(Bridge::getBridge(), SIGNAL(showTraceBrowser()), this, SLOT(displayTraceWidget()));
+    connect(Bridge::getBridge(), SIGNAL(focusMemmap()), this, SLOT(displayMemMapWidget()));
+    connect(Bridge::getBridge(), SIGNAL(focusSymmod()), this, SLOT(displaySymbolWidget()));
 
     // Setup menu API
 
@@ -229,11 +231,10 @@ MainWindow::MainWindow(QWidget* parent)
     mHandlesView->setWindowIcon(DIcon("handles"));
 
     // Trace view
-    mTraceWidget = new TraceWidget(this);
+    mTraceWidget = new TraceManager(this);
     mTraceWidget->setWindowTitle(tr("Trace"));
     mTraceWidget->setWindowIcon(DIcon("trace"));
-    connect(mTraceWidget->getTraceBrowser(), SIGNAL(displayReferencesWidget()), this, SLOT(displayReferencesWidget()));
-    connect(mTraceWidget->getTraceBrowser(), SIGNAL(displayLogWidget()), this, SLOT(displayLogWidget()));
+    connect(mTraceWidget, SIGNAL(displayLogWidget()), this, SLOT(displayLogWidget()));
 
     mTabWidget = new MHTabWidget(this, true, true);
 
@@ -419,6 +420,7 @@ MainWindow::MainWindow(QWidget* parent)
     char setting[MAX_SETTING_SIZE] = "";
 
     // To avoid the window from flashing briefly at the initial position before being moved to saved position and size, initialize the main window position and size here
+    // NOTE: apparently this is not correct (https://forum.qt.io/topic/76589/proper-way-to-restore-state-geometry-on-application-start), but it works on some machines.
     if(BridgeSettingGet("Main Window Settings", "Geometry", setting))
         restoreGeometry(QByteArray::fromBase64(QByteArray(setting)));
     QTimer::singleShot(0, this, SLOT(loadWindowSettings()));
@@ -711,10 +713,6 @@ void MainWindow::themeTriggeredSlot()
 
 void MainWindow::setupThemesMenu()
 {
-    auto exists = [](const QString & str)
-    {
-        return QFile(str).exists();
-    };
     char selectedTheme[MAX_SETTING_SIZE];
     BridgeSettingGet("Theme", "Selected", selectedTheme);
     QDirIterator it(QString("%1/../themes").arg(QCoreApplication::applicationDirPath()), QDir::NoDotAndDotDot | QDir::Dirs);
@@ -728,6 +726,9 @@ void MainWindow::setupThemesMenu()
         // The Default theme folder is a hidden theme to override the default theme
         if(name == "Default")
             continue;
+        // Translation support for the built-in 'Dark' theme
+        if(name == "Dark")
+            name = tr("Dark");
         auto action = ui->menuTheme->addAction(name);
         connect(action, SIGNAL(triggered()), this, SLOT(themeTriggeredSlot()));
         action->setText(name);
@@ -996,6 +997,8 @@ void MainWindow::loadWindowSettings()
 {
     // Main Window settings
     char setting[MAX_SETTING_SIZE] = "";
+    if(BridgeSettingGet("Main Window Settings", "Geometry", setting))
+        restoreGeometry(QByteArray::fromBase64(QByteArray(setting)));
     if(BridgeSettingGet("Main Window Settings", "State", setting))
         restoreState(QByteArray::fromBase64(QByteArray(setting)));
 
@@ -2090,7 +2093,7 @@ void MainWindow::blog()
     msg.setDefaultButton(QMessageBox::Ok);
     if(msg.exec() != QMessageBox::Ok)
         return;
-    QDesktopServices::openUrl(QUrl("http://blog.x64dbg.com"));
+    QDesktopServices::openUrl(QUrl("https://blog.x64dbg.com"));
 }
 
 void MainWindow::reportBug()
@@ -2103,7 +2106,7 @@ void MainWindow::reportBug()
     msg.setDefaultButton(QMessageBox::Ok);
     if(msg.exec() != QMessageBox::Ok)
         return;
-    QDesktopServices::openUrl(QUrl("http://report.x64dbg.com"));
+    QDesktopServices::openUrl(QUrl("https://report.x64dbg.com"));
 }
 
 void MainWindow::crashDump()
@@ -2193,7 +2196,7 @@ void MainWindow::changeCommandLine()
 
 static void onlineManual()
 {
-    QDesktopServices::openUrl(QUrl("http://help.x64dbg.com"));
+    QDesktopServices::openUrl(QUrl("https://help.x64dbg.com"));
 }
 
 void MainWindow::displayManual()
@@ -2206,7 +2209,7 @@ void MainWindow::displayManual()
         {
             QMessageBox messagebox(QMessageBox::Critical, tr("Error"),
                                    tr("Manual cannot be opened. Please check if x64dbg.chm exists and ensure there is no other problems with your system.") + '\n'
-                                   + tr("Do you want to open online manual at http://help.x64dbg.com ?"),
+                                   + tr("Do you want to open online manual at https://help.x64dbg.com ?"),
                                    QMessageBox::Yes | QMessageBox::No);
             if(messagebox.exec() == QMessageBox::Yes)
                 onlineManual();
@@ -2291,7 +2294,7 @@ void MainWindow::dbgStateChangedSlot(DBGSTATE state)
 
 void MainWindow::on_actionFaq_triggered()
 {
-    QDesktopServices::openUrl(QUrl("http://faq.x64dbg.com"));
+    QDesktopServices::openUrl(QUrl("https://faq.x64dbg.com"));
 }
 
 void MainWindow::on_actionReloadStylesheet_triggered()
@@ -2481,7 +2484,7 @@ void MainWindow::clickFavouriteTool()
         }
         GuiAddLogMessage(tr("Starting tool %1\n").arg(toolPath).toUtf8().constData());
         PROCESS_INFORMATION procinfo;
-        STARTUPINFO startupinfo;
+        STARTUPINFOW startupinfo;
         memset(&procinfo, 0, sizeof(PROCESS_INFORMATION));
         memset(&startupinfo, 0, sizeof(startupinfo));
         startupinfo.cb = sizeof(startupinfo);
@@ -2756,7 +2759,7 @@ void MainWindow::onMenuCustomized()
 
 void MainWindow::on_actionPlugins_triggered()
 {
-    QDesktopServices::openUrl(QUrl("http://plugins.x64dbg.com"));
+    QDesktopServices::openUrl(QUrl("https://plugins.x64dbg.com"));
 }
 
 void MainWindow::on_actionCheckUpdates_triggered()

@@ -80,6 +80,19 @@ public:
         }
     }
 
+    void sortRows(duint column, bool ascending) override
+    {
+        // HACK: when sorting by status, forcefully fill in the text so the sorting works
+        if(column == ColStatus)
+        {
+            for(duint row = 0; row < mData.size(); row++)
+            {
+                mData[row][column].text = getCellContent(row, column);
+            }
+        }
+        StdIconTable::sortRows(column, ascending);
+    }
+
 private:
     MODULESYMBOLSTATUS getStatus(duint r)
     {
@@ -226,6 +239,7 @@ SymbolView::SymbolView(QWidget* parent) : QWidget(parent), ui(new Ui::SymbolView
     connect(Bridge::getBridge(), SIGNAL(clearLog()), this, SLOT(clearSymbolLogSlot()));
     connect(Bridge::getBridge(), SIGNAL(clearSymbolLog()), this, SLOT(clearSymbolLogSlot()));
     connect(Bridge::getBridge(), SIGNAL(selectionSymmodGet(SELECTIONDATA*)), this, SLOT(selectionGetSlot(SELECTIONDATA*)));
+    connect(Bridge::getBridge(), SIGNAL(focusSymmod()), mModuleList, SLOT(setFocus()));
     connect(mModuleList->stdList(), SIGNAL(selectionChanged(duint)), this, SLOT(moduleSelectionChanged(duint)));
     connect(mModuleList->stdSearchList(), SIGNAL(selectionChanged(duint)), this, SLOT(moduleSelectionChanged(duint)));
     connect(mModuleList, SIGNAL(emptySearchResult()), this, SLOT(emptySearchResultSlot()));
@@ -290,7 +304,7 @@ void SymbolView::invalidateSymbolSource(duint base)
             mSymbolSearchList->mSearchList->setRowCount(0);
             mSymbolSearchList->mSearchList->setHighlightText(QString());
             GuiSymbolLogAdd(QString("[SymbolView] reload symbols for base %1\n").arg(ToPtrString(base)).toUtf8().constData());
-            // TODO: properly reload symbol list
+            emit mModuleList->mCurList->selectionChanged(mModuleList->mCurList->getInitialSelection());
             break;
         }
     }
