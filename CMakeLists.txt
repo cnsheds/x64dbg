@@ -56,8 +56,8 @@ find_package(Qt5 REQUIRED
 # Target: zydis_wrapper
 set(zydis_wrapper_SOURCES
 	cmake.toml
+	"src/zydis_wrapper/Zydis/Zydis.c"
 	"src/zydis_wrapper/Zydis/Zydis.h"
-	"src/zydis_wrapper/zydis/Zydis.c"
 	"src/zydis_wrapper/zydis_wrapper.cpp"
 	"src/zydis_wrapper/zydis_wrapper.h"
 )

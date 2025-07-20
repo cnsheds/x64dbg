@@ -32,7 +32,7 @@ sources = [
     "src/zydis_wrapper/*.cpp",
     "src/zydis_wrapper/*.h",
     "src/zydis_wrapper/Zydis/Zydis.h",
-    "src/zydis_wrapper/zydis/Zydis.c",
+    "src/zydis_wrapper/Zydis/Zydis.c",
 ]
 include-directories = [
     "src/zydis_wrapper",
