@@ -111,6 +111,22 @@ void ZydisTokenizer::UpdateStringPool()
     addStringsToPool("xmm13 ymm13 zmm13");
     addStringsToPool("xmm14 ymm14 zmm14");
     addStringsToPool("xmm15 ymm15 zmm15");
+    addStringsToPool("xmm16 ymm16 zmm16");
+    addStringsToPool("xmm17 ymm17 zmm17");
+    addStringsToPool("xmm18 ymm18 zmm18");
+    addStringsToPool("xmm19 ymm19 zmm19");
+    addStringsToPool("xmm20 ymm20 zmm20");
+    addStringsToPool("xmm21 ymm21 zmm21");
+    addStringsToPool("xmm22 ymm22 zmm22");
+    addStringsToPool("xmm23 ymm23 zmm23");
+    addStringsToPool("xmm24 ymm24 zmm24");
+    addStringsToPool("xmm25 ymm25 zmm25");
+    addStringsToPool("xmm26 ymm26 zmm26");
+    addStringsToPool("xmm27 ymm27 zmm27");
+    addStringsToPool("xmm28 ymm28 zmm28");
+    addStringsToPool("xmm29 ymm29 zmm29");
+    addStringsToPool("xmm30 ymm30 zmm30");
+    addStringsToPool("xmm31 ymm31 zmm31");
 }
 
 bool ZydisTokenizer::Tokenize(duint addr, const unsigned char* data, int datasize, InstructionToken & instruction)
@@ -225,7 +241,7 @@ void ZydisTokenizer::UpdateConfig()
     mMemorySpaces = ConfigBool("Disassembler", "MemorySpaces");
     mNoHighlightOperands = ConfigBool("Disassembler", "NoHighlightOperands");
     mNoCurrentModuleText = ConfigBool("Disassembler", "NoCurrentModuleText");
-    m0xPrefixValues = ConfigBool("Disassembler", "0xPrefixValues");
+    mValueNotation = (DisasmValueNotationType)ConfigUint("Disassembler", "0xPrefixValues");
     mMaxModuleLength = (int)ConfigUint("Disassembler", "MaxModuleSize");
     UpdateStringPool();
 }
@@ -235,7 +251,7 @@ void ZydisTokenizer::UpdateArchitecture()
     mZydis.Reset(mArchitecture->disasm64());
 }
 
-void ZydisTokenizer::SetConfig(bool bUppercase, bool bTabbedMnemonic, bool bArgumentSpaces, bool bHidePointerSizes, bool bHideNormalSegments, bool bMemorySpaces, bool bNoHighlightOperands, bool bNoCurrentModuleText, bool b0xPrefixValues)
+void ZydisTokenizer::SetConfig(bool bUppercase, bool bTabbedMnemonic, bool bArgumentSpaces, bool bHidePointerSizes, bool bHideNormalSegments, bool bMemorySpaces, bool bNoHighlightOperands, bool bNoCurrentModuleText, DisasmValueNotationType ValueNotation)
 {
     mUppercase = bUppercase;
     mTabbedMnemonic = bTabbedMnemonic;
@@ -245,7 +261,7 @@ void ZydisTokenizer::SetConfig(bool bUppercase, bool bTabbedMnemonic, bool bArgu
     mMemorySpaces = bMemorySpaces;
     mNoHighlightOperands = bNoHighlightOperands;
     mNoCurrentModuleText = bNoCurrentModuleText;
-    m0xPrefixValues = b0xPrefixValues;
+    mValueNotation = ValueNotation;
 }
 
 int ZydisTokenizer::Size() const
@@ -428,16 +444,31 @@ QString ZydisTokenizer::printValue(const TokenValue & value, bool expandModule) 
         moduleText += ".";
     QString addrText = ToHexString(addr);
     QString finalText;
-    if(bHasLabel && bHasModule) //<module.label>
+    if(bHasLabel && bHasModule)  //<module.label>
         finalText = QString("<%1%2>").arg(moduleText).arg(labelText);
-    else if(bHasModule) //module.addr
+    else if(bHasModule)  //module.addr
         finalText = QString("%1%2").arg(moduleText).arg(addrText);
-    else if(bHasLabel) //<label>
+    else if(bHasLabel)  //<label>
         finalText = QString("<%1>").arg(labelText);
-    else if(m0xPrefixValues)
-        finalText = QString("0x") + addrText;
     else
-        finalText = addrText;
+    {
+        switch(mValueNotation)
+        {
+        case DisasmValueNotationC:
+            finalText = "0x" + addrText;
+            break;
+        case DisasmValueNotationMASM:
+            if((addrText[0] >= 'A' && addrText[0] <= 'F') || (addrText[0] >= 'a' && addrText[0] <= 'f'))
+                finalText = "0" + addrText + "h";
+            else
+                finalText = addrText + "h";
+            break;
+        default:
+            finalText = addrText;
+            break;
+        }
+    }
+
     return finalText;
 }
 
@@ -593,15 +624,36 @@ bool ZydisTokenizer::tokenizeImmOperand(const ZydisDecodedOperand & op)
 bool ZydisTokenizer::tokenizeMemOperand(const ZydisDecodedOperand & op)
 {
     auto opsize = op.size / 8;
+    const char* sizeText = mZydis.MemSizeName(opsize);
 
     //memory size
-    if(!mHidePointerSizes)
+    if(sizeText)
     {
-        const char* sizeText = mZydis.MemSizeName(opsize);
-        if(sizeText)
+        if(!mHidePointerSizes)
         {
             addToken(TokenType::MemorySize, QString(sizeText) + " ptr");
             addToken(TokenType::Space, " ");
+        }
+        else
+        {
+            //ambiguous operand sizes
+            for(auto i = 0; i < mZydis.GetInstr()->info.operand_count; i += 1)
+            {
+                const auto & op_ = mZydis.GetInstr()->operands[i];
+
+                if(op_.id == op.id)
+                    continue;
+
+                if(op_.type == ZYDIS_OPERAND_TYPE_REGISTER && op_.size == op.size)
+                    continue;
+
+                if(op_.type == ZYDIS_OPERAND_TYPE_MEMORY)
+                    continue;
+
+                addToken(TokenType::MemorySize, QString(sizeText) + " ptr");
+                addToken(TokenType::Space, " ");
+                break;
+            }
         }
     }
 

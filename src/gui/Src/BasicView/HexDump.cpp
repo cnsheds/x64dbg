@@ -3,6 +3,7 @@
 #include "Bridge.h"
 #include "StringUtil.h"
 #include <QMessageBox>
+#include <QFloat16>
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 #include <QStringDecoder>
@@ -1110,6 +1111,12 @@ void HexDump::wordToString(duint rva, uint16_t word, WordViewMode mode, RichText
     }
     break;
 
+    case HalfFloatWord:
+    {
+        str = ToFloatingString<qfloat16>(&word, 3);
+    }
+    break;
+
     default:
     {
 
@@ -1343,6 +1350,12 @@ static int wordStringMaxLength(HexDump::WordViewMode mode)
     case HexDump::UnsignedDecWord:
     {
         length = 5;
+    }
+    break;
+
+    case HexDump::HalfFloatWord:
+    {
+        length = 9;
     }
     break;
 

@@ -5,6 +5,7 @@
 #include "analysis.h"
 #include "addrinfo.h"
 #include <functional>
+#include <unordered_set>
 
 class ControlFlowAnalysis : public Analysis
 {
@@ -31,8 +32,8 @@ private:
         BasicBlock(duint start, duint end, duint left, duint right)
             : start(start),
               end(end),
-              left(min(left, right)),
-              right(min(left, right)),
+              left(std::min(left, right)),
+              right(std::min(left, right)),
               function(0)
         {
         }

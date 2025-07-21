@@ -1,10 +1,12 @@
 #pragma once
 
+#ifndef _WIN32_WINNT
 #ifdef _WIN64
 #define _WIN32_WINNT 0x0502 // XP x64 is version 5.2
 #else
 #define _WIN32_WINNT 0x0501
 #endif
+#endif // _WIN32_WINNT
 
 #ifdef WINVER // Overwrite WINVER if given on command line
 #undef WINVER
@@ -15,9 +17,7 @@
 #define _WIN32_IE 0x0500
 #endif //_WIN32_IE
 
-// Allow including Windows.h without bringing in a redefined and outdated subset of NTSTATUSes.
-// To get NTSTATUS defines, #undef WIN32_NO_STATUS after Windows.h and then #include <ntstatus.h>
-#define WIN32_NO_STATUS
+#include "ntdll/ntdll.h"
 
 #include "../dbg_types.h"
 #include "../dbg_assert.h"
@@ -35,6 +35,12 @@
 #endif //QT_TRANSLATE_NOOP
 // Uncomment the following line to allow memory leak tracing
 //#define ENABLE_MEM_TRACE
+
+#ifdef _MSC_VER
+#define DBG_ALIGNAS(x) __declspec(align(x))
+#else
+#define DBG_ALIGNAS(x) alignas(x)
+#endif // _MSC_VER
 
 //defines
 #define deflen 1024
@@ -74,5 +80,15 @@ duint GetThreadCount();
 #else
 #define ArchValue(x32value, x64value) x32value
 #endif //_WIN64
+
+inline bool detectAVX512()
+{
+    int EABCDX[4];
+    __cpuid(EABCDX, 7); // detect AVX-512
+    if(EABCDX[1] & (1 << 16))  // EBX.bit16=1, supports AVX-512
+        return true;
+    else
+        return false;
+}
 
 #include "dynamicmem.h"

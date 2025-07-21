@@ -3,10 +3,9 @@
 #include "encodemap.h"
 #include "value.h"
 #include "types.h"
-#include "memory.h"
 #include "variable.h"
 #include "filehelper.h"
-#include "label.h"
+#include "typevisitor.h"
 
 using namespace Types;
 
@@ -140,6 +139,7 @@ bool cbInstrAddType(int argc, char* argv[])
         dputs(QT_TRANSLATE_NOOP("DBG", "AddType failed"));
         return false;
     }
+    GuiTypeListUpdated();
     dprintf_untranslated("typedef %s %s;\n", argv[2], argv[1]);
     return true;
 }
@@ -153,6 +153,7 @@ bool cbInstrAddStruct(int argc, char* argv[])
         dputs(QT_TRANSLATE_NOOP("DBG", "AddStruct failed"));
         return false;
     }
+    GuiTypeListUpdated();
     dprintf_untranslated("struct %s;\n", argv[1]);
     return true;
 }
@@ -166,6 +167,7 @@ bool cbInstrAddUnion(int argc, char* argv[])
         dputs(QT_TRANSLATE_NOOP("DBG", "AddUnion failed"));
         return false;
     }
+    GuiTypeListUpdated();
     dprintf_untranslated("union %s;\n", argv[1]);
     return true;
 }
@@ -177,13 +179,13 @@ bool cbInstrAddMember(int argc, char* argv[])
     auto parent = argv[1];
     auto type = argv[2];
     auto name = argv[3];
-    int arrsize = 0, offset = -1;
+    int arraySize = 0, offset = -1;
     if(argc > 4)
     {
         duint value;
         if(!valfromstring(argv[4], &value, false))
             return false;
-        arrsize = int(value);
+        arraySize = int(value);
         if(argc > 5)
         {
             if(!valfromstring(argv[5], &value, false))
@@ -191,14 +193,15 @@ bool cbInstrAddMember(int argc, char* argv[])
             offset = int(value);
         }
     }
-    if(!AddMember(parent, type, name, arrsize, offset))
+    if(!AddMember(parent, type, name, arraySize, offset))
     {
         dputs(QT_TRANSLATE_NOOP("DBG", "AddMember failed"));
         return false;
     }
+    GuiTypeListUpdated();
     dprintf_untranslated("%s: %s %s", parent, type, name);
-    if(arrsize > 0)
-        dprintf_untranslated("[%d]", arrsize);
+    if(arraySize > 0)
+        dprintf_untranslated("[%d]", arraySize);
     if(offset >= 0)
         dprintf_untranslated(" (offset: %d)", offset);
     dputs_untranslated(";");
@@ -211,13 +214,13 @@ bool cbInstrAppendMember(int argc, char* argv[])
         return false;
     auto type = argv[1];
     auto name = argv[2];
-    int arrsize = 0, offset = -1;
+    int arraySize = 0, offset = -1;
     if(argc > 3)
     {
         duint value;
         if(!valfromstring(argv[3], &value, false))
             return false;
-        arrsize = int(value);
+        arraySize = int(value);
         if(argc > 4)
         {
             if(!valfromstring(argv[4], &value, false))
@@ -225,14 +228,15 @@ bool cbInstrAppendMember(int argc, char* argv[])
             offset = int(value);
         }
     }
-    if(!AppendMember(type, name, arrsize, offset))
+    if(!AppendMember(type, name, arraySize, offset))
     {
         dputs(QT_TRANSLATE_NOOP("DBG", "AppendMember failed"));
         return false;
     }
+    GuiTypeListUpdated();
     dprintf_untranslated("%s %s", type, name);
-    if(arrsize > 0)
-        dprintf_untranslated("[%d]", arrsize);
+    if(arraySize > 0)
+        dprintf_untranslated("[%d]", arraySize);
     if(offset >= 0)
         dprintf_untranslated(" (offset: %d)", offset);
     dputs_untranslated(";");
@@ -244,7 +248,7 @@ bool cbInstrAddFunction(int argc, char* argv[])
     if(IsArgumentsLessThan(argc, 3))
         return false;
     auto name = argv[1];
-    auto rettype = argv[2];
+    auto returnType = argv[2];
     auto callconv = Cdecl;
     auto noreturn = false;
     if(argc > 3)
@@ -270,12 +274,13 @@ bool cbInstrAddFunction(int argc, char* argv[])
             noreturn = value != 0;
         }
     }
-    if(!AddFunction(towner, name, rettype, callconv, noreturn))
+    if(!AddFunction(towner, name, returnType, callconv, noreturn))
     {
         dputs(QT_TRANSLATE_NOOP("DBG", "AddFunction failed"));
         return false;
     }
-    dprintf_untranslated("%s %s();\n", rettype, name);
+    GuiTypeListUpdated();
+    dprintf_untranslated("%s %s();\n", returnType, name);
     return true;
 }
 
@@ -288,9 +293,9 @@ bool cbInstrAddArg(int argc, char* argv[])
         dputs(QT_TRANSLATE_NOOP("DBG", "AddArg failed"));
         return false;
     }
+    GuiTypeListUpdated();
     dprintf_untranslated("%s: %s %s;\n", argv[1], argv[2], argv[3]);
     return true;
-
 }
 
 bool cbInstrAppendArg(int argc, char* argv[])
@@ -302,6 +307,7 @@ bool cbInstrAppendArg(int argc, char* argv[])
         dputs(QT_TRANSLATE_NOOP("DBG", "AppendArg failed"));
         return false;
     }
+    GuiTypeListUpdated();
     dprintf_untranslated("%s %s;\n", argv[1], argv[2]);
     return true;
 }
@@ -321,323 +327,36 @@ bool cbInstrSizeofType(int argc, char* argv[])
     return true;
 }
 
-struct PrintVisitor : TypeManager::Visitor
-{
-    explicit PrintVisitor(duint data = 0, int maxPtrDepth = 0)
-        : mAddr(data), mMaxPtrDepth(maxPtrDepth) { }
-
-    template<typename T>
-    static String basicPrint(void* data, const char* format)
-    {
-        return StringUtils::sprintf(format, *(T*)data);
-    }
-
-    template<typename T, typename U>
-    static String basicPrint(void* data, const char* format)
-    {
-        return StringUtils::sprintf(format, *(T*)data, *(U*)data);
-    }
-
-    static bool cbPrintPrimitive(const TYPEDESCRIPTOR* type, char* dest, size_t* destCount)
-    {
-        if(!type->addr)
-        {
-            *dest = '\0';
-            return true;
-        }
-        String valueStr;
-        Memory<unsigned char*> data(type->size);
-        if(MemRead(type->addr + type->offset, data(), data.size()))
-        {
-            if(type->reverse)
-                std::reverse(data(), data() + data.size());
-            switch(Primitive(type->id))
-            {
-            case Void:
-                valueStr.clear();
-                break;
-            case Int8:
-                valueStr += StringUtils::sprintf("0x%02X, '%s'", *(unsigned char*)data(), StringUtils::Escape(*(char*)data()).c_str());
-                break;
-            case Uint8:
-                valueStr += basicPrint<unsigned char, unsigned char>(data(), "0x%02X, %d");
-                break;
-            case Int16:
-                valueStr += basicPrint<unsigned short, short>(data(), "0x%04X, %d");
-                break;
-            case Uint16:
-                valueStr += basicPrint<unsigned short, unsigned short>(data(), "0x%04X, %u");
-                break;
-            case Int32:
-                valueStr += basicPrint<unsigned int, int>(data(), "0x%08X, %d");
-                break;
-            case Uint32:
-                valueStr += basicPrint<unsigned int, unsigned int>(data(), "0x%08X, %u");
-                break;
-            case Int64:
-                valueStr += basicPrint<unsigned long long, long long>(data(), "0x%016llX, %lld");
-                break;
-            case Uint64:
-                valueStr += basicPrint<unsigned long long, unsigned long long>(data(), "0x%016llX, %llu");
-                break;
-            case Dsint:
-#ifdef _WIN64
-                valueStr += basicPrint<duint, dsint>(data(), "0x%016llX, %lld");
-#else
-                valueStr += basicPrint<duint, dsint>(data(), "0x%08X, %d");
-#endif //_WIN64
-                break;
-            case Duint:
-#ifdef _WIN64
-                valueStr += basicPrint<duint, duint>(data(), "0x%016llX, %llu");
-#else
-                valueStr += basicPrint<duint, duint>(data(), "0x%08X, %u");
-#endif //_WIN64
-                break;
-            case Float:
-                valueStr += basicPrint<float>(data(), "%f");
-                break;
-            case Double:
-                valueStr += basicPrint<double>(data(), "%f");
-                break;
-            case Pointer:
-                valueStr += basicPrint<void*>(data(), "0x%p");
-                break;
-            case PtrString:
-            {
-                valueStr += basicPrint<char*>(data(), "0x%p ");
-                Memory<char*> strdata(MAX_STRING_SIZE + 1);
-                if(MemRead(*(duint*)data(), strdata(), strdata.size() - 1))
-                {
-                    valueStr += "\"";
-                    valueStr += StringUtils::Escape(strdata());
-                    valueStr.push_back('\"');
-                }
-                else
-                    valueStr += "???";
-            }
-            break;
-
-            case PtrWString:
-            {
-                valueStr += basicPrint<wchar_t*>(data(), "0x%p ");
-                Memory<wchar_t*> strdata(MAX_STRING_SIZE * 2 + 2);
-                if(MemRead(*(duint*)data(), strdata(), strdata.size() - 2))
-                {
-                    valueStr += "L\"";
-                    valueStr += StringUtils::Utf16ToUtf8(strdata());
-                    valueStr.push_back('\"');
-                }
-                else
-                    valueStr += "???";
-            }
-            break;
-
-            default:
-                return false;
-            }
-        }
-        else
-            valueStr = "???";
-        if(*destCount <= valueStr.size())
-        {
-            *destCount = valueStr.size() + 1;
-            return false;
-        }
-        strcpy_s(dest, *destCount, valueStr.c_str());
-        return true;
-    }
-
-    bool visitType(const Member & member, const Type & type) override
-    {
-        if(!mParents.empty() && parent().type == Parent::Union)
-            mOffset = parent().offset;
-
-        String tname;
-        auto ptype = mParents.empty() ? Parent::Struct : parent().type;
-        if(ptype == Parent::Array)
-        {
-            tname = StringUtils::sprintf("%s[%u]", member.name.c_str(), parent().index++);
-        }
-        else
-        {
-            tname = StringUtils::sprintf("%s %s", type.name.c_str(), member.name.c_str());
-
-            // Prepend struct/union to pointer types
-            if(!type.pointto.empty())
-            {
-                auto ptrname = StructUnionPtrType(type.pointto);
-                if(!ptrname.empty())
-                    tname = ptrname + " " + tname;
-            }
-        }
-
-        std::string path;
-        for(size_t i = 0; i < mPath.size(); i++)
-        {
-            if(ptype == Parent::Array && i + 1 == mPath.size())
-                break;
-            path.append(mPath[i]);
-        }
-        path.append(member.name);
-
-        auto ptr = mAddr + mOffset;
-        if(MemIsValidReadPtr(ptr))
-        {
-            if(!LabelGet(ptr, nullptr) && (parent().index == 1 || ptype != Parent::Array))
-                LabelSet(ptr, path.c_str(), false, true);
-        }
-
-        TYPEDESCRIPTOR td;
-        td.expanded = false;
-        td.reverse = false;
-        td.name = tname.c_str();
-        td.addr = mAddr;
-        td.offset = mOffset;
-        td.id = type.primitive;
-        td.size = type.size;
-        td.callback = cbPrintPrimitive;
-        td.userdata = nullptr;
-        mNode = GuiTypeAddNode(mParents.empty() ? nullptr : parent().node, &td);
-        mOffset += type.size;
-
-        return true;
-    }
-
-    bool visitStructUnion(const Member & member, const StructUnion & type) override
-    {
-        if(!mParents.empty() && parent().type == Parent::Type::Union)
-            mOffset = parent().offset;
-
-        String tname = StringUtils::sprintf("%s %s %s", type.isunion ? "union" : "struct", type.name.c_str(), member.name.c_str());
-
-        TYPEDESCRIPTOR td;
-        td.expanded = true;
-        td.reverse = false;
-        td.name = tname.c_str();
-        td.addr = mAddr;
-        td.offset = mOffset;
-        td.id = Void;
-        td.size = type.size;
-        td.callback = nullptr;
-        td.userdata = nullptr;
-        auto node = GuiTypeAddNode(mParents.empty() ? nullptr : parent().node, &td);
-
-        mPath.push_back((member.name == "display" ? type.name : member.name) + ".");
-        mParents.push_back(Parent(type.isunion ? Parent::Union : Parent::Struct));
-        parent().node = node;
-        parent().size = td.size;
-        parent().offset = mOffset;
-        return true;
-    }
-
-    bool visitArray(const Member & member) override
-    {
-        String tname = StringUtils::sprintf("%s %s[%d]", member.type.c_str(), member.name.c_str(), member.arrsize);
-
-        TYPEDESCRIPTOR td;
-        td.expanded = member.arrsize <= 5;
-        td.reverse = false;
-        td.name = tname.c_str();
-        td.addr = mAddr;
-        td.offset = mOffset;
-        td.id = Void;
-        td.size = member.arrsize * SizeofType(member.type);
-        td.callback = nullptr;
-        td.userdata = nullptr;
-        auto node = GuiTypeAddNode(mParents.empty() ? nullptr : parent().node, &td);
-
-        mPath.push_back(member.name + ".");
-        mParents.push_back(Parent(Parent::Array));
-        parent().node = node;
-        parent().size = td.size;
-        return true;
-    }
-
-    bool visitPtr(const Member & member, const Type & type) override
-    {
-        auto offset = mOffset;
-        auto res = visitType(member, type); //print the pointer value
-        if(mPtrDepth >= mMaxPtrDepth)
-            return false;
-
-        duint value = 0;
-        if(!mAddr || !MemRead(mAddr + offset, &value, sizeof(value)))
-            return false;
-
-        mPath.push_back(member.name + "->");
-        mParents.push_back(Parent(Parent::Pointer));
-        parent().offset = mOffset;
-        parent().addr = mAddr;
-        parent().node = mNode;
-        parent().size = type.size;
-        mOffset = 0;
-        mAddr = value;
-        mPtrDepth++;
-        return res;
-    }
-
-    bool visitBack(const Member & member) override
-    {
-        if(parent().type == Parent::Pointer)
-        {
-            mOffset = parent().offset;
-            mAddr = parent().addr;
-            mPtrDepth--;
-        }
-        else if(parent().type == Parent::Union)
-        {
-            mOffset = parent().offset + parent().size;
-        }
-        mParents.pop_back();
-        mPath.pop_back();
-        return true;
-    }
-
-private:
-    struct Parent
-    {
-        enum Type
-        {
-            Struct,
-            Union,
-            Array,
-            Pointer
-        };
-
-        Type type;
-        unsigned int index = 0;
-        duint addr = 0;
-        duint offset = 0;
-        void* node = nullptr;
-        int size = 0;
-
-        explicit Parent(Type type)
-            : type(type) { }
-    };
-
-    Parent & parent()
-    {
-        return mParents[mParents.size() - 1];
-    }
-
-    std::vector<Parent> mParents;
-    duint mOffset = 0;
-    duint mAddr = 0;
-    int mPtrDepth = 0;
-    int mMaxPtrDepth = 0;
-    void* mNode = nullptr;
-    std::vector<String> mPath;
-};
-
 bool cbInstrVisitType(int argc, char* argv[])
 {
     if(IsArgumentsLessThan(argc, 2))
         return false;
-    auto type = argv[1];
-    auto name = "display";
+
+    std::string type;
+    if(argv[1][0] == '#')
+    {
+        duint typeId;
+        if(!valfromstring(argv[1] + 1, &typeId, false))
+            return false;
+
+        const TypeBase* typeDescriptor = LookupTypeById(typeId);
+        if(!typeDescriptor || !typeDescriptor->name.c_str())
+        {
+            dputs(QT_TRANSLATE_NOOP("DBG", "Invalid type ID"));
+            return false;
+        }
+
+        type = typeDescriptor->name;
+    }
+    else
+    {
+        type = argv[1];
+    }
+
+    auto name = "";
     duint addr = 0;
-    auto maxPtrDepth = 0;
+    auto maxPtrDepth = gDefaultMaxPtrDepth;
+
     if(argc > 2)
     {
         if(!valfromstring(argv[2], &addr, false))
@@ -647,17 +366,23 @@ bool cbInstrVisitType(int argc, char* argv[])
             duint value;
             if(!valfromstring(argv[3], &value, false))
                 return false;
-            maxPtrDepth = int(value);
+            if(dsint(value) >= 0)
+                maxPtrDepth = int(value);
             if(argc > 4)
                 name = argv[4];
         }
     }
-    PrintVisitor visitor(addr, maxPtrDepth);
+
+    NodeVisitor visitor(GuiTypeAddNode, nullptr, addr);
+    visitor.mMaxPtrDepth = maxPtrDepth;
+    visitor.mCreateLabels = true;
     if(!VisitType(type, name, visitor))
     {
         dputs(QT_TRANSLATE_NOOP("DBG", "VisitType failed"));
         return false;
     }
+
+    GuiShowStructView();
     GuiUpdateAllViews();
     dputs(QT_TRANSLATE_NOOP("DBG", "Done!"));
     return true;
@@ -669,6 +394,7 @@ bool cbInstrClearTypes(int argc, char* argv[])
     if(argc > 1)
         owner = argv[1];
     ClearTypes(owner);
+    GuiTypeListUpdated();
     return true;
 }
 
@@ -681,6 +407,7 @@ bool cbInstrRemoveType(int argc, char* argv[])
         dputs(QT_TRANSLATE_NOOP("DBG", "RemoveType failed"));
         return false;
     }
+    GuiTypeListUpdated();
     dprintf(QT_TRANSLATE_NOOP("DBG", "Type %s removed\n"), argv[1]);
     return true;
 }
@@ -709,6 +436,7 @@ bool cbInstrLoadTypes(int argc, char* argv[])
         dputs(QT_TRANSLATE_NOOP("DBG", "LoadTypes failed"));
         return false;
     }
+    GuiTypeListUpdated();
     dputs(QT_TRANSLATE_NOOP("DBG", "Types loaded"));
     return true;
 }
@@ -725,8 +453,15 @@ bool cbInstrParseTypes(int argc, char* argv[])
         dputs("failed to read file!");
         return false;
     }
-    if(!ParseTypes(data, owner))
+
+    int errorCount = 0;
+    if(!ParseTypes(data, owner, errorCount))
+    {
+        dprintf("Failed to parse header: %s (%d errors, see log)\n", argv[1], errorCount);
         return false;
+    }
+
+    GuiTypeListUpdated();
     dprintf("Parsed header: %s\n", argv[1]);
     return true;
 }

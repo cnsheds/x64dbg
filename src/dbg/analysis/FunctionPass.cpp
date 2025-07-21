@@ -1,5 +1,4 @@
 #include "FunctionPass.h"
-#include <ppl.h>
 #include "memory.h"
 #include "console.h"
 #include "debugger.h"
@@ -75,7 +74,7 @@ bool FunctionPass::Analyse()
     // Initialize thread vector
     auto threadFunctions = new std::vector<FunctionDef>[IdealThreadCount()];
 
-    concurrency::parallel_for(duint(0), IdealThreadCount(), [&](duint i)
+    ParallelFor(IdealThreadCount(), [&](duint i)
     {
         // Memory allocation optimization
         // TODO: Option to conserve memory
@@ -83,7 +82,7 @@ bool FunctionPass::Analyse()
 
         // Execute
         duint threadWorkStart = (workAmount * i);
-        duint threadWorkStop = min((threadWorkStart + workAmount), m_MainBlocks.size());
+        duint threadWorkStop = std::min<duint>((threadWorkStart + workAmount), m_MainBlocks.size());
 
         AnalysisWorker(threadWorkStart, threadWorkStop, &threadFunctions[i]);
     });
@@ -314,7 +313,7 @@ bool FunctionPass::ResolveFunctionEnd(FunctionDef* Function, BasicBlock* LastBlo
         Function->InstrCount += block->InstrCount;
 
         // Calculate max from just linear instructions
-        maximumAddr = max(maximumAddr, block->VirtualEnd);
+        maximumAddr = (std::max)(maximumAddr, block->VirtualEnd);
 
         // Find maximum jump target
         if(!block->GetFlag(BASIC_BLOCK_FLAG_CALL) && !block->GetFlag(BASIC_BLOCK_FLAG_INDIRECT))
@@ -363,7 +362,7 @@ bool FunctionPass::ResolveFunctionEnd(FunctionDef* Function, BasicBlock* LastBlo
                     }
 
                     // Now calculate the maximum end address, taking into account the jump destination
-                    maximumAddr = max(maximumAddr, blockEnd);
+                    maximumAddr = (std::max)(maximumAddr, blockEnd);
                 }
             }
         }

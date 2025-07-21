@@ -135,7 +135,7 @@ void LocalVarsView::baseChangedSlot()
 void LocalVarsView::configUpdatedSlot()
 {
     currentFunc = 0;
-    HexPrefixValues = Config()->getBool("Disassembler", "0xPrefixValues");
+    ValueNotation = (DisasmValueNotationType)Config()->getUint("Disassembler", "0xPrefixValues");
     MemorySpaces = Config()->getBool("Disassembler", "MemorySpaces");
 }
 
@@ -148,8 +148,8 @@ void LocalVarsView::updateSlot()
         reloadData();
         return;
     }
-    REGDUMP z;
-    DbgGetRegDumpEx(&z, sizeof(REGDUMP));
+    REGDUMP_AVX512 z;
+    DbgGetRegDumpEx(&z, sizeof(z));
     duint start, end;
 
     if(DbgFunctionGet(z.regcontext.cip, &start, &end))
@@ -228,25 +228,30 @@ void LocalVarsView::updateSlot()
                     QString expr;
                     QString name;
                     if(j < 0)
-                    {
                         expr = QString("%1").arg(-j, 0, 16);
-                        if(HexPrefixValues)
-                            expr = "0x" + expr;
-                        if(!MemorySpaces)
-                            expr = "-" + expr;
-                        else
-                            expr = " - " + expr;
-                    }
                     else
-                    {
                         expr = QString("%1").arg(j, 0, 16);
-                        if(HexPrefixValues)
-                            expr = "0x" + expr;
-                        if(!MemorySpaces)
-                            expr = "+" + expr;
+
+                    switch(ValueNotation)
+                    {
+                    case DisasmValueNotationC:
+                        expr = "0x" + expr;
+                        break;
+                    case DisasmValueNotationMASM:
+                        if((expr[0] >= 'A' && expr[0] <= 'F') || (expr[0] >= 'a' && expr[0] <= 'f'))
+                            expr = "0" + expr + "h";
                         else
-                            expr = " + " + expr;
+                            expr = expr + "h";
+                        break;
+                    default:
+                        break;
                     }
+
+                    if(!MemorySpaces)
+                        expr = ((j < 0) ? "-" : "+") + expr;
+                    else
+                        expr = ((j < 0) ? " - " : " + ") + expr;
+
                     expr = QString("[%1%2]").arg(baseRegisters[i]->text()).arg(expr);
                     if(i == 4) //CBP
                     {

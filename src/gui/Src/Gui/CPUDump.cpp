@@ -81,7 +81,7 @@ void CPUDump::setupContextMenu()
         return DbgFunctions()->PatchInRange(rvaToVa(getSelectionStart()), rvaToVa(getSelectionEnd()));
     });
 
-    mCommonActions->build(mMenuBuilder, CommonActions::ActionDisasm | CommonActions::ActionMemoryMap | CommonActions::ActionDumpData | CommonActions::ActionDumpN
+    mCommonActions->build(mMenuBuilder, CommonActions::ActionDisasm | CommonActions::ActionMemoryMap | CommonActions::ActionDisplayType | CommonActions::ActionDumpData | CommonActions::ActionDumpN
                           | CommonActions::ActionDisasmData | CommonActions::ActionStackDump | CommonActions::ActionLabel | CommonActions::ActionWatch);
 
     mMenuBuilder->addAction(makeShortcutAction(DIcon("modify"), tr("&Modify Value"), SLOT(modifyValueSlot()), "ActionModifyValue"), [this](QMenu*)
@@ -239,12 +239,14 @@ void CPUDump::setupContextMenu()
     floatMenu->addAction(makeAction(DIcon("32bit-float"), tr("&Float (32-bit)"), SLOT(floatFloatSlot())));
     floatMenu->addAction(makeAction(DIcon("64bit-float"), tr("&Double (64-bit)"), SLOT(floatDoubleSlot())));
     floatMenu->addAction(makeAction(DIcon("80bit-float"), tr("&Long double (80-bit)"), SLOT(floatLongDoubleSlot())));
+    floatMenu->addAction(makeAction(DIcon("word"), tr("&Half float (16-bit)"), SLOT(floatHalfSlot())));
     mMenuBuilder->addMenu(makeMenu(DIcon("float"), tr("&Float")), floatMenu);
 
     mMenuBuilder->addAction(makeAction(DIcon("address"), tr("&Address"), SLOT(addressAsciiSlot())));
     mMenuBuilder->addAction(makeAction(DIcon("processor-cpu"), tr("&Disassembly"), SLOT(disassemblySlot())));
 
     mMenuBuilder->addSeparator();
+
     mMenuBuilder->addBuilder(new MenuBuilder(this, [this](QMenu * menu)
     {
         DbgMenuPrepare(GUI_DUMP_MENU);
@@ -1212,6 +1214,31 @@ void CPUDump::floatLongDoubleSlot()
     colDesc.data.itemSize = Tword;
     colDesc.data.twordMode = FloatTword;
     appendResetDescriptor(8 + charwidth * 59, tr("Long double (80-bit)"), false, colDesc);
+
+    colDesc.isData = false; //empty column
+    colDesc.itemCount = 0;
+    colDesc.separator = 0;
+    dDesc.itemSize = Byte;
+    dDesc.byteMode = AsciiByte;
+    colDesc.data = dDesc;
+    appendDescriptor(0, "", false, colDesc);
+
+    reloadData();
+}
+
+void CPUDump::floatHalfSlot()
+{
+    Config()->setUint("HexDump", "DefaultView", (duint)ViewFloatHalf);
+    int charwidth = getCharWidth();
+    ColumnDescriptor colDesc;
+    DataDescriptor dDesc;
+
+    colDesc.isData = true; //float half
+    colDesc.itemCount = 4;
+    colDesc.separator = 0;
+    colDesc.data.itemSize = Word;
+    colDesc.data.wordMode = HalfFloatWord;
+    appendResetDescriptor(8 + charwidth * 40, tr("Half float (16-bit)"), false, colDesc);
 
     colDesc.isData = false; //empty column
     colDesc.itemCount = 0;

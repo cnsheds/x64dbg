@@ -736,7 +736,7 @@ bool cbDebugSetMemoryBpx(int argc, char* argv[])
     if(BpGet(base, BPMEMORY, 0, &bp))
     {
         if(!bp.enabled)
-            return BpEnable(base, BPMEMORY, true);
+            return DbgCmdExecDirect(StringUtils::sprintf("bpme %p", bp.addr).c_str());
         dputs(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint already set!"));
         return true;
     }
@@ -750,7 +750,68 @@ bool cbDebugSetMemoryBpx(int argc, char* argv[])
         dputs(QT_TRANSLATE_NOOP("DBG", "Error setting memory breakpoint! (SetMemoryBPXEx)"));
         return false;
     }
-    dprintf(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint at %p set!\n"), addr);
+    dprintf(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint at %p[%p] set!\n"), base, size);
+    GuiUpdateAllViews();
+    return true;
+}
+
+bool cbDebugSetMemoryRangeBpx(int argc, char* argv[])
+{
+    if(IsArgumentsLessThan(argc, 3))
+        return false;
+
+    duint start = 0;
+    if(!valfromstring(argv[1], &start, false))
+        return false;
+
+    duint size = 0;
+    if(!valfromstring(argv[2], &size, false))
+        return false;
+
+    DWORD type = UE_MEMORY;
+    bool singleshot = false;
+    if(argc > 3)
+    {
+        switch(argv[3][0])
+        {
+        case 'a': //read+write+execute
+            type = UE_MEMORY;
+            break;
+        case 'r': //read
+            type = UE_MEMORY_READ;
+            break;
+        case 'w': //write
+            type = UE_MEMORY_WRITE;
+            break;
+        case 'x': //execute
+            type = UE_MEMORY_EXECUTE;
+            break;
+        default:
+            dputs(QT_TRANSLATE_NOOP("DBG", "Invalid type specified!"));
+            return false;
+        }
+        singleshot = strstr(argv[3], "ss") != nullptr;
+    }
+
+    BREAKPOINT bp;
+    if(BpGet(start, BPMEMORY, 0, &bp))
+    {
+        if(!bp.enabled)
+            return DbgCmdExecDirect(StringUtils::sprintf("bpme %p", bp.addr).c_str());
+        dputs(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint already set!"));
+        return true;
+    }
+    if(!BpNew(start, true, singleshot, 0, BPMEMORY, type, 0, size))
+    {
+        dputs(QT_TRANSLATE_NOOP("DBG", "Error setting memory breakpoint! (BpNew)"));
+        return false;
+    }
+    if(!SetMemoryBPXEx(start, size, type, !singleshot, cbMemoryBreakpoint))
+    {
+        dputs(QT_TRANSLATE_NOOP("DBG", "Error setting memory breakpoint! (SetMemoryBPXEx)"));
+        return false;
+    }
+    dprintf(QT_TRANSLATE_NOOP("DBG", "Memory breakpoint at %p[%p] set!\n"), start, size);
     GuiUpdateAllViews();
     return true;
 }
@@ -958,7 +1019,14 @@ bool cbDebugBpDll(int argc, char* argv[])
 {
     if(IsArgumentsLessThan(argc, 2))
         return false;
-    _strlwr_s(argv[1], strlen(argv[1]) + 1); //NOTE: does not really work on unicode strings
+
+    String mod;
+    auto slashIdx = strrchr(argv[1], '\\');
+    if(slashIdx != nullptr)
+        mod = StringUtils::ToLower(slashIdx + 1);
+    else
+        mod = StringUtils::ToLower(argv[1]);
+
     DWORD type = UE_ON_LIB_ALL;
     if(argc > 2)
     {
@@ -978,17 +1046,17 @@ bool cbDebugBpDll(int argc, char* argv[])
     bool singleshoot = false;
     if(argc > 3)
         singleshoot = true;
-    if(!BpNewDll(argv[1], true, singleshoot, type, ""))
+    if(!BpNewDll(mod.c_str(), true, singleshoot, type, ""))
     {
         dputs(QT_TRANSLATE_NOOP("DBG", "Error creating Dll breakpoint! (BpNewDll)"));
         return false;
     }
-    if(!dbgsetdllbreakpoint(argv[1], type, singleshoot))
+    if(!dbgsetdllbreakpoint(mod.c_str(), type, singleshoot))
     {
         dputs(QT_TRANSLATE_NOOP("DBG", "Error creating Dll breakpoint! (LibrarianSetBreakPoint)"));
         return false;
     }
-    dprintf(QT_TRANSLATE_NOOP("DBG", "Dll breakpoint set on \"%s\"!\n"), argv[1]);
+    dprintf(QT_TRANSLATE_NOOP("DBG", "Dll breakpoint set on \"%s\"!\n"), mod.c_str());
     DebugUpdateBreakpointsViewAsync();
     return true;
 }

@@ -238,7 +238,7 @@ static void HandleZydisOperand(const Zydis & zydis, int opindex, DISASM_ARGTYPE*
         *memorySize = op.size / 8;
         if(*memorySize <= memoryContentSize && DbgMemIsValidReadPtr(*value))
         {
-            MemRead(*value, memoryContent, max(op.size / 8, sizeof(duint)));
+            MemRead(*value, memoryContent, std::max(op.size / 8, (int)sizeof(duint)));
         }
     }
     break;
@@ -263,7 +263,7 @@ void TraceRecordManager::TraceExecuteRecord(const Zydis & newInstruction)
     duint newMemoryAddress[memoryArrayCount];
     duint oldMemory[memoryArrayCount];
     unsigned char newMemoryArrayCount = 0;
-    DbgGetRegDumpEx(&newContext.registers, sizeof(REGDUMP));
+    DbgGetRegDumpEx((REGDUMP_AVX512*)&newContext.registers, sizeof(REGDUMP)); //TODO: Migrate
     newThreadId = ThreadGetId(hActiveThread);
     // Don't try to resolve memory values for invalid/lea/nop instructions
     if(newInstruction.Success() && !newInstruction.IsNop() && newInstruction.GetId() != ZYDIS_MNEMONIC_LEA)
@@ -415,7 +415,7 @@ void TraceRecordManager::TraceExecuteRecord(const Zydis & newInstruction)
             {
                 CloseHandle(rtFile);
                 String error = stringformatinline(StringUtils::sprintf("{winerror@%x}", GetLastError()));
-                dprintf(QT_TRANSLATE_NOOP("DBG", "Trace recording has stopped unexpectedly because WriteFile() failed. GetLastError() = %s.\r\n"), error.c_str());
+                dprintf(QT_TRANSLATE_NOOP("DBG", "Trace recording has stopped unexpectedly because WriteFile() failed. GetLastError() = %s.\n"), error.c_str());
                 rtEnabled = false;
             }
         }
@@ -517,7 +517,8 @@ bool TraceRecordManager::enableTraceRecording(bool enabled, const char* fileName
                     size_t headerinfosize = strlen(headerinfo);
                     LARGE_INTEGER header;
                     DWORD written;
-                    header.LowPart = MAKEFOURCC('T', 'R', 'A', 'C');
+                    uint8_t TRAC[4] = { 'T', 'R', 'A', 'C' };
+                    memcpy(&header.LowPart, TRAC, sizeof(TRAC));
                     header.HighPart = (LONG)headerinfosize;
                     WriteFile(rtFile, &header, 8, &written, nullptr);
                     if(written < 8) //read-only?
@@ -545,7 +546,7 @@ bool TraceRecordManager::enableTraceRecording(bool enabled, const char* fileName
             rtNeedThreadId = true;
             for(size_t i = 0; i < _countof(rtOldContextChanged); i++)
                 rtOldContextChanged[i] = true;
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Started trace recording to file: %s\r\n"), fileName);
+            dprintf(QT_TRANSLATE_NOOP("DBG", "Started trace recording to file: %s\n"), fileName);
             Zydis zydis;
             unsigned char instr[MAX_DISASM_BUFFER];
             auto cip = GetContextDataEx(hActiveThread, UE_CIP);
@@ -560,7 +561,7 @@ bool TraceRecordManager::enableTraceRecording(bool enabled, const char* fileName
         else
         {
             String error = stringformatinline(StringUtils::sprintf("{winerror@%x}", GetLastError()));
-            dprintf(QT_TRANSLATE_NOOP("DBG", "Cannot create trace recording file. GetLastError() = %s.\r\n"), error.c_str());
+            dprintf(QT_TRANSLATE_NOOP("DBG", "Cannot create trace recording file. GetLastError() = %s.\n"), error.c_str());
             return false;
         }
     }

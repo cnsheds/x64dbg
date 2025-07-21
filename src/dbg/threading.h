@@ -1,5 +1,4 @@
-#ifndef _THREADING_H
-#define _THREADING_H
+#pragma once
 
 #include "_global.h"
 
@@ -82,7 +81,7 @@ enum SectionLock
 };
 
 template<typename T>
-struct __declspec(align(64)) CacheAligned
+struct DBG_ALIGNAS(64) CacheAligned
 {
     T value;
 
@@ -196,7 +195,7 @@ private:
     static bool m_Initialized;
     static bool m_SRWLocks;
 
-    struct __declspec(align(64)) owner_info { DWORD threadId; size_t count; };
+    struct DBG_ALIGNAS(64) owner_info { DWORD threadId; size_t count; };
     static owner_info m_exclusiveOwner[SectionLock::LockLast];
     static CacheAligned<SRWLOCK> m_srwLocks[SectionLock::LockLast];
     static CacheAligned<CRITICAL_SECTION> m_crLocks[SectionLock::LockLast];
@@ -256,4 +255,14 @@ private:
     using Internal = SectionLockerGlobal;
 };
 
-#endif // _THREADING_H
+struct TLSData
+{
+    String moduleHashLower;
+
+    TLSData();
+    TLSData(const TLSData &) = delete;
+    TLSData & operator=(const TLSData &) = delete;
+
+    static bool notify(DWORD fdwReason);
+    static TLSData* get();
+};

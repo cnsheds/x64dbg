@@ -1,6 +1,7 @@
 #pragma once
 
 #include "StdTable.h"
+#include "Configuration.h" // DisasmValueNotationType
 
 class CPUMultiDump;
 
@@ -31,7 +32,7 @@ private:
     void setupContextMenu();
     MenuBuilder* mMenu;
 
-    bool HexPrefixValues;
+    DisasmValueNotationType ValueNotation;
     bool MemorySpaces;
 #ifdef _WIN64
     QAction* baseRegisters[16];

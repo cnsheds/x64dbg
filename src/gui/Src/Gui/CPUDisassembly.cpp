@@ -464,25 +464,25 @@ void CPUDisassembly::setupRightClickContextMenu()
     const char* strTable[] = {"Code", "Byte", "Word", "Dword", "Fword", "Qword", "Tbyte", "Oword", nullptr,
                               "Float", "Double", "Long Double", nullptr,
                               "ASCII", "UNICODE", nullptr,
-                              "MMWord", "XMMWord", "YMMWord"
+                              "MMWord", "XMMWord", "YMMWord", "ZMMWord"
                              };
 
     const char* shortcutTable[] = {"Code", "Byte", "Word", "Dword", "Fword", "Qword", "Tbyte", "Oword", nullptr,
                                    "Float", "Double", "LongDouble", nullptr,
                                    "ASCII", "UNICODE", nullptr,
-                                   "MMWord", "XMMWord", "YMMWord"
+                                   "MMWord", "XMMWord", "YMMWord", "ZMMWord"
                                   };
 
     const char* iconTable[] = {"cmd", "byte", "word", "dword", "fword", "qword", "tbyte", "oword", nullptr,
                                "float", "double", "longdouble", nullptr,
                                "ascii", "unicode", nullptr,
-                               "mmword", "xmm", "ymm"
+                               "mmword", "xmm", "ymm", "zmm"
                               };
 
     ENCODETYPE enctypeTable[] = {enc_code, enc_byte, enc_word, enc_dword, enc_fword, enc_qword, enc_tbyte, enc_oword, enc_middle,
                                  enc_real4, enc_real8, enc_real10, enc_middle,
                                  enc_ascii, enc_unicode, enc_middle,
-                                 enc_mmword, enc_xmmword, enc_ymmword
+                                 enc_mmword, enc_xmmword, enc_ymmword, enc_zmmword
                                 };
 
     int enctypesize = sizeof(enctypeTable) / sizeof(ENCODETYPE);
@@ -499,7 +499,7 @@ void CPUDisassembly::setupRightClickContextMenu()
             QAction* action;
             QIcon icon;
             if(iconTable[i])
-                icon = DIcon(QString("treat_selection_as_%1").arg(iconTable[i]));
+                icon = DIconHelper(QString("treat_selection_as_%1").arg(iconTable[i]));
             if(shortcutTable[i])
                 action = makeShortcutAction(icon, tr(strTable[i]), SLOT(setEncodeTypeRangeSlot()), QString("ActionTreatSelectionAs%1").arg(shortcutTable[i]).toUtf8().constData());
             else
@@ -721,7 +721,7 @@ void CPUDisassembly::setupRightClickContextMenu()
         return text != mHighlightToken.text;
     });
 
-    mMenuBuilder->loadFromConfig();
+    mMenuBuilder->loadFromConfig("CPUDisassemblyV2");
 }
 
 void CPUDisassembly::gotoOriginSlot()
@@ -1905,17 +1905,18 @@ void CPUDisassembly::labelHelpSlot()
         strcpy_s(setting, "https://www.google.com/search?q=@topic");
         BridgeSettingSet("Misc", "HelpOnSymbolicNameUrl", setting);
     }
+
     QString baseUrl(setting);
-    QString fullUrl = baseUrl.replace("@topic", topic);
 
     if(baseUrl.startsWith("execute://"))
     {
-        QString command = fullUrl.right(fullUrl.length() - 10);
+        QString command = baseUrl.right(baseUrl.length() - (sizeof("execute://") - 1)).replace("@topic", topic);
         QProcess::execute(command);
     }
     else
     {
-        QDesktopServices::openUrl(QUrl(fullUrl));
+        QUrl fullUrl(baseUrl.replace("@topic", QString(QUrl::toPercentEncoding(topic))));
+        QDesktopServices::openUrl(fullUrl);
     }
 }
 

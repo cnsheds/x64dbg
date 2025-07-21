@@ -22,90 +22,6 @@ enum
     ColStatus,
 };
 
-class ModuleStdTable final : public StdIconTable
-{
-public:
-    ModuleStdTable()
-    {
-        Initialize();
-        setIconColumn(ColParty);
-    }
-
-    void updateColors() override
-    {
-        StdIconTable::updateColors();
-        mSymbolUnloadedTextColor = ConfigColor("SymbolUnloadedTextColor");
-        mSymbolLoadingTextColor = ConfigColor("SymbolLoadingTextColor");
-        mSymbolLoadedTextColor = ConfigColor("SymbolLoadedTextColor");
-        mSymbolUserTextColor = ConfigColor("SymbolUserTextColor");
-        mSymbolSystemTextColor = ConfigColor("SymbolSystemTextColor");
-    }
-
-    QColor getCellColor(duint r, duint c) override
-    {
-        if(c == ColParty || c == ColPath)
-        {
-            if(DbgFunctions()->ModGetParty(getCellUserdata(r, ColBase)) != mod_system)
-                return mSymbolUserTextColor;
-            else
-                return mSymbolSystemTextColor;
-        }
-        if(c != ColModule && c != ColStatus)
-            return mTextColor;
-        switch(getStatus(r))
-        {
-        default:
-        case MODSYMUNLOADED:
-            return mSymbolUnloadedTextColor;
-        case MODSYMLOADING:
-            return mSymbolLoadingTextColor;
-        case MODSYMLOADED:
-            return mSymbolLoadedTextColor;
-        }
-    }
-
-    QString getCellContent(duint r, duint c) override
-    {
-        if(c != ColStatus)
-            return StdTable::getCellContent(r, c);
-        switch(getStatus(r))
-        {
-        default:
-        case MODSYMUNLOADED:
-            return tr("Unloaded");
-        case MODSYMLOADING:
-            return tr("Loading");
-        case MODSYMLOADED:
-            return tr("Loaded");
-        }
-    }
-
-    void sortRows(duint column, bool ascending) override
-    {
-        // HACK: when sorting by status, forcefully fill in the text so the sorting works
-        if(column == ColStatus)
-        {
-            for(duint row = 0; row < mData.size(); row++)
-            {
-                mData[row][column].text = getCellContent(row, column);
-            }
-        }
-        StdIconTable::sortRows(column, ascending);
-    }
-
-private:
-    MODULESYMBOLSTATUS getStatus(duint r)
-    {
-        return DbgFunctions()->ModSymbolStatus(getCellUserdata(r, 0));
-    }
-
-    QColor mSymbolSystemTextColor;
-    QColor mSymbolUserTextColor;
-    QColor mSymbolUnloadedTextColor;
-    QColor mSymbolLoadingTextColor;
-    QColor mSymbolLoadedTextColor;
-};
-
 class SymbolSearchList : public AbstractSearchList
 {
 public:
@@ -174,6 +90,79 @@ private:
     ZehSymbolTable* mSearchList;
 };
 
+ModuleStdTable::ModuleStdTable()
+{
+    Initialize();
+    setIconColumn(ColParty);
+}
+
+void ModuleStdTable::updateColors()
+{
+    StdIconTable::updateColors();
+    mSymbolUnloadedTextColor = ConfigColor("SymbolUnloadedTextColor");
+    mSymbolLoadingTextColor = ConfigColor("SymbolLoadingTextColor");
+    mSymbolLoadedTextColor = ConfigColor("SymbolLoadedTextColor");
+    mSymbolUserTextColor = ConfigColor("SymbolUserTextColor");
+    mSymbolSystemTextColor = ConfigColor("SymbolSystemTextColor");
+}
+
+QColor ModuleStdTable::getCellColor(duint r, duint c)
+{
+    if(c == ColParty || c == ColPath)
+    {
+        if(DbgFunctions()->ModGetParty(getCellUserdata(r, ColBase)) != mod_system)
+            return mSymbolUserTextColor;
+        else
+            return mSymbolSystemTextColor;
+    }
+    if(c != ColModule && c != ColStatus)
+        return mTextColor;
+    switch(getStatus(r))
+    {
+    default:
+    case MODSYMUNLOADED:
+        return mSymbolUnloadedTextColor;
+    case MODSYMLOADING:
+        return mSymbolLoadingTextColor;
+    case MODSYMLOADED:
+        return mSymbolLoadedTextColor;
+    }
+}
+
+QString ModuleStdTable::getCellContent(duint r, duint c)
+{
+    if(c != ColStatus)
+        return StdTable::getCellContent(r, c);
+    switch(getStatus(r))
+    {
+    default:
+    case MODSYMUNLOADED:
+        return tr("Unloaded");
+    case MODSYMLOADING:
+        return tr("Loading");
+    case MODSYMLOADED:
+        return tr("Loaded");
+    }
+}
+
+void ModuleStdTable::sortRows(duint column, bool ascending)
+{
+    // HACK: when sorting by status, forcefully fill in the text so the sorting works
+    if(column == ColStatus)
+    {
+        for(duint row = 0; row < mData.size(); row++)
+        {
+            mData[row][column].text = getCellContent(row, column);
+        }
+    }
+    StdIconTable::sortRows(column, ascending);
+}
+
+MODULESYMBOLSTATUS ModuleStdTable::getStatus(duint r)
+{
+    return DbgFunctions()->ModSymbolStatus(getCellUserdata(r, 0));
+}
+
 SymbolView::SymbolView(QWidget* parent) : QWidget(parent), ui(new Ui::SymbolView)
 {
     ui->setupUi(this);
@@ -240,8 +229,7 @@ SymbolView::SymbolView(QWidget* parent) : QWidget(parent), ui(new Ui::SymbolView
     connect(Bridge::getBridge(), SIGNAL(clearSymbolLog()), this, SLOT(clearSymbolLogSlot()));
     connect(Bridge::getBridge(), SIGNAL(selectionSymmodGet(SELECTIONDATA*)), this, SLOT(selectionGetSlot(SELECTIONDATA*)));
     connect(Bridge::getBridge(), SIGNAL(focusSymmod()), mModuleList, SLOT(setFocus()));
-    connect(mModuleList->stdList(), SIGNAL(selectionChanged(duint)), this, SLOT(moduleSelectionChanged(duint)));
-    connect(mModuleList->stdSearchList(), SIGNAL(selectionChanged(duint)), this, SLOT(moduleSelectionChanged(duint)));
+    connect(mModuleList, SIGNAL(selectionChanged(duint)), this, SLOT(moduleSelectionChanged(duint)));
     connect(mModuleList, SIGNAL(emptySearchResult()), this, SLOT(emptySearchResultSlot()));
     connect(mModuleList, SIGNAL(listContextMenuSignal(QMenu*)), this, SLOT(moduleContextMenu(QMenu*)));
     connect(mModuleList, SIGNAL(enterPressedSignal()), this, SLOT(moduleFollow()));
@@ -877,8 +865,7 @@ void SymbolView::moduleSetParty()
     duint modbase = DbgValFromString(mModuleList->mCurList->getCellContent(mModuleList->mCurList->getInitialSelection(), ColBase).toUtf8().constData());
     party = DbgFunctions()->ModGetParty(modbase);
     QString mLineEditeditText;
-    QIcon bookmark = DIcon("bookmark");
-    if(SimpleInputBox(this, tr("Mark the party of the module as"), QString::number(party), mLineEditeditText, tr("0 is user module, 1 is system module."), &bookmark))
+    if(SimpleInputBox(this, tr("Mark the party of the module as"), QString::number(party), mLineEditeditText, tr("0 is user module, 1 is system module."), DIcon("bookmark")))
     {
         bool ok;
         party = mLineEditeditText.toInt(&ok);

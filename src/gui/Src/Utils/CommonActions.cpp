@@ -8,6 +8,8 @@
 #include "Breakpoints.h"
 #include "LineEditDialog.h"
 #include "WordEditDialog.h"
+#include "GotoDialog.h"
+#include "DisplayTypeDialog.h"
 
 CommonActions::CommonActions(QWidget* parent, ActionHelperFuncs funcs, GetSelectionFunc getSelection)
     : QObject(parent), ActionHelperProxy(funcs), mGetSelection(getSelection)
@@ -79,6 +81,15 @@ void CommonActions::build(MenuBuilder* builder, int actions)
     if(actions & ActionGraph)
     {
         builder->addAction(makeShortcutDescAction(DIcon("graph"), tr("Graph"), tr("Show the control flow graph of this function in CPU view. Equivalent command \"graph address\"."), std::bind(&CommonActions::graphSlot, this), "ActionGraph"));
+    }
+    if(actions & ActionDisplayType)
+    {
+        auto action = makeShortcutDescAction(DIcon("visitstruct"), tr("Display type at %1").arg("0"), tr("Display a type at this address in the struct view."), std::bind(&CommonActions::displayTypeSlot, this), "ActionDisplayType");
+        builder->addAction(action, [this, action](QMenu*)
+        {
+            action->setText(tr("Display type at %1").arg(ToPtrString(mGetSelection())));
+            return true;
+        });
     }
     if(actions & ActionBreakpoint)
     {
@@ -450,6 +461,11 @@ void CommonActions::graphSlot()
 {
     if(DbgCmdExecDirect(QString("graph %1").arg(ToPtrString(mGetSelection()))))
         GuiFocusView(GUI_GRAPH);
+}
+
+void CommonActions::displayTypeSlot()
+{
+    DisplayTypeDialog::pickType(widgetparent(), mGetSelection());
 }
 
 void CommonActions::setNewOriginHereActionSlot()

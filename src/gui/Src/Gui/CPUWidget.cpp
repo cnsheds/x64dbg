@@ -20,6 +20,7 @@ CPUWidget::CPUWidget(Architecture* architecture, QWidget* parent)
       mArchitecture(architecture)
 {
     ui->setupUi(this);
+    setLayoutDirection(Qt::LeftToRight);
     setDefaultDisposition();
 
     setStyleSheet("AbstractTableView:focus, CPURegistersView:focus, CPUSideBar:focus { border: 1px solid #000000; }");
@@ -99,7 +100,7 @@ CPUWidget::CPUWidget(Architecture* architecture, QWidget* parent)
     mInfo->setAccessibleName(tr("InfoBox"));
 
     // load column config
-    mDisassembly->loadColumnFromConfig("CPUDisassembly");
+    mDisassembly->loadColumnFromConfig("CPUDisassemblyV2");
     mStack->loadColumnFromConfig("CPUStack");
 }
 

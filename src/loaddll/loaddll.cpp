@@ -11,12 +11,6 @@ RtlGetLastNtStatus(
     VOID
 );
 
-#ifdef _WIN64
-#pragma comment(lib, "..\\dbg\\ntdll\\ntdll_x64.lib")
-#else
-#pragma comment(lib, "..\\dbg\\ntdll\\ntdll_x86.lib")
-#endif // _WIN64
-
 int WINAPI WinMain(
     HINSTANCE hInstance,
     HINSTANCE hPrevInstance,
@@ -48,7 +42,7 @@ int WINAPI WinMain(
     if(hDll == nullptr)
     {
         auto lastStatus = RtlGetLastNtStatus();
-        swprintf_s(szTemp, L"Failed to load DLL", GetLastError());
+        swprintf_s(szTemp, L"Failed to load DLL (LastError: %u)", GetLastError());
         MessageBoxW(0, szLibraryPath, szTemp, MB_ICONERROR | MB_SYSTEMMODAL);
         return lastStatus;
     }

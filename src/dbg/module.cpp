@@ -1,6 +1,6 @@
+#include "ntdll/ntdll.h"
 #include "module.h"
 #include "TitanEngine/TitanEngine.h"
-#include "ntdll/ntdll.h"
 #include "threading.h"
 #include "symbolinfo.h"
 #include "murmurhash.h"
@@ -24,7 +24,9 @@ static NTSTATUS ImageNtHeaders(duint base, duint size, PIMAGE_NT_HEADERS* outHea
 {
     PIMAGE_NT_HEADERS ntHeaders;
 
+#ifndef __GNUC__
     __try
+#endif // __GNUC__
     {
         if(base == 0 || outHeaders == nullptr)
             return STATUS_INVALID_PARAMETER;
@@ -51,10 +53,12 @@ static NTSTATUS ImageNtHeaders(duint base, duint size, PIMAGE_NT_HEADERS* outHea
         if(ntHeaders->Signature != IMAGE_NT_SIGNATURE)
             return STATUS_INVALID_IMAGE_FORMAT;
     }
+#ifndef __GNUC__
     __except(EXCEPTION_EXECUTE_HANDLER)
     {
         return GetExceptionCode();
     }
+#endif // __GNUC__
 
     *outHeaders = ntHeaders;
     return STATUS_SUCCESS;
@@ -704,6 +708,9 @@ static void ReadExceptionDirectory(MODINFO & Info, ULONG_PTR FileMapVA)
 
 static bool GetUnsafeModuleInfoImpl(MODINFO & Info, ULONG_PTR FileMapVA, void(*func)(MODINFO &, ULONG_PTR), const char* name)
 {
+#ifdef __GNUC__
+    func(Info, FileMapVA);
+#else
     __try
     {
         func(Info, FileMapVA);
@@ -713,6 +720,7 @@ static bool GetUnsafeModuleInfoImpl(MODINFO & Info, ULONG_PTR FileMapVA, void(*f
         dprintf(QT_TRANSLATE_NOOP("DBG", "Exception while getting module info (%s), please report...\n"), name);
         return false;
     }
+#endif // __GNUC__
     return true;
 }
 
@@ -886,7 +894,7 @@ bool ModLoad(duint Base, duint Size, const char* FullPath, bool loadSymbols)
     }
 
     // Calculate module hash from full file name
-    info.hash = ModHashFromName(file);
+    info.hash = ModHashFromName(file, false);
 
     // Copy the extension into the module struct
     {
@@ -1100,14 +1108,27 @@ duint ModContentHashFromAddr(duint Address)
         return 0;
 }
 
-duint ModHashFromName(const char* Module)
+duint ModHashFromName(const char* Module, bool tolower)
 {
     // return MODINFO.hash (based on the name)
     ASSERT_NONNULL(Module);
-    auto len = int(strlen(Module));
+    auto len = strlen(Module);
     if(!len)
         return 0;
-    auto hash = murmurhash(Module, len);
+
+    duint hash = 0;
+    if(tolower)
+    {
+        auto & moduleLower = TLSData::get()->moduleHashLower;
+        moduleLower.clear();
+        for(size_t i = 0; i < len; i++)
+            moduleLower.push_back(StringUtils::ToLower(Module[i]));
+        hash = murmurhash(moduleLower.c_str(), moduleLower.size());
+    }
+    else
+    {
+        hash = murmurhash(Module, len);
+    }
 
     //update the hash cache
     SHARED_ACQUIRE(LockModuleHashes);

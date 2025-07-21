@@ -16,7 +16,8 @@ enum CMDRESULT
     STATUS_ERROR = false,
     STATUS_CONTINUE = true,
     STATUS_EXIT = 2,
-    STATUS_PAUSE = 3
+    STATUS_PAUSE = 3,
+    STATUS_CONTINUE_BRANCH = 4
 };
 
 static std::vector<LINEMAPENTRY> linemap;
@@ -207,6 +208,11 @@ static bool scriptcreatelinemap(const char* filename)
         }
 
         int rawlen = (int)strlen(cur.raw);
+        while((rawlen > 0) && isspace(cur.raw[rawlen - 1]))  //Trim trailing whitespace
+        {
+            rawlen--;
+        }
+        cur.raw[rawlen] = '\0'; //// Truncate the string by setting a new null terminator
         if(!rawlen) //empty
         {
             cur.type = lineempty;
@@ -416,7 +422,7 @@ static CMDRESULT scriptinternalcmdexec(const char* cmd, bool silentRet)
         }
         scriptIp = scriptstack.back();
         scriptstack.pop_back(); //remove last stack entry
-        return STATUS_CONTINUE;
+        return STATUS_CONTINUE_BRANCH;
     }
     else if(scriptisinternalcommand(cmd, "error")) //show an error and end the script
     {
@@ -453,7 +459,7 @@ static CMDRESULT scriptinternalcmdexec(const char* cmd, bool silentRet)
                 scriptIp = scriptinternalstep(labelIp); //go to the first command after the label
                 GuiScriptSetIp(scriptIp);
             }
-            return STATUS_CONTINUE;
+            return STATUS_CONTINUE_BRANCH;
         }
     }
     auto res = cmddirectexec(cmd);
@@ -480,6 +486,7 @@ static bool scriptinternalcmd(bool silentRet)
         switch(scriptLastError)
         {
         case STATUS_CONTINUE:
+        case STATUS_CONTINUE_BRANCH:
             if(scriptIp == scriptIpOld)
             {
                 bContinue = false;
@@ -568,7 +575,7 @@ bool scriptRunSync(int destline, bool silentRet)
         GuiUpdateEnable(true);
     GuiScriptSetIp(scriptIp);
     // the script fully executed (which means scriptIp is reset to the first line), without any errors
-    return scriptIp == scriptinternalstep(0) && (scriptLastError == STATUS_EXIT || scriptLastError == STATUS_CONTINUE);
+    return scriptIp == scriptinternalstep(0) && (scriptLastError == STATUS_EXIT || scriptLastError == STATUS_CONTINUE || scriptLastError == STATUS_CONTINUE_BRANCH);
 }
 
 bool scriptLoadSync(const char* filename)
@@ -613,19 +620,30 @@ void scriptunload()
     bAbort = false;
 }
 
-void scriptrun(int destline)
+void scriptrun(int destline, bool silentRet)
 {
     if(DbgIsDebugging() && dbgisrunning())
     {
-        GuiScriptError(0, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Debugger must be paused to run a script!")));
+        if(!silentRet)
+            GuiScriptError(0, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Debugger must be paused to run a script!")));
+        else
+            dputs(QT_TRANSLATE_NOOP("DBG", "Debugger must be paused to run a script!"));
         return;
     }
     if(bIsRunning) //already running
         return;
     bIsRunning = true;
-    std::thread t([destline]
+    std::thread t([destline, silentRet]
     {
-        scriptRunSync(destline, false);
+        // When this command is called from a breakpoint callback, it may need to wait until debugger is paused
+        // FIXME: It's assumed that the user set break condition to 1 when using scriptcmd, but what happens when it is not the case?
+        int time = 0;
+        while(DbgIsDebugging() && dbgisrunning() && !bAbort && time < 1000)  //while not locked (NOTE: possible deadlock)
+        {
+            Sleep(1);
+            time++;
+        }
+        scriptRunSync(destline, silentRet);
     });
     t.detach();
 }
@@ -691,6 +709,12 @@ bool scriptcmdexec(const char* command)
         break;
     case STATUS_PAUSE:
     case STATUS_CONTINUE:
+        break;
+    case STATUS_CONTINUE_BRANCH:
+        if(!bIsRunning)
+        {
+            scriptrun(scriptIp, true);
+        }
         break;
     }
     return true;

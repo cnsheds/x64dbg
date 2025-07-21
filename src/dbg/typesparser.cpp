@@ -5,9 +5,9 @@ using namespace Types;
 
 #include "btparser/btparser/lexer.h"
 
-void LoadModel(const std::string & owner, Model & model);
+int LoadModel(const std::string & owner, Model & model);
 
-bool ParseTypes(const std::string & parse, const std::string & owner)
+bool ParseTypes(const std::string & parse, const std::string & owner, int & errorCount)
 {
     Lexer lexer;
     lexer.SetInputData(parse);
@@ -45,6 +45,7 @@ bool ParseTypes(const std::string & parse, const std::string & owner)
 
     auto errLine = [&]()
     {
+        errorCount++;
         dprintf("[line %d:%d] ", curToken().CurLine, curToken().LineIndex);
     };
     auto eatSemic = [&]()
@@ -136,7 +137,7 @@ bool ParseTypes(const std::string & parse, const std::string & owner)
                         dputs("expected number token");
                         return false;
                     }
-                    m.arrsize = int(memToks[i + 1].NumberVal);
+                    m.arraySize = int(memToks[i + 1].NumberVal);
                     if(i + 2 >= memToks.size())
                     {
                         errLine();
@@ -190,7 +191,7 @@ bool ParseTypes(const std::string & parse, const std::string & owner)
         if(isToken(Lexer::tok_struct) || isToken(Lexer::tok_union))
         {
             StructUnion su;
-            su.isunion = isToken(Lexer::tok_union);
+            su.isUnion = isToken(Lexer::tok_union);
             index++;
             if(isTokenList({ Lexer::tok_identifier, Lexer::tok_bropen }))
             {
@@ -201,7 +202,7 @@ bool ParseTypes(const std::string & parse, const std::string & owner)
                     if(isToken(Lexer::tok_eof))
                     {
                         errLine();
-                        dprintf("unexpected eof in %s\n", su.isunion ? "union" : "struct");
+                        dprintf("unexpected eof in %s\n", su.isUnion ? "union" : "struct");
                         return false;
                     }
                     if(isToken(Lexer::tok_bropen))
@@ -251,7 +252,6 @@ bool ParseTypes(const std::string & parse, const std::string & owner)
         }
     }
 
-    LoadModel(owner, model);
-
-    return true;
+    errorCount = LoadModel(owner, model);
+    return errorCount == 0;
 }

@@ -37,6 +37,7 @@
 #include "debugger_cookie.h"
 #include "debugger_tracing.h"
 #include "handles.h"
+#include <shellapi.h>
 
 // Debugging variables
 static PROCESS_INFORMATION g_pi = {0, 0, 0, 0};
@@ -879,24 +880,21 @@ static void cbGenericBreakpoint(BP_TYPE bptype, const void* ExceptionAddress = n
         break;
     }
     varset("$breakpointexceptionaddress", breakpointExceptionAddress, true);
-    if(!(bpPtr && bpPtr->enabled)) //invalid / disabled breakpoint hit (most likely a bug)
+    if(bpPtr == nullptr || !bpPtr->enabled) //invalid / disabled breakpoint hit (most likely a bug)
     {
-        if(bptype != BPDLL || !BpUpdateDllPath(reinterpret_cast<const char*>(ExceptionAddress), &bpPtr))
-        {
-            // release the breakpoint lock to prevent deadlocks during the wait
-            EXCLUSIVE_RELEASE();
-            dputs(QT_TRANSLATE_NOOP("DBG", "Breakpoint reached not in list!"));
-            DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), paused);
-            //lock
-            lock(WAITID_RUN);
-            // Plugin callback
-            PLUG_CB_PAUSEDEBUG pauseInfo = { nullptr };
-            plugincbcall(CB_PAUSEDEBUG, &pauseInfo);
-            dbgsetforeground();
-            dbgsetskipexceptions(false);
-            wait(WAITID_RUN);
-            return;
-        }
+        // release the breakpoint lock to prevent deadlocks during the wait
+        EXCLUSIVE_RELEASE();
+        dputs(QT_TRANSLATE_NOOP("DBG", "Breakpoint reached not in list!"));
+        DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), paused);
+        //lock
+        lock(WAITID_RUN);
+        // Plugin callback
+        PLUG_CB_PAUSEDEBUG pauseInfo = { nullptr };
+        plugincbcall(CB_PAUSEDEBUG, &pauseInfo);
+        dbgsetforeground();
+        dbgsetskipexceptions(false);
+        wait(WAITID_RUN);
+        return;
     }
 
     // increment hit count
@@ -996,7 +994,11 @@ static void cbGenericBreakpoint(BP_TYPE bptype, const void* ExceptionAddress = n
             {
                 formattedText += "\n";
                 DWORD written = 0;
-                WriteFile(logFile, formattedText.c_str(), (DWORD)formattedText.length(), &written, nullptr);
+                if(WriteFile(logFile, formattedText.c_str(), (DWORD)formattedText.length(), &written, nullptr) == FALSE)
+                {
+                    // WriteFile failed
+                    logFileError = GetLastError();
+                };
             }
         }
         else
@@ -1526,7 +1528,7 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* CreateProcessInfo)
                 if(MemIsValidReadPtr(callbackVA))
                 {
                     String breakpointname = StringUtils::sprintf(GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "TLS Callback %d")), i + 1);
-                    sprintf_s(command, "bp %p,\"%s\",ss", callbackVA, breakpointname.c_str());
+                    sprintf_s(command, "bp %p,\"%s\",ss", (void*)callbackVA, breakpointname.c_str());
                     cmddirectexec(command);
                 }
                 else
@@ -1538,7 +1540,7 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* CreateProcessInfo)
 
         if(settingboolget("Events", "EntryBreakpoint") && !bEntryIsInMzHeader)
         {
-            sprintf_s(command, "bp %p,\"%s\",ss", pDebuggedBase + pDebuggedEntry, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "entry breakpoint")));
+            sprintf_s(command, "bp %p,\"%s\",ss", (void*)(pDebuggedBase + pDebuggedEntry), GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "entry breakpoint")));
             cmddirectexec(command);
         }
     }
@@ -1842,7 +1844,7 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
         if(settingboolget("Events", "EntryBreakpoint"))
         {
             bAlreadySetEntry = true;
-            sprintf_s(command, "bp %p,\"%s\",ss", pDebuggedBase + pDebuggedEntry, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "entry breakpoint")));
+            sprintf_s(command, "bp %p,\"%s\",ss", (void*)(pDebuggedBase + pDebuggedEntry), GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "entry breakpoint")));
             cmddirectexec(command);
         }
     }
@@ -1861,9 +1863,9 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
             if(MemIsValidReadPtr(callbackVA))
             {
                 if(bIsDebuggingThis)
-                    sprintf_s(command, "bp %p,\"%s %u\",ss", callbackVA, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "TLS Callback")), i + 1);
+                    sprintf_s(command, "bp %p,\"%s %u\",ss", (void*)callbackVA, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "TLS Callback")), (uint32_t)i + 1);
                 else
-                    sprintf_s(command, "bp %p,\"%s %u (%s)\",ss", callbackVA, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "TLS Callback")), i + 1, modname);
+                    sprintf_s(command, "bp %p,\"%s %u (%s)\",ss", (void*)callbackVA, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "TLS Callback")), (uint32_t)i + 1, modname);
                 cmddirectexec(command);
             }
             else
@@ -1880,7 +1882,7 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
         auto entry = ModEntryFromAddr(duint(base));
         if(entry)
         {
-            sprintf_s(command, "bp %p,\"DllMain (%s)\",ss", entry, modname);
+            sprintf_s(command, "bp %p,\"DllMain (%s)\",ss", (void*)entry, modname);
             cmddirectexec(command);
         }
     }
@@ -3095,7 +3097,7 @@ bool dbgrestartadmin()
         //TODO: possibly escape characters in gInitCmd
         std::wstring params = L"\"" + gInitExe + L"\" \"" + gInitCmd + L"\" \"" + gInitDir + L"\"";
         auto result = ShellExecuteW(NULL, L"runas", file.c_str(), params.c_str(), wszProgramPath, SW_SHOWDEFAULT);
-        return int(result) > 32 && GetLastError() == ERROR_SUCCESS;
+        return INT_PTR(result) > 32 && GetLastError() == ERROR_SUCCESS;
     }
     return false;
 }

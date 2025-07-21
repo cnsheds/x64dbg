@@ -1044,6 +1044,24 @@ void MainWindow::loadWindowSettings()
     // Make x64dbg topmost
     if(ConfigBool("Gui", "Topmost"))
         ui->actionTopmost->setChecked(true);
+
+    // Display support notifications
+    if(BridgeIsARM64Emulated())
+    {
+        SimpleErrorBox(
+            this,
+            tr("Unsupported system"),
+            tr("You are running x64dbg in ARM64 emulation mode. <b>This system is not supported by x64dbg and will cause unexpected behavior.</b> Analyzing malware in this environment is dangerous and you should switch to an actual Intel/AMD CPU.<br><br>For more information, see the <a href=\"%1\">FAQ</a>.").arg("https://faq.x64dbg.com")
+        );
+    }
+    if(BridgeGetNtBuildNumber() < 10000)
+    {
+        SimpleErrorBox(
+            this,
+            tr("Unsupported system"),
+            tr("You are running x64dbg on an unsupported operating system version. <b>Future updates will completely stop running on this system.</b><br><br>For more information, see the official <a href=\"%1\">announcement</a>.").arg("https://transition.x64dbg.com")
+        );
+    }
 }
 
 void MainWindow::setGlobalShortcut(QAction* action, const QKeySequence & key)
@@ -1675,7 +1693,10 @@ void MainWindow::clearMenuHelper(int hMenu, bool markAsDeleted)
             if(markAsDeleted)
                 mEntryList[i].deleted = true;
             else
+            {
+                mEntryList[i].mAction->setShortcut(QKeySequence());
                 mEntryList.erase(mEntryList.begin() + i);
+            }
         }
     }
 

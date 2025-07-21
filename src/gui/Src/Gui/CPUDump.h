@@ -59,6 +59,7 @@ public slots:
     void floatFloatSlot();
     void floatDoubleSlot();
     void floatLongDoubleSlot();
+    void floatHalfSlot();
 
     void addressUnicodeSlot();
     void addressAsciiSlot();
@@ -94,6 +95,7 @@ private:
 
     GotoDialog* mGoto = nullptr;
     GotoDialog* mGotoOffset = nullptr;
+    GotoDialog* mGotoType = nullptr;
     CPUDisassembly* mDisassembly = nullptr;
     CPUMultiDump* mMultiDump = nullptr;
     int mAsciiSeparator = 0;
@@ -122,7 +124,8 @@ private:
         ViewAddressAscii,
         ViewAddressUnicode,
         ViewHexCodepage,
-        ViewTextCodepage
+        ViewTextCodepage,
+        ViewFloatHalf
     };
 
     void setView(ViewEnum_t view);

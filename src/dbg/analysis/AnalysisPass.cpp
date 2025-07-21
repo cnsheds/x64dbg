@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <thread>
+#include <algorithm>
 #include "AnalysisPass.h"
 #include "memory.h"
 
@@ -77,7 +78,7 @@ duint AnalysisPass::IdealThreadCount()
     if(m_InternalMaxThreads == 0)
     {
         // Determine the maximum hardware thread count at once
-        duint maximumThreads = max(GetThreadCount(), 1);
+        duint maximumThreads = std::max(GetThreadCount(), (duint)1);
 
         // Don't consume 100% of the CPU, adjust accordingly
         if(maximumThreads > 1)
@@ -91,5 +92,18 @@ duint AnalysisPass::IdealThreadCount()
 
 void AnalysisPass::SetIdealThreadCount(duint Count)
 {
-    m_InternalMaxThreads = (BYTE)min(Count, 255);
+    m_InternalMaxThreads = std::min(Count, (duint)255);
+}
+
+void AnalysisPass::ParallelFor(duint ThreadCount, const std::function<void(duint)> & Worker)
+{
+    std::vector<std::thread> threads(ThreadCount);
+    for(duint i = 0; i < ThreadCount; i++)
+    {
+        threads[i] = std::thread(Worker, i);
+    }
+    for(auto & thread : threads)
+    {
+        thread.join();
+    }
 }

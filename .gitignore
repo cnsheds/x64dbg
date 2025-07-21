@@ -4,6 +4,7 @@
 /bin/*.dll
 /bin/*.ini
 /bin/*.chm
+/bin/*.zip
 /src/**/x64/
 /src/**/Win32/
 /src/gui_build/
@@ -25,7 +26,10 @@ cmake-build*/
 *.pro.user*
 *.orig
 *.pdb
+*.ilk
 .DS_Store
 Makefile
 Makefile.*
+
 CMakeLists.txt.user
+/.cache

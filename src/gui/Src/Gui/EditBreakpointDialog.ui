@@ -56,10 +56,13 @@
      <item row="0" column="0">
       <widget class="QLabel" name="labelBreakCondition">
        <property name="toolTip">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If this expression is evaluated to 1 the breakpoint will break.&lt;/p&gt;&lt;p&gt;Set to &lt;span style=&quot; text-decoration: underline;&quot;&gt;0&lt;/span&gt; for a breakpoint that never breaks, but can still do logging and execute command.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If this expression evaluates to 1, the debugger will pause.&lt;/p&gt;&lt;p&gt;Set to &lt;span style=&quot; text-decoration: underline;&quot;&gt;0&lt;/span&gt; for a breakpoint that never breaks, but can still do logging and execute commands.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
        <property name="text">
         <string>&amp;Break Condition:</string>
+       </property>
+       <property name="openExternalLinks">
+        <bool>true</bool>
        </property>
        <property name="buddy">
         <cstring>editBreakCondition</cstring>
@@ -67,7 +70,11 @@
       </widget>
      </item>
      <item row="0" column="1">
-      <widget class="QLineEdit" name="editBreakCondition"/>
+      <widget class="QLineEdit" name="editBreakCondition">
+       <property name="placeholderText">
+        <string>Example: arg(0) == 123 (numbers are hex by default)</string>
+       </property>
+      </widget>
      </item>
      <item row="1" column="1">
       <widget class="QLineEdit" name="editLogText"/>
@@ -143,7 +150,7 @@
      <item row="4" column="0">
       <widget class="QLabel" name="labelCommandCondition">
        <property name="toolTip">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If this expression is evaluated to 1 the command specified above is executed when the breakpoint is hit.&lt;/p&gt;&lt;p&gt;Set the expression to &lt;span style=&quot; text-decoration: underline;&quot;&gt;1&lt;/span&gt; to always execute the command.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        <string>If this expression evaluates to 1, the command specified above is executed.</string>
        </property>
        <property name="text">
         <string>C&amp;ommand Condition:</string>

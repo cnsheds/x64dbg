@@ -7,7 +7,6 @@
 #include "thread.h"
 #include "memory.h"
 #include "threading.h"
-#include "ntdll/ntdll.h"
 #include "debugger.h"
 
 static std::unordered_map<DWORD, THREADINFO> threadList;
@@ -15,7 +14,7 @@ static std::unordered_map<DWORD, THREADWAITREASON> threadWaitReasons;
 
 // Function pointer for dynamic linking. Do not link statically for Windows XP compatibility.
 // TODO: move this function definition out of thread.cpp
-BOOL(WINAPI* QueryThreadCycleTime)(HANDLE ThreadHandle, PULONG64 CycleTime) = nullptr;
+BOOL(WINAPI* pQueryThreadCycleTime)(HANDLE ThreadHandle, PULONG64 CycleTime) = nullptr;
 
 BOOL WINAPI QueryThreadCycleTimeUnsupported(HANDLE ThreadHandle, PULONG64 CycleTime)
 {
@@ -395,14 +394,14 @@ ULONG64 ThreadQueryCycleTime(HANDLE hThread)
     ULONG64 CycleTime;
 
     // Initialize function pointer
-    if(QueryThreadCycleTime == nullptr)
+    if(pQueryThreadCycleTime == nullptr)
     {
-        QueryThreadCycleTime = (BOOL(WINAPI*)(HANDLE, PULONG64))GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "QueryThreadCycleTime");
-        if(QueryThreadCycleTime == nullptr)
-            QueryThreadCycleTime = QueryThreadCycleTimeUnsupported;
+        pQueryThreadCycleTime = (BOOL(WINAPI*)(HANDLE, PULONG64))GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "QueryThreadCycleTime");
+        if(pQueryThreadCycleTime == nullptr)
+            pQueryThreadCycleTime = QueryThreadCycleTimeUnsupported;
     }
 
-    if(!QueryThreadCycleTime(hThread, &CycleTime))
+    if(!pQueryThreadCycleTime(hThread, &CycleTime))
         CycleTime = 0;
     return CycleTime;
 }
@@ -424,7 +423,7 @@ void ThreadUpdateWaitReasons()
     {
         for(ULONG thread = 0; thread < process->NumberOfThreads; ++thread)
         {
-            auto tid = (DWORD)process->Threads[thread].ClientId.UniqueThread;
+            auto tid = (DWORD)(duint)process->Threads[thread].ClientId.UniqueThread;
             if(threadList.count(tid))
                 threadWaitReasons[tid] = (THREADWAITREASON)process->Threads[thread].WaitReason;
         }

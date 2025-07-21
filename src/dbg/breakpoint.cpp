@@ -310,56 +310,9 @@ bool BpGetAny(BP_TYPE Type, const char* Name, BREAKPOINT* Bp)
     return false;
 }
 
-bool BpUpdateDllPath(const char* module1, BREAKPOINT** newBpInfo)
-{
-    const char* dashPos1 = max(strrchr(module1, '\\'), strrchr(module1, '/'));
-    EXCLUSIVE_ACQUIRE(LockBreakpoints);
-    for(auto & i : breakpoints)
-    {
-        BREAKPOINT & bpRef = i.second;
-        if(bpRef.type == BPDLL && bpRef.enabled)
-        {
-            char mod[MAX_MODULE_SIZE] = "";
-            if(_stricmp(bpRef.module.c_str(), module1) == 0)
-            {
-                BREAKPOINT temp;
-                temp = bpRef;
-                strcpy_s(mod, module1);
-                _strlwr_s(mod, strlen(mod) + 1);
-                temp.module = mod;
-                temp.addr = ModHashFromName(module1);
-                breakpoints.erase(i.first);
-                auto newItem = breakpoints.emplace(BreakpointKey(BPDLL, temp.addr), temp);
-                *newBpInfo = &newItem.first->second;
-                return true;
-            }
-            const char* dashPos = max(strrchr(bpRef.module.c_str(), '\\'), strrchr(bpRef.module.c_str(), '/'));
-            if(dashPos == nullptr)
-                dashPos = bpRef.module.c_str();
-            else
-                dashPos += 1;
-            if(dashPos1 != nullptr && _stricmp(dashPos, dashPos1 + 1) == 0) // filename matches
-            {
-                BREAKPOINT temp;
-                temp = bpRef;
-                strcpy_s(mod, dashPos1 + 1);
-                _strlwr_s(mod, strlen(mod) + 1);
-                temp.module = mod;
-                temp.addr = ModHashFromName(dashPos1 + 1);
-                breakpoints.erase(i.first);
-                auto newItem = breakpoints.emplace(BreakpointKey(BPDLL, temp.addr), temp);
-                *newBpInfo = &newItem.first->second;
-                return true;
-            }
-        }
-    }
-    *newBpInfo = nullptr;
-    return false;
-}
-
 duint BpGetDLLBpAddr(const char* fileName)
 {
-    const char* dashPos1 = max(strrchr(fileName, '\\'), strrchr(fileName, '/'));
+    const char* dashPos1 = std::max(strrchr(fileName, '\\'), strrchr(fileName, '/'));
     if(dashPos1 == nullptr)
         dashPos1 = fileName;
     else
@@ -401,7 +354,7 @@ bool BpDelete(const BREAKPOINT & Bp)
     // Extract the RVA from the breakpoint
     auto rva = Bp.addr;
     auto loadedBase = ModBaseFromName(Bp.module.c_str());
-    if(loadedBase != 0 && Bp.addr > loadedBase)
+    if(loadedBase != 0 && Bp.addr >= loadedBase)
         rva -= loadedBase;
 
     // Calculate the breakpoint key with the module hash and rva
@@ -609,6 +562,8 @@ bool BpSetSingleshoot(duint Address, BP_TYPE Type, bool singleshoot)
             if(!SetMemoryBPXEx(Address, bpInfo->memsize, bpInfo->titantype, !singleshoot, cbMemoryBreakpoint))
                 dprintf(QT_TRANSLATE_NOOP("DBG", "Could not enable memory breakpoint %p (SetMemoryBPXEx)\n"), Address);
         }
+        break;
+    default:
         break;
     }
     return true;
@@ -821,7 +776,7 @@ static duint BpToBridgeTypeEx(const BREAKPOINT & Bp)
     return 0;
 }
 
-static duint BpToBridgeHwSize(const BREAKPOINT & Bp)
+static BPHWSIZE BpToBridgeHwSize(const BREAKPOINT & Bp)
 {
     switch(Bp.type)
     {
@@ -829,19 +784,19 @@ static duint BpToBridgeHwSize(const BREAKPOINT & Bp)
         switch(TITANGETSIZE(Bp.titantype))
         {
         case UE_HARDWARE_SIZE_1:
-            return 1;
+            return hw_byte;
         case UE_HARDWARE_SIZE_2:
-            return 2;
+            return hw_word;
         case UE_HARDWARE_SIZE_4:
-            return 4;
+            return hw_dword;
         case UE_HARDWARE_SIZE_8:
-            return 8;
+            return hw_qword;
         }
         break;
     default:
         break;
     }
-    return 0;
+    return hw_byte;
 }
 
 static duint BpToBridgeHwSlot(const BREAKPOINT & Bp)
@@ -1021,7 +976,12 @@ void BpCacheLoad(JSON Root, bool migrateCommandCondition)
         }
         else
         {
+            // NOTE: full paths in DLL breakpoints are not supported
+            auto slashIdx = breakpoint.module.rfind('\\');
+            if(slashIdx != String::npos)
+                breakpoint.module = breakpoint.module.substr(slashIdx + 1);
             key = BpGetDLLBpAddr(breakpoint.module.c_str());
+            breakpoint.addr = key;
         }
         breakpoints[BreakpointKey(breakpoint.type, key)] = breakpoint;
     }
@@ -1158,18 +1118,16 @@ std::vector<BP_REF> BpRefList()
     {
         const auto & bp = itr.second;
         BP_REF ref = {};
-        ref.type = BpTypeToBridge(bp.type);
         switch(bp.type)
         {
         case BPDLL:
-            ref.module = bp.addr;
-            ref.offset = 0;
+            BpRefDll(ref, bp.module.c_str());
             break;
         case BPEXCEPTION:
-            ref.module = 0;
-            ref.offset = bp.addr;
+            BpRefException(ref, (unsigned int)bp.addr);
             break;
         default:
+            ref.type = BpTypeToBridge(bp.type);
             ref.module = ModHashFromName(bp.module.c_str());
             ref.offset = bp.addr;
             break;

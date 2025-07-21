@@ -46,7 +46,7 @@ CPUMultiDump::CPUMultiDump(CPUDisassembly* disassembly, int nbCpuDumpTabs, QWidg
     this->addTabEx(mLocalVars, DIcon("localvars"), tr("Locals"), "Locals");
 
     mStructWidget = new StructWidget(this);
-    this->addTabEx(mStructWidget, DIcon("struct"), mStructWidget->windowTitle(), "Struct");
+    this->addTabEx(mStructWidget, DIcon("struct"), tr("Struct"), "Struct");
 
     connect(this, SIGNAL(currentChanged(int)), this, SLOT(updateCurrentTabSlot(int)));
     connect(tabBar(), SIGNAL(OnDoubleClickTabIndex(int)), this, SLOT(openChangeTabTitleDialogSlot(int)));
@@ -57,6 +57,7 @@ CPUMultiDump::CPUMultiDump(CPUDisassembly* disassembly, int nbCpuDumpTabs, QWidg
     connect(Bridge::getBridge(), SIGNAL(selectionDumpSet(const SELECTIONDATA*)), this, SLOT(selectionSetSlot(const SELECTIONDATA*)));
     connect(Bridge::getBridge(), SIGNAL(dbgStateChanged(DBGSTATE)), this, SLOT(dbgStateChangedSlot(DBGSTATE)));
     connect(Bridge::getBridge(), SIGNAL(focusDump()), this, SLOT(focusCurrentDumpSlot()));
+    connect(Bridge::getBridge(), SIGNAL(focusStruct()), this, SLOT(focusStructSlot()));
     connect(Bridge::getBridge(), SIGNAL(getDumpAttention()), this, SLOT(getDumpAttention()));
 
     connect(mCurrentCPUDump, SIGNAL(selectionUpdated()), mCurrentCPUDump, SLOT(selectionUpdatedSlot()));
@@ -110,12 +111,12 @@ int CPUMultiDump::getMaxCPUTabs()
 
 void CPUMultiDump::saveWindowSettings()
 {
-    mStructWidget->saveWindowSettings();
+    mStructWidget->saveWindowSettings("StructWidget");
 }
 
 void CPUMultiDump::loadWindowSettings()
 {
-    mStructWidget->loadWindowSettings();
+    mStructWidget->loadWindowSettings("StructWidget");
 }
 
 int CPUMultiDump::GetDumpWindowIndex(int dump)
@@ -124,6 +125,17 @@ int CPUMultiDump::GetDumpWindowIndex(int dump)
     for(int i = 0; i < count(); i++)
     {
         if(getNativeName(i) == dumpNativeName)
+            return i;
+    }
+    return 2147483647;
+}
+
+int CPUMultiDump::GetStructWindowIndex()
+{
+    QString structWindowName = QString("Struct");
+    for(int i = 0; i < count(); i++)
+    {
+        if(getNativeName(i) == structWindowName)
             return i;
     }
     return 2147483647;
@@ -144,6 +156,11 @@ void CPUMultiDump::SwitchToDumpWindow()
 {
     if(!mCurrentCPUDump)
         setCurrentIndex(GetDumpWindowIndex(1));
+}
+
+void CPUMultiDump::SwitchToStructWindow()
+{
+    setCurrentIndex(GetStructWindowIndex());
 }
 
 void CPUMultiDump::SwitchToWatchWindow()
@@ -239,6 +256,12 @@ void CPUMultiDump::focusCurrentDumpSlot()
 {
     SwitchToDumpWindow();
     mCurrentCPUDump->setFocus();
+}
+
+void CPUMultiDump::focusStructSlot()
+{
+    SwitchToStructWindow();
+    mStructWidget->setFocus();
 }
 
 void CPUMultiDump::showDisassemblyTabSlot(duint selectionStart, duint selectionEnd, duint firstAddress)

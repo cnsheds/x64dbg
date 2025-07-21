@@ -27,6 +27,7 @@
 #include "formatfunctions.h"
 #include "stringformat.h"
 #include "dbghelp_safe.h"
+#include <shellapi.h>
 #include "types.h"
 
 static MESSAGE_STACK* gMsgStack = 0;
@@ -128,8 +129,14 @@ static void registercommands()
     dbgcmdnew("cmp", cbInstrCmp, false);
     dbgcmdnew("mov,set", cbInstrMov, false); //mov a variable, arg1:dest,arg2:src
 
-    //general purpose (SSE/AVX)
+    //general purpose (SSE/AVX/AVX-512)
     dbgcmdnew("movdqu,movups,movupd", cbInstrMovdqu, true); //move from and to XMM register
+    dbgcmdnew("vmovups,vmovupd,vmovdqu", cbInstrVmovdqu, true); //move from and to YMM/ZMM register
+    if(detectAVX512())
+    {
+        dbgcmdnew("kmovq", cbInstrKmovq, true); //move qword from and to K0-K7 register
+        dbgcmdnew("kmovd", cbInstrKmovd, true); //move dword from and to K0-K7 register
+    }
 
     //debug control
     dbgcmdnew("InitDebug,init,initdbg", cbDebugInit, false); //init debugger arg1:exefile,[arg2:commandline]
@@ -164,6 +171,7 @@ static void registercommands()
     dbgcmdnew("EnableHardwareBreakpoint,bphe,bphwe", cbDebugEnableHardwareBreakpoint, true); //enable hardware breakpoint
     dbgcmdnew("DisableHardwareBreakpoint,bphd,bphwd", cbDebugDisableHardwareBreakpoint, true); //disable hardware breakpoint
     dbgcmdnew("SetMemoryBPX,membp,bpm", cbDebugSetMemoryBpx, true); //SetMemoryBPX
+    dbgcmdnew("SetMemoryRangeBPX,memrangebp,bpmrange", cbDebugSetMemoryRangeBpx, true); // SetMemoryRangeBpx
     dbgcmdnew("DeleteMemoryBPX,membpc,bpmc", cbDebugDeleteMemoryBreakpoint, true); //delete memory breakpoint
     dbgcmdnew("EnableMemoryBreakpoint,membpe,bpme", cbDebugEnableMemoryBreakpoint, true); //enable memory breakpoint
     dbgcmdnew("DisableMemoryBreakpoint,membpd,bpmd", cbDebugDisableMemoryBreakpoint, true); //enable memory breakpoint

@@ -113,8 +113,8 @@ void LogView::setupContextMenu()
     actionAutoScroll->setCheckable(true);
     actionAutoScroll->setChecked(autoScroll);
     actionFindInLog = setupAction(tr("Find"), this, SLOT(findInLogSlot()));
-    actionFindNext = setupAction(tr("Find Next Occurance"), this, SLOT(findNextInLogSlot()));;
-    actionFindPrevious = setupAction(tr("Find Previous Occurance"), this, SLOT(findPreviousInLogSlot()));
+    actionFindNext = setupAction(tr("Find Next Occurence"), this, SLOT(findNextInLogSlot()));;
+    actionFindPrevious = setupAction(tr("Find Previous Occurence"), this, SLOT(findPreviousInLogSlot()));
 
     refreshShortcutsSlot();
     connect(Config(), SIGNAL(shortcutsUpdated()), this, SLOT(refreshShortcutsSlot()));
@@ -265,6 +265,9 @@ void LogView::addMsgToLogSlotRaw(QByteArray msg, bool encodeHTML)
     * - No carriage return (http://utf8everywhere.org/#faq.crlf).
     */
 
+    if(msg.length() == 0 || msg.at(0) == '\0')
+        return;
+
     // fix Unix-style line endings.
     // redirect the log
     QString msgUtf16;
@@ -340,8 +343,8 @@ void LogView::addMsgToLogSlotRaw(QByteArray msg, bool encodeHTML)
     }
     else
     {
-        msgUtf16.replace(QChar('\n'), QString("<br/>\n"));
         msgUtf16.replace(QString("\r\n"), QString("<br/>\n"));
+        msgUtf16.replace(QChar('\n'), QString("<br/>\n"));
     }
     if(encodeHTML)
     {

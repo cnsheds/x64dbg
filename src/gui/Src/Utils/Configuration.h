@@ -9,6 +9,13 @@
 #include "Imports.h"
 #include "MenuBuilder.h"
 
+enum DisasmValueNotationType
+{
+    DisasmValueNotationNone = 0,
+    DisasmValueNotationC = 1,
+    DisasmValueNotationMASM = 2
+};
+
 // TODO: declare AppearanceDialog and SettingsDialog entries here, so that you only have to do it in once place
 #define Config() (Configuration::instance())
 #define ConfigColor(x) (Config()->getColor(x))

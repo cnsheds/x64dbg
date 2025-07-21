@@ -36,6 +36,7 @@
 #include "recursiveanalysis.h"
 #include "dbghelp_safe.h"
 #include "symbolinfo.h"
+#include "typevisitor.h"
 
 static bool bOnlyCipAutoComments = false;
 static bool bNoSourceLineAutoComments = false;
@@ -465,51 +466,51 @@ static bool getAutoComment(duint addr, String & comment)
             temp_string += ")";
         }
 
+        //fast resume skips all other steps if break condition is evaluated to false
         if(bp.fastResume)
         {
             next();
             temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "fastresume()"));
         }
-        else //fast resume skips all other steps
-        {
-            if(!bp.logText.empty())
-            {
-                next();
-                if(!bp.logCondition.empty())
-                {
-                    temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "logif"));
-                    temp_string += "(";
-                    temp_string += bp.logCondition;
-                    temp_string += ", ";
-                }
-                else
-                {
-                    temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "log"));
-                    temp_string += "(";
-                }
-                temp_string += bp.logText;
-                temp_string += ")";
-            }
 
-            if(!bp.commandText.empty())
+        if(!bp.logText.empty())
+        {
+            next();
+            if(!bp.logCondition.empty())
             {
-                next();
-                if(!bp.commandCondition.empty())
-                {
-                    temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "cmdif"));
-                    temp_string += "(";
-                    temp_string += bp.commandCondition;
-                    temp_string += ", ";
-                }
-                else
-                {
-                    temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "cmd"));
-                    temp_string += "(";
-                }
-                temp_string += bp.commandText;
-                temp_string += ")";
+                temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "logif"));
+                temp_string += "(";
+                temp_string += bp.logCondition;
+                temp_string += ", ";
             }
+            else
+            {
+                temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "log"));
+                temp_string += "(";
+            }
+            temp_string += bp.logText;
+            temp_string += ")";
         }
+
+        if(!bp.commandText.empty())
+        {
+            next();
+            if(!bp.commandCondition.empty())
+            {
+                temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "cmdif"));
+                temp_string += "(";
+                temp_string += bp.commandCondition;
+                temp_string += ", ";
+            }
+            else
+            {
+                temp_string += GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "cmd"));
+                temp_string += "(";
+            }
+            temp_string += bp.commandText;
+            temp_string += ")";
+        }
+
         if(!temp_string.empty())
         {
             if(!comment.empty())
@@ -641,60 +642,6 @@ extern "C" DLL_EXPORT int _dbg_bpgettypeat(duint addr)
     return cacheResult;
 }
 
-static void GetMxCsrFields(MXCSRFIELDS* MxCsrFields, DWORD MxCsr)
-{
-    MxCsrFields->DAZ = valmxcsrflagfromstring(MxCsr, "DAZ");
-    MxCsrFields->DE = valmxcsrflagfromstring(MxCsr, "DE");
-    MxCsrFields->FZ = valmxcsrflagfromstring(MxCsr, "FZ");
-    MxCsrFields->IE = valmxcsrflagfromstring(MxCsr, "IE");
-    MxCsrFields->IM = valmxcsrflagfromstring(MxCsr, "IM");
-    MxCsrFields->DM = valmxcsrflagfromstring(MxCsr, "DM");
-    MxCsrFields->OE = valmxcsrflagfromstring(MxCsr, "OE");
-    MxCsrFields->OM = valmxcsrflagfromstring(MxCsr, "OM");
-    MxCsrFields->PE = valmxcsrflagfromstring(MxCsr, "PE");
-    MxCsrFields->PM = valmxcsrflagfromstring(MxCsr, "PM");
-    MxCsrFields->UE = valmxcsrflagfromstring(MxCsr, "UE");
-    MxCsrFields->UM = valmxcsrflagfromstring(MxCsr, "UM");
-    MxCsrFields->ZE = valmxcsrflagfromstring(MxCsr, "ZE");
-    MxCsrFields->ZM = valmxcsrflagfromstring(MxCsr, "ZM");
-
-    MxCsrFields->RC = valmxcsrfieldfromstring(MxCsr, "RC");
-}
-
-static void Getx87ControlWordFields(X87CONTROLWORDFIELDS* x87ControlWordFields, WORD ControlWord)
-{
-    x87ControlWordFields->DM = valx87controlwordflagfromstring(ControlWord, "DM");
-    x87ControlWordFields->IC = valx87controlwordflagfromstring(ControlWord, "IC");
-    x87ControlWordFields->IEM = valx87controlwordflagfromstring(ControlWord, "IEM");
-    x87ControlWordFields->IM = valx87controlwordflagfromstring(ControlWord, "IM");
-    x87ControlWordFields->OM = valx87controlwordflagfromstring(ControlWord, "OM");
-    x87ControlWordFields->PM = valx87controlwordflagfromstring(ControlWord, "PM");
-    x87ControlWordFields->UM = valx87controlwordflagfromstring(ControlWord, "UM");
-    x87ControlWordFields->ZM = valx87controlwordflagfromstring(ControlWord, "ZM");
-
-    x87ControlWordFields->RC = valx87controlwordfieldfromstring(ControlWord, "RC");
-    x87ControlWordFields->PC = valx87controlwordfieldfromstring(ControlWord, "PC");
-}
-
-static void Getx87StatusWordFields(X87STATUSWORDFIELDS* x87StatusWordFields, WORD StatusWord)
-{
-    x87StatusWordFields->B = valx87statuswordflagfromstring(StatusWord, "B");
-    x87StatusWordFields->C0 = valx87statuswordflagfromstring(StatusWord, "C0");
-    x87StatusWordFields->C1 = valx87statuswordflagfromstring(StatusWord, "C1");
-    x87StatusWordFields->C2 = valx87statuswordflagfromstring(StatusWord, "C2");
-    x87StatusWordFields->C3 = valx87statuswordflagfromstring(StatusWord, "C3");
-    x87StatusWordFields->D = valx87statuswordflagfromstring(StatusWord, "D");
-    x87StatusWordFields->I = valx87statuswordflagfromstring(StatusWord, "I");
-    x87StatusWordFields->ES = valx87statuswordflagfromstring(StatusWord, "ES");
-    x87StatusWordFields->O = valx87statuswordflagfromstring(StatusWord, "O");
-    x87StatusWordFields->P = valx87statuswordflagfromstring(StatusWord, "P");
-    x87StatusWordFields->SF = valx87statuswordflagfromstring(StatusWord, "SF");
-    x87StatusWordFields->U = valx87statuswordflagfromstring(StatusWord, "U");
-    x87StatusWordFields->Z = valx87statuswordflagfromstring(StatusWord, "Z");
-
-    x87StatusWordFields->TOP = valx87statuswordfieldfromstring(StatusWord, "TOP");
-}
-
 static void TranslateTitanFpu(const x87FPU_t* titanfpu, X87FPU* fpu)
 {
     fpu->ControlWord = titanfpu->ControlWord;
@@ -707,45 +654,45 @@ static void TranslateTitanFpu(const x87FPU_t* titanfpu, X87FPU* fpu)
     fpu->Cr0NpxState = titanfpu->Cr0NpxState;
 }
 
-static void TranslateTitanContextToRegContext(const TITAN_ENGINE_CONTEXT_t* titcontext, REGISTERCONTEXT* regcontext)
+static void TranslateTitanContextToRegContext(const TITAN_ENGINE_CONTEXT_t & titcontext, const TITAN_ENGINE_CONTEXT_AVX512_t & titcontext_AVX512, REGISTERCONTEXT_AVX512 & regcontext)
 {
-    regcontext->cax = titcontext->cax;
-    regcontext->ccx = titcontext->ccx;
-    regcontext->cdx = titcontext->cdx;
-    regcontext->cbx = titcontext->cbx;
-    regcontext->csp = titcontext->csp;
-    regcontext->cbp = titcontext->cbp;
-    regcontext->csi = titcontext->csi;
-    regcontext->cdi = titcontext->cdi;
+    regcontext.cax = titcontext.cax;
+    regcontext.ccx = titcontext.ccx;
+    regcontext.cdx = titcontext.cdx;
+    regcontext.cbx = titcontext.cbx;
+    regcontext.csp = titcontext.csp;
+    regcontext.cbp = titcontext.cbp;
+    regcontext.csi = titcontext.csi;
+    regcontext.cdi = titcontext.cdi;
 #ifdef _WIN64
-    regcontext->r8 = titcontext->r8;
-    regcontext->r9 = titcontext->r9;
-    regcontext->r10 = titcontext->r10;
-    regcontext->r11 = titcontext->r11;
-    regcontext->r12 = titcontext->r12;
-    regcontext->r13 = titcontext->r13;
-    regcontext->r14 = titcontext->r14;
-    regcontext->r15 = titcontext->r15;
+    regcontext.r8 = titcontext.r8;
+    regcontext.r9 = titcontext.r9;
+    regcontext.r10 = titcontext.r10;
+    regcontext.r11 = titcontext.r11;
+    regcontext.r12 = titcontext.r12;
+    regcontext.r13 = titcontext.r13;
+    regcontext.r14 = titcontext.r14;
+    regcontext.r15 = titcontext.r15;
 #endif //_WIN64
-    regcontext->cip = titcontext->cip;
-    regcontext->eflags = titcontext->eflags;
-    regcontext->gs = titcontext->gs;
-    regcontext->fs = titcontext->fs;
-    regcontext->es = titcontext->es;
-    regcontext->ds = titcontext->ds;
-    regcontext->cs = titcontext->cs;
-    regcontext->ss = titcontext->ss;
-    regcontext->dr0 = titcontext->dr0;
-    regcontext->dr1 = titcontext->dr1;
-    regcontext->dr2 = titcontext->dr2;
-    regcontext->dr3 = titcontext->dr3;
-    regcontext->dr6 = titcontext->dr6;
-    regcontext->dr7 = titcontext->dr7;
-    memcpy(regcontext->RegisterArea, titcontext->RegisterArea, sizeof(regcontext->RegisterArea));
-    TranslateTitanFpu(&titcontext->x87fpu, &regcontext->x87fpu);
-    regcontext->MxCsr = titcontext->MxCsr;
-    memcpy(regcontext->XmmRegisters, titcontext->XmmRegisters, sizeof(regcontext->XmmRegisters));
-    memcpy(regcontext->YmmRegisters, titcontext->YmmRegisters, sizeof(regcontext->YmmRegisters));
+    regcontext.cip = titcontext.cip;
+    regcontext.eflags = titcontext.eflags;
+    regcontext.gs = titcontext.gs;
+    regcontext.fs = titcontext.fs;
+    regcontext.es = titcontext.es;
+    regcontext.ds = titcontext.ds;
+    regcontext.cs = titcontext.cs;
+    regcontext.ss = titcontext.ss;
+    regcontext.dr0 = titcontext.dr0;
+    regcontext.dr1 = titcontext.dr1;
+    regcontext.dr2 = titcontext.dr2;
+    regcontext.dr3 = titcontext.dr3;
+    regcontext.dr6 = titcontext.dr6;
+    regcontext.dr7 = titcontext.dr7;
+    memcpy(regcontext.RegisterArea, titcontext.RegisterArea, sizeof(regcontext.RegisterArea));
+    TranslateTitanFpu(&titcontext.x87fpu, &regcontext.x87fpu);
+    regcontext.MxCsr = titcontext.MxCsr;
+    memcpy(regcontext.ZmmRegisters, titcontext_AVX512.ZmmRegisters, sizeof(regcontext.ZmmRegisters));
+    memcpy(regcontext.Opmask, titcontext_AVX512.Opmask, sizeof(regcontext.Opmask));
 }
 
 static void TranslateTitanFpuRegister(const x87FPURegister_t* titanReg, X87FPUREGISTER* reg)
@@ -761,54 +708,29 @@ static void TranslateTitanFpuRegisters(const x87FPURegister_t titanFpu[8], X87FP
         TranslateTitanFpuRegister(&titanFpu[i], &fpu[i]);
 }
 
-extern "C" DLL_EXPORT bool _dbg_getregdump(REGDUMP* regdump)
+extern "C" DLL_EXPORT bool _dbg_getregdump(REGDUMP_AVX512* regdump)
 {
     if(!DbgIsDebugging())
     {
-        memset(regdump, 0, sizeof(REGDUMP));
+        memset(regdump, 0, sizeof(REGDUMP_AVX512));
         return true;
     }
 
     TITAN_ENGINE_CONTEXT_t titcontext;
+    TITAN_ENGINE_CONTEXT_AVX512_t titcontext_AVX512;
     if(!GetFullContextDataEx(hActiveThread, &titcontext))
         return false;
+    memset(&titcontext_AVX512, 0, sizeof(titcontext_AVX512));
+    GetAVX512Context(hActiveThread, &titcontext_AVX512);
 
     // NOTE: this is not thread-safe, but that's fine because lastContext is only used for GUI-related operations
     memcpy(&lastContext, &titcontext, sizeof(titcontext));
 
-    TranslateTitanContextToRegContext(&titcontext, &regdump->regcontext);
+    TranslateTitanContextToRegContext(titcontext, titcontext_AVX512, regdump->regcontext);
 
-    duint cflags = regdump->regcontext.eflags;
-    regdump->flags.c = (cflags & (1 << 0)) != 0;
-    regdump->flags.p = (cflags & (1 << 2)) != 0;
-    regdump->flags.a = (cflags & (1 << 4)) != 0;
-    regdump->flags.z = (cflags & (1 << 6)) != 0;
-    regdump->flags.s = (cflags & (1 << 7)) != 0;
-    regdump->flags.t = (cflags & (1 << 8)) != 0;
-    regdump->flags.i = (cflags & (1 << 9)) != 0;
-    regdump->flags.d = (cflags & (1 << 10)) != 0;
-    regdump->flags.o = (cflags & (1 << 11)) != 0;
-
-    x87FPURegister_t x87FPURegisters[8];
-    Getx87FPURegisters(x87FPURegisters,  &titcontext);
-    TranslateTitanFpuRegisters(x87FPURegisters, regdump->x87FPURegisters);
-
-    GetMMXRegisters(regdump->mmx,  &titcontext);
-    GetMxCsrFields(& (regdump->MxCsrFields), regdump->regcontext.MxCsr);
-    Getx87ControlWordFields(& (regdump->x87ControlWordFields), regdump->regcontext.x87fpu.ControlWord);
-    Getx87StatusWordFields(& (regdump->x87StatusWordFields), regdump->regcontext.x87fpu.StatusWord);
-
-    LASTERROR lastError;
-    memset(&lastError.name, 0, sizeof(lastError.name));
-    lastError.code = ThreadGetLastError(ThreadGetId(hActiveThread));
-    strncpy_s(lastError.name, ErrorCodeToName(lastError.code).c_str(), _TRUNCATE);
-    regdump->lastError = lastError;
-
-    LASTSTATUS lastStatus;
-    memset(&lastStatus.name, 0, sizeof(lastStatus.name));
-    lastStatus.code = ThreadGetLastStatus(ThreadGetId(hActiveThread));
-    strncpy_s(lastStatus.name, NtStatusCodeToName(lastStatus.code).c_str(), _TRUNCATE);
-    regdump->lastStatus = lastStatus;
+    auto threadId = ThreadGetId(hActiveThread);
+    regdump->lastError = ThreadGetLastError(threadId);
+    regdump->lastStatus =  ThreadGetLastStatus(threadId);
 
     return true;
 }
@@ -834,11 +756,11 @@ extern "C" DLL_EXPORT int _dbg_getbplist(BPXTYPE type, BPMAP* bpmap)
     int retcount = 0;
     std::vector<BRIDGEBP> bridgeList;
     BRIDGEBP curBp;
-    BP_TYPE currentBpType;
+    int currentBpType;
     switch(type)
     {
     case bp_none:
-        currentBpType = BP_TYPE(-1);
+        currentBpType = -1;
         break;
     case bp_normal:
         currentBpType = BPNORMAL;
@@ -1014,7 +936,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
 
     case DBG_SCRIPT_RUN:
     {
-        scriptrun((int)(duint)param1);
+        scriptrun((int)(duint)param1, param2 != nullptr);
     }
     break;
 
@@ -1149,7 +1071,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
         bTruncateBreakpointLogs = settingboolget("Engine", "TruncateBreakpointLogs");
         stackupdatesettings();
 
-        duint setting;
+        duint setting = 0;
         if(BridgeSettingGetUint("Engine", "BreakpointType", &setting))
         {
             switch(setting)
@@ -1263,6 +1185,9 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
             newStringAlgorithm = acp == 932 || acp == 936 || acp == 949 || acp == 950 || acp == 951 || acp == 1251;
         }
         bNewStringAlgorithm = !!newStringAlgorithm;
+
+        if(BridgeSettingGetUint("Engine", "DefaultTypePtrDepth", &setting) && (dsint)setting >= 0)
+            gDefaultMaxPtrDepth = int(setting);
     }
     break;
 
@@ -1578,7 +1503,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
     case DBG_SELCHANGED:
     {
         PLUG_CB_SELCHANGED plugSelChanged;
-        plugSelChanged.hWindow = (int)param1;
+        plugSelChanged.hWindow = (int)(duint)param1;
         plugSelChanged.VA = (duint)param2;
         plugincbcall(CB_SELCHANGED, &plugSelChanged);
     }
@@ -1610,7 +1535,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
 
     case DBG_GET_PEB_ADDRESS:
     {
-        auto ProcessId = DWORD(param1);
+        auto ProcessId = (DWORD)(duint)param1;
         if(ProcessId == fdProcessInfo->dwProcessId)
             return (duint)GetPEBLocation(fdProcessInfo->hProcess);
         auto hProcess = TitanOpenProcess(PROCESS_QUERY_INFORMATION, false, ProcessId);
@@ -1626,7 +1551,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
 
     case DBG_GET_TEB_ADDRESS:
     {
-        auto ThreadId = DWORD(param1);
+        auto ThreadId = (DWORD)(duint)param1;
         auto tebAddress = ThreadGetLocalBase(ThreadId);
         if(tebAddress)
             return tebAddress;
@@ -1699,6 +1624,37 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
     case DBG_XREF_ADD_MULTI:
     {
         return XrefAddMulti((const XREF_EDGE*)param1, (duint)param2);
+    }
+    break;
+
+    case DBG_TYPE_VISIT:
+    {
+        auto data = (const TYPEVISITDATA*)param1;
+        if(data == nullptr || data->typeName == nullptr || data->callback == nullptr)
+            return false;
+
+        auto addNode = [data](void* parent, const TYPEDESCRIPTOR * type) -> void*
+        {
+            return (void*)data->callback(parent, type, data->userdata);
+        };
+
+        NodeVisitor visitor(addNode, data->root, data->addr);
+        if(data->maxPtrDepth >= 0)
+        {
+            visitor.mMaxPtrDepth = data->maxPtrDepth;
+        }
+        if(data->maxExpandDepth >= 0)
+        {
+            visitor.mMaxExpandDepth = data->maxExpandDepth;
+        }
+        if(data->maxExpandArray >= 0)
+        {
+            visitor.mMaxExpandArray = data->maxExpandArray;
+        }
+        visitor.mCreateLabels = data->createLabels;
+
+        auto declName = data->declName ? data->declName : "";
+        return VisitType(data->typeName, declName, visitor);
     }
     break;
     }

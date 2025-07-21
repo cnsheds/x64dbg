@@ -8,6 +8,7 @@
 #include "bridgemain.h"
 #include <stdio.h>
 #include <ShlObj.h>
+#include "../dbg/_dbgfunctions.h"
 #include "Utf8Ini.h"
 
 static HINSTANCE hInst;
@@ -66,10 +67,10 @@ static bool DirExists(const wchar_t* dir)
 static decltype(&BridgeLoadLibraryCheckedW) pLoadLibraryCheckedW;
 static decltype(&BridgeLoadLibraryCheckedA) pLoadLibraryCheckedA;
 
-static const wchar_t* InitializeUserDirectory()
+static const wchar_t* InitializeUserDirectory(HINSTANCE hMainModule, const wchar_t* szUserDirectoryOverride)
 {
     // Handle user directory
-    if(!GetModuleFileNameW(0, szUserDirectory, _countof(szUserDirectory)))
+    if(!GetModuleFileNameW(hMainModule, szUserDirectory, _countof(szUserDirectory)))
         return L"Error getting module path!";
 
     auto backslash = wcsrchr(szUserDirectory, L'\\');
@@ -94,6 +95,16 @@ static const wchar_t* InitializeUserDirectory()
     wcscat_s(szFolderRedirect, L"\\userdir");
 
     std::wstring userDirUtf16;
+    if(szUserDirectoryOverride != nullptr)
+    {
+        // NOTE: This is just a sanity check, but headless is the only user of this
+        if(wcslen(szUserDirectoryOverride) < 4 || szUserDirectoryOverride[1] != L':' || szUserDirectoryOverride[2] != L'\\')
+        {
+            return L"szUserDirectoryOverride has to be an absolute path";
+        }
+        userDirUtf16 = szUserDirectoryOverride;
+    }
+    else
     {
         std::vector<char> userDirUtf8;
         auto hFile = CreateFileW(szFolderRedirect, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
@@ -144,7 +155,7 @@ static const wchar_t* InitializeUserDirectory()
     return nullptr;
 }
 
-BRIDGE_IMPEXP const wchar_t* BridgeInit()
+BRIDGE_IMPEXP const wchar_t* BridgeInit(BRIDGE_CONFIG* config)
 {
     //Initialize critial section
     InitializeCriticalSection(&csIni);
@@ -157,7 +168,7 @@ BRIDGE_IMPEXP const wchar_t* BridgeInit()
     if(pLoadLibraryCheckedW == nullptr || pLoadLibraryCheckedA == nullptr)
         return L"Error finding safe library loading functions!";
 
-    auto userDirectoryError = InitializeUserDirectory();
+    auto userDirectoryError = InitializeUserDirectory(hMainModule, config->szUserDirectory);
     if(userDirectoryError != nullptr)
         return userDirectoryError;
 
@@ -225,7 +236,6 @@ BRIDGE_IMPEXP const wchar_t* BridgeInit()
     loadIfExists(L"Qt5Gui.dll");
     loadIfExists(L"Qt5WinExtras.dll");
     loadIfExists(L"Qt5Widgets.dll");
-    loadIfExists(L"Qt5Network.dll");
     loadIfExists(L"platforms\\qwindows.dll");
     loadIfExists(L"imageformats\\qgif.dll");
     loadIfExists(L"imageformats\\qicns.dll");
@@ -240,11 +250,17 @@ BRIDGE_IMPEXP const wchar_t* BridgeInit()
     loadIfExists(L"bearer\\qgenericbearer.dll");
     loadIfExists(L"bearer\\qnativewifibearer.dll");
     loadIfExists(L"iconengines\\qsvgicon.dll");
-    loadIfExists(L"libeay32.dll");
-    loadIfExists(L"ssleay32.dll");
 
     // GUI
-    LOADLIBRARY(gui_lib);
+    if(config->hGuiModule != nullptr)
+    {
+        hInst = config->hGuiModule;
+        szLib = L"headless";
+    }
+    else
+    {
+        LOADLIBRARY(gui_lib);
+    }
     LOADEXPORT(_gui_guiinit);
     LOADEXPORT(_gui_sendmessage);
     LOADEXPORT(_gui_translate_text);
@@ -253,7 +269,7 @@ BRIDGE_IMPEXP const wchar_t* BridgeInit()
     BridgeLoadLibraryCheckedW(L"x64_bridge.dll", true);
     BridgeLoadLibraryCheckedW(L"x64_dbg.dll", true);
 
-    return 0;
+    return nullptr;
 }
 
 BRIDGE_IMPEXP HMODULE WINAPI BridgeLoadLibraryCheckedW(const wchar_t* szDll, bool allowFailure)
@@ -271,13 +287,13 @@ BRIDGE_IMPEXP const wchar_t* BridgeStart()
     if(!_dbg_dbginit || !_gui_guiinit)
         return L"\"_dbg_dbginit\" || \"_gui_guiinit\" was not loaded yet, call BridgeInit!";
     _dbg_sendmessage(DBG_INITIALIZE_LOCKS, nullptr, nullptr); //initialize locks before any other thread than the main thread are started
-    _gui_guiinit(0, 0); //remove arguments
+    _gui_guiinit(0, nullptr); //remove arguments
     if(!BridgeSettingFlush())
         return L"Failed to save settings!";
     _dbg_sendmessage(DBG_DEINITIALIZE_LOCKS, nullptr, nullptr); //deinitialize locks when only one thread is left (hopefully)
     DeleteCriticalSection(&csIni);
     DeleteCriticalSection(&csTranslate);
-    return 0;
+    return nullptr;
 }
 
 BRIDGE_IMPEXP void* BridgeAlloc(size_t size)
@@ -461,6 +477,29 @@ BRIDGE_IMPEXP unsigned int BridgeGetNtBuildNumber()
 BRIDGE_IMPEXP const wchar_t* BridgeUserDirectory()
 {
     return szUserDirectory;
+}
+
+BRIDGE_IMPEXP bool BridgeIsARM64Emulated()
+{
+    DWORD flags = CONTEXT_CONTROL;
+    typedef BOOL(WINAPI * type_IsWow64Process2)(HANDLE, USHORT*, USHORT*);
+    auto p_IsWow64Process2 = (type_IsWow64Process2)GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "IsWow64Process2");
+    if(p_IsWow64Process2)
+    {
+        USHORT processMachine = 0;
+        USHORT nativeMachine = 0;
+        if(p_IsWow64Process2(GetCurrentProcess(), &processMachine, &nativeMachine))
+        {
+#ifndef IMAGE_FILE_MACHINE_ARM64
+#define IMAGE_FILE_MACHINE_ARM64 0xAA64
+#endif // IMAGE_FILE_MACHINE_ARM64
+            if(nativeMachine == IMAGE_FILE_MACHINE_ARM || nativeMachine == IMAGE_FILE_MACHINE_ARM64)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 BRIDGE_IMPEXP bool DbgMemRead(duint va, void* dest, duint size)
@@ -675,39 +714,248 @@ BRIDGE_IMPEXP duint DbgValFromString(const char* string)
     return value;
 }
 
+typedef struct
+{
+    REGISTERCONTEXT regcontext;
+    FLAGS flags;
+    X87FPUREGISTER x87FPURegisters[8];
+    unsigned long long mmx[8];
+    MXCSRFIELDS MxCsrFields;
+    X87STATUSWORDFIELDS x87StatusWordFields;
+    X87CONTROLWORDFIELDS x87ControlWordFields;
+    LASTERROR lastError;
+} REGDUMP_OLD;
+
 //deprecated api, only provided for binary compatibility
 extern "C" __declspec(dllexport) bool DbgGetRegDump(REGDUMP* regdump)
 {
-    typedef struct
-    {
-        REGISTERCONTEXT regcontext;
-        FLAGS flags;
-        X87FPUREGISTER x87FPURegisters[8];
-        unsigned long long mmx[8];
-        MXCSRFIELDS MxCsrFields;
-        X87STATUSWORDFIELDS x87StatusWordFields;
-        X87CONTROLWORDFIELDS x87ControlWordFields;
-        LASTERROR lastError;
-    } REGDUMP_OLD;
-    return DbgGetRegDumpEx(regdump, sizeof(REGDUMP_OLD));
+    return DbgGetRegDumpEx((REGDUMP_AVX512*)regdump, sizeof(REGDUMP_OLD));
 }
 
-BRIDGE_IMPEXP bool DbgGetRegDumpEx(REGDUMP* regdump, size_t size)
+#define MXCSRFLAG_IE 0x1
+#define MXCSRFLAG_DE 0x2
+#define MXCSRFLAG_ZE 0x4
+#define MXCSRFLAG_OE 0x8
+#define MXCSRFLAG_UE 0x10
+#define MXCSRFLAG_PE 0x20
+#define MXCSRFLAG_DAZ 0x40
+#define MXCSRFLAG_IM 0x80
+#define MXCSRFLAG_DM 0x100
+#define MXCSRFLAG_ZM 0x200
+#define MXCSRFLAG_OM 0x400
+#define MXCSRFLAG_UM 0x800
+#define MXCSRFLAG_PM 0x1000
+#define MXCSRFLAG_FZ 0x8000
+
+static void GetMxCsrFields(MXCSRFIELDS* MxCsrFields, DWORD MxCsr)
 {
-    if(size == sizeof(REGDUMP))
-        return _dbg_getregdump(regdump);
+    MxCsrFields->IE = ((MxCsr & MXCSRFLAG_IE) != 0);
+    MxCsrFields->DE = ((MxCsr & MXCSRFLAG_DE) != 0);
+    MxCsrFields->ZE = ((MxCsr & MXCSRFLAG_ZE) != 0);
+    MxCsrFields->OE = ((MxCsr & MXCSRFLAG_OE) != 0);
+    MxCsrFields->UE = ((MxCsr & MXCSRFLAG_UE) != 0);
+    MxCsrFields->PE = ((MxCsr & MXCSRFLAG_PE) != 0);
+    MxCsrFields->DAZ = ((MxCsr & MXCSRFLAG_DAZ) != 0);
+    MxCsrFields->IM = ((MxCsr & MXCSRFLAG_IM) != 0);
+    MxCsrFields->DM = ((MxCsr & MXCSRFLAG_DM) != 0);
+    MxCsrFields->ZM = ((MxCsr & MXCSRFLAG_ZM) != 0);
+    MxCsrFields->OM = ((MxCsr & MXCSRFLAG_OM) != 0);
+    MxCsrFields->UM = ((MxCsr & MXCSRFLAG_UM) != 0);
+    MxCsrFields->PM = ((MxCsr & MXCSRFLAG_PM) != 0);
+    MxCsrFields->FZ = ((MxCsr & MXCSRFLAG_FZ) != 0);
 
-    if(size > sizeof(REGDUMP))
-        __debugbreak();
+    MxCsrFields->RC = (MxCsr & 0x6000) >> 13;
+}
 
-    REGDUMP temp;
-    if(!_dbg_getregdump(&temp))
+#define x87CONTROLWORD_FLAG_IM 0x1
+#define x87CONTROLWORD_FLAG_DM 0x2
+#define x87CONTROLWORD_FLAG_ZM 0x4
+#define x87CONTROLWORD_FLAG_OM 0x8
+#define x87CONTROLWORD_FLAG_UM 0x10
+#define x87CONTROLWORD_FLAG_PM 0x20
+#define x87CONTROLWORD_FLAG_IEM 0x80
+#define x87CONTROLWORD_FLAG_IC 0x1000
+
+static void Getx87ControlWordFields(X87CONTROLWORDFIELDS* x87ControlWordFields, WORD ControlWord)
+{
+    x87ControlWordFields->IM = ((ControlWord & x87CONTROLWORD_FLAG_IM) != 0);
+    x87ControlWordFields->DM = ((ControlWord & x87CONTROLWORD_FLAG_DM) != 0);
+    x87ControlWordFields->ZM = ((ControlWord & x87CONTROLWORD_FLAG_ZM) != 0);
+    x87ControlWordFields->OM = ((ControlWord & x87CONTROLWORD_FLAG_OM) != 0);
+    x87ControlWordFields->UM = ((ControlWord & x87CONTROLWORD_FLAG_UM) != 0);
+    x87ControlWordFields->PM = ((ControlWord & x87CONTROLWORD_FLAG_PM) != 0);
+    x87ControlWordFields->IEM = ((ControlWord & x87CONTROLWORD_FLAG_IEM) != 0);
+    x87ControlWordFields->IC = ((ControlWord & x87CONTROLWORD_FLAG_IC) != 0);
+
+    x87ControlWordFields->RC = ((ControlWord & 0xC00) >> 10);
+    x87ControlWordFields->PC = ((ControlWord & 0x300) >> 8);
+}
+
+#define x87STATUSWORD_FLAG_I 0x1
+#define x87STATUSWORD_FLAG_D 0x2
+#define x87STATUSWORD_FLAG_Z 0x4
+#define x87STATUSWORD_FLAG_O 0x8
+#define x87STATUSWORD_FLAG_U 0x10
+#define x87STATUSWORD_FLAG_P 0x20
+#define x87STATUSWORD_FLAG_SF 0x40
+#define x87STATUSWORD_FLAG_ES 0x80
+#define x87STATUSWORD_FLAG_C0 0x100
+#define x87STATUSWORD_FLAG_C1 0x200
+#define x87STATUSWORD_FLAG_C2 0x400
+#define x87STATUSWORD_FLAG_C3 0x4000
+#define x87STATUSWORD_FLAG_B 0x8000
+
+static void Getx87StatusWordFields(X87STATUSWORDFIELDS* x87StatusWordFields, WORD StatusWord)
+{
+    x87StatusWordFields->I = ((StatusWord & x87STATUSWORD_FLAG_I) != 0);
+    x87StatusWordFields->D = ((StatusWord & x87STATUSWORD_FLAG_D) != 0);
+    x87StatusWordFields->Z = ((StatusWord & x87STATUSWORD_FLAG_Z) != 0);
+    x87StatusWordFields->O = ((StatusWord & x87STATUSWORD_FLAG_O) != 0);
+    x87StatusWordFields->U = ((StatusWord & x87STATUSWORD_FLAG_U) != 0);
+    x87StatusWordFields->P = ((StatusWord & x87STATUSWORD_FLAG_P) != 0);
+    x87StatusWordFields->SF = ((StatusWord & x87STATUSWORD_FLAG_SF) != 0);
+    x87StatusWordFields->ES = ((StatusWord & x87STATUSWORD_FLAG_ES) != 0);
+    x87StatusWordFields->C0 = ((StatusWord & x87STATUSWORD_FLAG_C0) != 0);
+    x87StatusWordFields->C1 = ((StatusWord & x87STATUSWORD_FLAG_C1) != 0);
+    x87StatusWordFields->C2 = ((StatusWord & x87STATUSWORD_FLAG_C2) != 0);
+    x87StatusWordFields->C3 = ((StatusWord & x87STATUSWORD_FLAG_C3) != 0);
+    x87StatusWordFields->B = ((StatusWord & x87STATUSWORD_FLAG_B) != 0);
+
+    x87StatusWordFields->TOP = ((StatusWord & 0x3800) >> 11);
+}
+
+// Definitions From TitanEngine
+#define Getx87r0PositionInRegisterArea(STInTopStack) ((8 - STInTopStack) % 8)
+#define Calculatex87registerPositionInRegisterArea(x87r0_position, index) (((x87r0_position + index) % 8))
+#define GetRegisterAreaOf87register(register_area, x87r0_position, index) (((char *) register_area) + 10 * Calculatex87registerPositionInRegisterArea(x87r0_position, index) )
+#define GetSTValueFromIndex(x87r0_position, index) ((x87r0_position + index) % 8)
+
+BRIDGE_IMPEXP bool DbgGetRegDumpEx(REGDUMP_AVX512* regdump, size_t size)
+{
+    if(size == sizeof(REGDUMP) || size == sizeof(REGDUMP_OLD))
     {
-        memset(regdump, 0, size);
-        return false;
+        REGDUMP_AVX512 regdump2;
+        if(_dbg_getregdump(&regdump2))
+        {
+            // Translate from REGDUMP_AVX512 to REGDUMP
+            REGDUMP* actual = (REGDUMP*)regdump;
+            actual->regcontext.cax = regdump2.regcontext.cax;
+            actual->regcontext.ccx = regdump2.regcontext.ccx;
+            actual->regcontext.cdx = regdump2.regcontext.cdx;
+            actual->regcontext.cbx = regdump2.regcontext.cbx;
+            actual->regcontext.csp = regdump2.regcontext.csp;
+            actual->regcontext.cbp = regdump2.regcontext.cbp;
+            actual->regcontext.csi = regdump2.regcontext.csi;
+            actual->regcontext.cdi = regdump2.regcontext.cdi;
+#ifdef _WIN64
+            actual->regcontext.r8 = regdump2.regcontext.r8;
+            actual->regcontext.r9 = regdump2.regcontext.r9;
+            actual->regcontext.r10 = regdump2.regcontext.r10;
+            actual->regcontext.r11 = regdump2.regcontext.r11;
+            actual->regcontext.r12 = regdump2.regcontext.r12;
+            actual->regcontext.r13 = regdump2.regcontext.r13;
+            actual->regcontext.r14 = regdump2.regcontext.r14;
+            actual->regcontext.r15 = regdump2.regcontext.r15;
+#endif
+            actual->regcontext.cip = regdump2.regcontext.cip;
+            actual->regcontext.eflags = regdump2.regcontext.eflags;
+            actual->regcontext.gs = regdump2.regcontext.gs;
+            actual->regcontext.fs = regdump2.regcontext.fs;
+            actual->regcontext.es = regdump2.regcontext.es;
+            actual->regcontext.ds = regdump2.regcontext.ds;
+            actual->regcontext.cs = regdump2.regcontext.cs;
+            actual->regcontext.ss = regdump2.regcontext.ss;
+            actual->regcontext.dr0 = regdump2.regcontext.dr0;
+            actual->regcontext.dr1 = regdump2.regcontext.dr1;
+            actual->regcontext.dr2 = regdump2.regcontext.dr2;
+            actual->regcontext.dr3 = regdump2.regcontext.dr3;
+            actual->regcontext.dr6 = regdump2.regcontext.dr6;
+            actual->regcontext.dr7 = regdump2.regcontext.dr7;
+            actual->regcontext.x87fpu = regdump2.regcontext.x87fpu;
+            actual->regcontext.MxCsr = regdump2.regcontext.MxCsr;
+            memcpy(actual->regcontext.RegisterArea, regdump2.regcontext.RegisterArea, sizeof(actual->regcontext.RegisterArea));
+            for(int i = 0; i < _countof(actual->regcontext.XmmRegisters); i++)
+            {
+                auto temp = regdump2.regcontext.ZmmRegisters[i].Low.Low;
+                actual->regcontext.XmmRegisters[i] = temp;
+                actual->regcontext.YmmRegisters[i].Low = temp;
+                temp = regdump2.regcontext.ZmmRegisters[i].Low.High;
+                actual->regcontext.YmmRegisters[i].High = temp;
+            }
+
+            duint cflags = actual->regcontext.eflags;
+            actual->flags.c = (cflags & (1 << 0)) != 0;
+            actual->flags.p = (cflags & (1 << 2)) != 0;
+            actual->flags.a = (cflags & (1 << 4)) != 0;
+            actual->flags.z = (cflags & (1 << 6)) != 0;
+            actual->flags.s = (cflags & (1 << 7)) != 0;
+            actual->flags.t = (cflags & (1 << 8)) != 0;
+            actual->flags.i = (cflags & (1 << 9)) != 0;
+            actual->flags.d = (cflags & (1 << 10)) != 0;
+            actual->flags.o = (cflags & (1 << 11)) != 0;
+
+            GetMxCsrFields(&(actual->MxCsrFields), actual->regcontext.MxCsr);
+            Getx87ControlWordFields(&(actual->x87ControlWordFields), actual->regcontext.x87fpu.ControlWord);
+            Getx87StatusWordFields(&(actual->x87StatusWordFields), actual->regcontext.x87fpu.StatusWord);
+
+            DWORD x87r0_position = Getx87r0PositionInRegisterArea(actual->x87StatusWordFields.TOP);
+            for(int i = 0; i < 8; i++)
+            {
+                memcpy(actual->x87FPURegisters[i].data, GetRegisterAreaOf87register(actual->regcontext.RegisterArea, x87r0_position, i), 10);
+                actual->mmx[i] = *((uint64_t*)&actual->x87FPURegisters[i].data);
+                actual->x87FPURegisters[i].st_value = GetSTValueFromIndex(x87r0_position, i);
+                actual->x87FPURegisters[i].tag = (int)((actual->regcontext.x87fpu.TagWord >> (i * 2)) & 0x3);
+            }
+
+            actual->lastError.code = regdump2.lastError;
+            char fmtString[64] = "";
+            auto pStringFormatInline = DbgFunctions()->StringFormatInline; // When called before dbgfunctionsinit() this can be NULL!
+            if(pStringFormatInline && sprintf_s(fmtString, _TRUNCATE, "{winerrorname@%X}", actual->lastError.code) != -1)
+            {
+                pStringFormatInline(fmtString, sizeof(actual->lastError.name), actual->lastError.name);
+            }
+            else
+            {
+                memset(actual->lastError.name, 0, sizeof(actual->lastError.name));
+            }
+
+            if(size == sizeof(REGDUMP))  // Not supported in REGDUMP_OLD
+            {
+                actual->lastStatus.code = regdump2.lastStatus;
+                if(pStringFormatInline && sprintf_s(fmtString, _TRUNCATE, "{ntstatusname@%X}", actual->lastStatus.code) != -1)
+                {
+                    pStringFormatInline(fmtString, sizeof(actual->lastStatus.name), actual->lastStatus.name);
+                }
+                else
+                {
+                    memset(actual->lastStatus.name, 0, sizeof(actual->lastStatus.name));
+                }
+            }
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
-    memcpy(regdump, &temp, size);
-    return true;
+    else if(size == sizeof(REGDUMP_AVX512))
+    {
+        return _dbg_getregdump(regdump);
+    }
+    else if(size < sizeof(REGDUMP))
+    {
+        REGDUMP temp;
+        if(!DbgGetRegDumpEx((REGDUMP_AVX512*)&temp, sizeof(REGDUMP)))
+        {
+            memset(regdump, 0, size);
+            return false;
+        }
+        memcpy(regdump, &temp, size);
+        return true;
+    }
+    else
+        __debugbreak();
+    return false;
 }
 
 // FIXME all
@@ -1249,7 +1497,7 @@ BRIDGE_IMPEXP void DbgDelEncodeTypeSegment(duint start)
 
 BRIDGE_IMPEXP void DbgSelChanged(int hWindow, duint VA)
 {
-    _dbg_sendmessage(DBG_SELCHANGED, (void*)hWindow, (void*)VA);
+    _dbg_sendmessage(DBG_SELCHANGED, (void*)(duint)hWindow, (void*)VA);
 }
 
 BRIDGE_IMPEXP HANDLE DbgGetProcessHandle()
@@ -1274,12 +1522,12 @@ BRIDGE_IMPEXP DWORD DbgGetThreadId()
 
 BRIDGE_IMPEXP duint DbgGetPebAddress(DWORD ProcessId)
 {
-    return (duint)_dbg_sendmessage(DBG_GET_PEB_ADDRESS, (void*)ProcessId, nullptr);
+    return (duint)_dbg_sendmessage(DBG_GET_PEB_ADDRESS, (void*)(duint)ProcessId, nullptr);
 }
 
 BRIDGE_IMPEXP duint DbgGetTebAddress(DWORD ThreadId)
 {
-    return (duint)_dbg_sendmessage(DBG_GET_TEB_ADDRESS, (void*)ThreadId, nullptr);
+    return (duint)_dbg_sendmessage(DBG_GET_TEB_ADDRESS, (void*)(duint)ThreadId, nullptr);
 }
 
 BRIDGE_IMPEXP bool DbgAnalyzeFunction(duint entry, BridgeCFGraphList* graph)
@@ -1324,6 +1572,11 @@ BRIDGE_IMPEXP bool DbgGetSymbolInfoAt(duint addr, SYMBOLINFO* info)
 BRIDGE_IMPEXP duint DbgXrefAddMulti(const XREF_EDGE* edges, duint count)
 {
     return (duint)_dbg_sendmessage(DBG_XREF_ADD_MULTI, (void*)edges, (void*)count);
+}
+
+BRIDGE_IMPEXP bool DbgTypeVisit(const TYPEVISITDATA* data)
+{
+    return !!_dbg_sendmessage(DBG_TYPE_VISIT, (void*)data, nullptr);
 }
 
 BRIDGE_IMPEXP const char* GuiTranslateText(const char* Source)
@@ -1538,7 +1791,7 @@ BRIDGE_IMPEXP int GuiReferenceGetRowCount()
 
 BRIDGE_IMPEXP int GuiReferenceSearchGetRowCount()
 {
-    return int(_gui_sendmessage(GUI_REF_SEARCH_GETROWCOUNT, 0, 0));
+    return (int)(duint)_gui_sendmessage(GUI_REF_SEARCH_GETROWCOUNT, 0, 0);
 }
 
 BRIDGE_IMPEXP void GuiReferenceDeleteAllColumns()
@@ -1567,7 +1820,7 @@ BRIDGE_IMPEXP char* GuiReferenceGetCellContent(int row, int col)
 
 BRIDGE_IMPEXP char* GuiReferenceSearchGetCellContent(int row, int col)
 {
-    return (char*)_gui_sendmessage(GUI_REF_SEARCH_GETCELLCONTENT, (void*)row, (void*)col);
+    return (char*)_gui_sendmessage(GUI_REF_SEARCH_GETCELLCONTENT, (void*)(duint)row, (void*)(duint)col);
 }
 
 BRIDGE_IMPEXP void GuiReferenceReloadData()
@@ -1741,42 +1994,42 @@ BRIDGE_IMPEXP void GuiLoadSourceFileEx(const char* path, duint addr)
 
 BRIDGE_IMPEXP void GuiMenuSetIcon(int hMenu, const ICONDATA* icon)
 {
-    _gui_sendmessage(GUI_MENU_SET_ICON, (void*)hMenu, (void*)icon);
+    _gui_sendmessage(GUI_MENU_SET_ICON, (void*)(duint)hMenu, (void*)icon);
 }
 
 BRIDGE_IMPEXP void GuiMenuSetEntryIcon(int hEntry, const ICONDATA* icon)
 {
-    _gui_sendmessage(GUI_MENU_SET_ENTRY_ICON, (void*)hEntry, (void*)icon);
+    _gui_sendmessage(GUI_MENU_SET_ENTRY_ICON, (void*)(duint)hEntry, (void*)icon);
 }
 
 BRIDGE_IMPEXP void GuiMenuSetEntryChecked(int hEntry, bool checked)
 {
-    _gui_sendmessage(GUI_MENU_SET_ENTRY_CHECKED, (void*)hEntry, (void*)checked);
+    _gui_sendmessage(GUI_MENU_SET_ENTRY_CHECKED, (void*)(duint)hEntry, (void*)(duint)checked);
 }
 
 BRIDGE_IMPEXP void GuiMenuSetVisible(int hMenu, bool visible)
 {
-    _gui_sendmessage(GUI_MENU_SET_VISIBLE, (void*)hMenu, (void*)visible);
+    _gui_sendmessage(GUI_MENU_SET_VISIBLE, (void*)(duint)hMenu, (void*)(duint)visible);
 }
 
 BRIDGE_IMPEXP void GuiMenuSetEntryVisible(int hEntry, bool visible)
 {
-    _gui_sendmessage(GUI_MENU_SET_ENTRY_VISIBLE, (void*)hEntry, (void*)visible);
+    _gui_sendmessage(GUI_MENU_SET_ENTRY_VISIBLE, (void*)(duint)hEntry, (void*)(duint)visible);
 }
 
 BRIDGE_IMPEXP void GuiMenuSetName(int hMenu, const char* name)
 {
-    _gui_sendmessage(GUI_MENU_SET_NAME, (void*)hMenu, (void*)name);
+    _gui_sendmessage(GUI_MENU_SET_NAME, (void*)(duint)hMenu, (void*)name);
 }
 
 BRIDGE_IMPEXP void GuiMenuSetEntryName(int hEntry, const char* name)
 {
-    _gui_sendmessage(GUI_MENU_SET_ENTRY_NAME, (void*)hEntry, (void*)name);
+    _gui_sendmessage(GUI_MENU_SET_ENTRY_NAME, (void*)(duint)hEntry, (void*)name);
 }
 
 BRIDGE_IMPEXP void GuiMenuSetEntryHotkey(int hEntry, const char* hack)
 {
-    _gui_sendmessage(GUI_MENU_SET_ENTRY_HOTKEY, (void*)hEntry, (void*)hack);
+    _gui_sendmessage(GUI_MENU_SET_ENTRY_HOTKEY, (void*)(duint)hEntry, (void*)hack);
 }
 
 
@@ -1810,7 +2063,7 @@ BRIDGE_IMPEXP void GuiExecuteOnGuiThread(GUICALLBACK cbGuiThread)
     GuiExecuteOnGuiThreadEx([](void* cb)
     {
         ((GUICALLBACK)cb)();
-    }, cbGuiThread);
+    }, (void*)cbGuiThread);
 }
 
 BRIDGE_IMPEXP void GuiUpdateTimeWastedCounter()
@@ -1840,7 +2093,7 @@ BRIDGE_IMPEXP void GuiGetDebuggeeNotes(char** text)
 
 BRIDGE_IMPEXP void GuiDumpAtN(duint va, int index)
 {
-    _gui_sendmessage(GUI_DUMP_AT_N, (void*)va, (void*)index);
+    _gui_sendmessage(GUI_DUMP_AT_N, (void*)va, (void*)(duint)index);
 }
 
 BRIDGE_IMPEXP void GuiDisplayWarning(const char* title, const char* text)
@@ -1855,7 +2108,7 @@ BRIDGE_IMPEXP void GuiRegisterScriptLanguage(SCRIPTTYPEINFO* info)
 
 BRIDGE_IMPEXP void GuiUnregisterScriptLanguage(int id)
 {
-    _gui_sendmessage(GUI_UNREGISTER_SCRIPT_LANG, (void*)id, nullptr);
+    _gui_sendmessage(GUI_UNREGISTER_SCRIPT_LANG, (void*)(duint)id, nullptr);
 }
 
 BRIDGE_IMPEXP void GuiUpdateArgumentWidget()
@@ -1866,7 +2119,7 @@ BRIDGE_IMPEXP void GuiUpdateArgumentWidget()
 
 BRIDGE_IMPEXP void GuiFocusView(int hWindow)
 {
-    _gui_sendmessage(GUI_FOCUS_VIEW, (void*)hWindow, nullptr);
+    _gui_sendmessage(GUI_FOCUS_VIEW, (void*)(duint)hWindow, nullptr);
 }
 
 BRIDGE_IMPEXP bool GuiLoadGraph(BridgeCFGraphList* graph, duint addr)
@@ -1950,6 +2203,16 @@ BRIDGE_IMPEXP bool GuiTypeClear()
     return !!_gui_sendmessage(GUI_TYPE_CLEAR, nullptr, nullptr);
 }
 
+BRIDGE_IMPEXP void GuiTypeVisit(const char* typeName, duint addr)
+{
+    _gui_sendmessage(GUI_TYPE_VISIT, (void*)typeName, (void*)addr);
+}
+
+BRIDGE_IMPEXP void GuiTypeListUpdated()
+{
+    _gui_sendmessage(GUI_TYPE_LIST_UPDATED, nullptr, nullptr);
+}
+
 BRIDGE_IMPEXP void GuiUpdateTypeWidget()
 {
     _gui_sendmessage(GUI_UPDATE_TYPE_WIDGET, nullptr, nullptr);
@@ -2019,6 +2282,11 @@ BRIDGE_IMPEXP void GuiShowTrace()
 BRIDGE_IMPEXP DWORD GuiGetMainThreadId()
 {
     return (DWORD)(duint)_gui_sendmessage(GUI_GET_MAIN_THREAD_ID, nullptr, nullptr);
+}
+
+BRIDGE_IMPEXP void GuiShowStructView()
+{
+    _gui_sendmessage(GUI_SHOW_STRUCT, nullptr, nullptr);
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
