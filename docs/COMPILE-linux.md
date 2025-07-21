@@ -14,6 +14,7 @@ cd msvc-wine
 
 ## Build
 ```sh
+cd x64dbg
 export MSVC_BIN_DIR=~/opt/msvc/bin/x86
 export QT_BIN_DIR=~/src/x64dbg/build32/_deps/qt5-src/bin
 cmake -B build32 -DCMAKE_TOOLCHAIN_FILE=cmake/msvc-wine.cmake -G Ninja
