@@ -214,10 +214,10 @@ static void CreateUnicodeFile(const TCHAR* file)
 }
 
 //Taken from: http://www.cplusplus.com/forum/windows/64088/
-static bool ResolveShortcut(HWND hwnd, const TCHAR* szShortcutPath, TCHAR* szResolvedPath, size_t nSize)
+static bool ResolveShortcut(const TCHAR* szShortcutPath, TCHAR* szResolvedPath, std::wstring & arguments)
 {
     if(!szResolvedPath)
-        return SUCCEEDED(E_INVALIDARG);
+        return false;
 
     //Get a pointer to the IShellLink interface.
     CComPtr<IShellLink> psl;
@@ -236,18 +236,16 @@ static bool ResolveShortcut(HWND hwnd, const TCHAR* szShortcutPath, TCHAR* szRes
             if(SUCCEEDED(hres))
             {
                 //Resolve the link.
-                hres = psl->Resolve(hwnd, 0);
+                hres = psl->Resolve(0, 0);
 
                 if(SUCCEEDED(hres))
                 {
-                    //Get the path to the link target.
-                    TCHAR szGotPath[MAX_PATH] = { 0 };
-                    hres = psl->GetPath(szGotPath, _countof(szGotPath), nullptr, SLGP_SHORTPATH);
+                    // Get the path to the link target.
+                    hres = psl->GetPath(szResolvedPath, MAX_PATH, nullptr, SLGP_SHORTPATH);
 
-                    if(SUCCEEDED(hres))
-                    {
-                        _tcscpy_s(szResolvedPath, nSize, szGotPath);
-                    }
+                    // Get the arguments
+                    arguments.resize(4096);
+                    psl->GetArguments((wchar_t*)arguments.data(), arguments.size());
                 }
             }
         }
@@ -351,8 +349,8 @@ static void RemoveDBFileTypeIcon()
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
 }
 
-static TCHAR szApplicationDir[MAX_PATH] = TEXT("");
-static TCHAR szCurrentDir[MAX_PATH] = TEXT("");
+static TCHAR szLauncherPath[MAX_PATH] = TEXT("");
+static TCHAR szLauncherDir[MAX_PATH] = TEXT("");
 static TCHAR sz32Path[MAX_PATH] = TEXT("");
 static TCHAR sz32Dir[MAX_PATH] = TEXT("");
 static TCHAR sz64Path[MAX_PATH] = TEXT("");
@@ -365,7 +363,7 @@ static void restartInstall()
     osvi.dwOSVersionInfoSize = sizeof(osvi);
     GetVersionEx(&osvi);
     auto operation = osvi.dwMajorVersion >= 6 ? TEXT("runas") : TEXT("open");
-    ShellExecute(nullptr, operation, szApplicationDir, TEXT("::install"), szCurrentDir, SW_SHOWNORMAL);
+    ShellExecute(nullptr, operation, szLauncherPath, TEXT("::install"), szLauncherDir, SW_SHOWNORMAL);
 }
 
 static INT_PTR CALLBACK DlgLauncher(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -478,10 +476,10 @@ INT_PTR CALLBACK DlgConfigurations(HWND hDlg, UINT message, WPARAM wParam, LPARA
             if(bShellExt)
             {
                 TCHAR szLauncherCommand[MAX_PATH] = TEXT("");
-                _stprintf_s(szLauncherCommand, _countof(szLauncherCommand), TEXT("\"%s\" \"%%1\""), szApplicationDir);
+                _stprintf_s(szLauncherCommand, _countof(szLauncherCommand), TEXT("\"%s\" \"%%1\""), szLauncherPath);
 
                 TCHAR szIconCommand[MAX_PATH] = TEXT("");
-                _stprintf_s(szIconCommand, _countof(szIconCommand), TEXT("\"%s\",0"), szApplicationDir);
+                _stprintf_s(szIconCommand, _countof(szIconCommand), TEXT("\"%s\",0"), szLauncherPath);
 
                 if(RegisterShellExtension(SHELLEXT_EXE_KEY, szLauncherCommand))
                     AddShellIcon(SHELLEXT_ICON_EXE_KEY, szIconCommand, LoadResString(IDS_SHELLEXTDBG));
@@ -673,26 +671,26 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     CoInitialize(nullptr);
 
     //Get INI file path
-    if(!GetModuleFileName(nullptr, szApplicationDir, MAX_PATH))
+    if(!GetModuleFileName(nullptr, szLauncherPath, MAX_PATH))
     {
         MessageBox(nullptr, LoadResString(IDS_ERRORGETTINGMODULEPATH), LoadResString(IDS_ERROR), MB_ICONERROR | MB_SYSTEMMODAL);
         return 0;
     }
     TCHAR szIniPath[MAX_PATH] = TEXT("");
-    _tcscpy_s(szIniPath, szApplicationDir);
-    _tcscpy_s(szCurrentDir, szApplicationDir);
-    auto len = int(_tcslen(szCurrentDir));
-    while(szCurrentDir[len] != TEXT('\\') && len)
-        len--;
-    if(len)
-        szCurrentDir[len] = TEXT('\0');
-    len = int(_tcslen(szIniPath));
-    while(szIniPath[len] != TEXT('.') && szIniPath[len] != TEXT('\\') && len)
-        len--;
-    if(szIniPath[len] == TEXT('\\'))
-        _tcscat_s(szIniPath, TEXT(".ini"));
-    else
-        _tcscpy_s(&szIniPath[len], _countof(szIniPath) - len, TEXT(".ini"));
+    _tcscpy_s(szIniPath, szLauncherPath);
+    _tcscpy_s(szLauncherDir, szLauncherPath);
+    {
+        auto slash = _tcsrchr(szLauncherDir, L'\\');
+        if(slash != nullptr)
+            *slash = L'\0';
+    }
+    {
+        auto dot = _tcsrchr(szIniPath, L'.');
+        if(dot != nullptr)
+            *dot = L'\0';
+    }
+    wcscat_s(szIniPath, L".ini");
+
     CreateUnicodeFile(szIniPath);
 
     //Load settings
@@ -700,7 +698,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     TCHAR szTempPath[MAX_PATH] = TEXT("");
     if(!GetPrivateProfileString(TEXT("Launcher"), TEXT("x32dbg"), TEXT(""), szTempPath, MAX_PATH, szIniPath))
     {
-        _tcscpy_s(sz32Path, szCurrentDir);
+        _tcscpy_s(sz32Path, szLauncherDir);
         PathAppend(sz32Path, TEXT("x32\\x32dbg.exe"));
         if(FileExists(sz32Path))
         {
@@ -712,7 +710,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     {
         if(PathIsRelative(szTempPath))
         {
-            _tcscpy_s(sz32Path, szCurrentDir);
+            _tcscpy_s(sz32Path, szLauncherDir);
             PathAppend(sz32Path, szTempPath);
         }
         else
@@ -724,7 +722,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     if(!GetPrivateProfileString(TEXT("Launcher"), TEXT("x64dbg"), TEXT(""), szTempPath, MAX_PATH, szIniPath))
     {
-        _tcscpy_s(sz64Path, szCurrentDir);
+        _tcscpy_s(sz64Path, szLauncherDir);
         PathAppend(sz64Path, TEXT("x64\\x64dbg.exe"));
         if(FileExists(sz64Path))
         {
@@ -736,7 +734,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     {
         if(PathIsRelative(szTempPath))
         {
-            _tcscpy_s(sz64Path, szCurrentDir);
+            _tcscpy_s(sz64Path, szLauncherDir);
             PathAppend(sz64Path, szTempPath);
         }
         else
@@ -750,14 +748,14 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     auto load32 = [](const wchar_t* cmdLine)
     {
         if(sz32Path[0])
-            ShellExecute(nullptr, TEXT("open"), sz32Path, cmdLine, sz32Dir, SW_SHOWNORMAL);
+            ShellExecute(nullptr, TEXT("open"), sz32Path, cmdLine, nullptr, SW_SHOWNORMAL);
         else
             MessageBox(nullptr, LoadResString(IDS_INVDPATH32), LoadResString(IDS_ERROR), MB_ICONERROR);
     };
     auto load64 = [](const wchar_t* cmdLine)
     {
         if(sz64Path[0])
-            ShellExecute(nullptr, TEXT("open"), sz64Path, cmdLine, sz64Dir, SW_SHOWNORMAL);
+            ShellExecute(nullptr, TEXT("open"), sz64Path, cmdLine, nullptr, SW_SHOWNORMAL);
         else
             MessageBox(nullptr, LoadResString(IDS_INVDPATH64), LoadResString(IDS_ERROR), MB_ICONERROR);
     };
@@ -802,12 +800,12 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     if(argc <= 1) //no arguments -> launcher dialog
     {
-        if(!FileExists(sz32Path) && BrowseFileOpen(nullptr, TEXT("x32dbg.exe\0x32dbg.exe\0*.exe\0*.exe\0\0"), nullptr, sz32Path, MAX_PATH, szCurrentDir))
+        if(!FileExists(sz32Path) && BrowseFileOpen(nullptr, TEXT("x32dbg.exe\0x32dbg.exe\0*.exe\0*.exe\0\0"), nullptr, sz32Path, MAX_PATH, szLauncherDir))
         {
             WritePrivateProfileString(TEXT("Launcher"), TEXT("x32dbg"), sz32Path, szIniPath);
             bDoneSomething = true;
         }
-        if(isWoW64() && !FileExists(sz64Path) && BrowseFileOpen(nullptr, TEXT("x64dbg.exe\0x64dbg.exe\0*.exe\0*.exe\0\0"), nullptr, sz64Path, MAX_PATH, szCurrentDir))
+        if(isWoW64() && !FileExists(sz64Path) && BrowseFileOpen(nullptr, TEXT("x64dbg.exe\0x64dbg.exe\0*.exe\0*.exe\0\0"), nullptr, sz64Path, MAX_PATH, szLauncherDir))
         {
             WritePrivateProfileString(TEXT("Launcher"), TEXT("x64dbg"), sz64Path, szIniPath);
             bDoneSomething = true;
@@ -816,18 +814,18 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     }
     else if(bInstaller) //set configuration
     {
-        if(!FileExists(sz32Path) && BrowseFileOpen(nullptr, TEXT("x32dbg.exe\0x32dbg.exe\0*.exe\0*.exe\0\0"), nullptr, sz32Path, MAX_PATH, szCurrentDir))
+        if(!FileExists(sz32Path) && BrowseFileOpen(nullptr, TEXT("x32dbg.exe\0x32dbg.exe\0*.exe\0*.exe\0\0"), nullptr, sz32Path, MAX_PATH, szLauncherDir))
         {
             WritePrivateProfileString(TEXT("Launcher"), TEXT("x32dbg"), sz32Path, szIniPath);
             bDoneSomething = true;
         }
-        if(isWoW64() && !FileExists(sz64Path) && BrowseFileOpen(nullptr, TEXT("x64dbg.exe\0x64dbg.exe\0*.exe\0*.exe\0\0"), nullptr, sz64Path, MAX_PATH, szCurrentDir))
+        if(isWoW64() && !FileExists(sz64Path) && BrowseFileOpen(nullptr, TEXT("x64dbg.exe\0x64dbg.exe\0*.exe\0*.exe\0\0"), nullptr, sz64Path, MAX_PATH, szLauncherDir))
         {
             WritePrivateProfileString(TEXT("Launcher"), TEXT("x64dbg"), sz64Path, szIniPath);
             bDoneSomething = true;
         }
-        deleteZoneData(szCurrentDir);
-        deleteZoneData(szCurrentDir + std::wstring(L"\\..\\pluginsdk"));
+        deleteZoneData(szLauncherDir);
+        deleteZoneData(szLauncherDir + std::wstring(L"\\..\\pluginsdk"));
 
         INT_PTR result = DialogBox(hInstance, MAKEINTRESOURCE(IDD_OPTIONS_DIALOG), nullptr, DlgConfigurations);
     }
@@ -853,7 +851,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     {
         BOOL canDisableRedirect = FALSE;
         RedirectWow rWow;
-        //check for redirection and disable it.
+        // Check for redirection and disable it.
         if(isWoW64())
         {
             if(isWowRedirectionSupported())
@@ -862,33 +860,73 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
             }
         }
 
-        TCHAR szPath[MAX_PATH] = TEXT("");
-        if(PathIsRelative(argv[1])) //resolve the full path if a relative path is specified (TODO: honor the PATH environment variable)
-        {
-            GetCurrentDirectory(_countof(szPath), szPath);
-            PathAppend(szPath, argv[1]);
-        }
-        else if(!ResolveShortcut(nullptr, argv[1], szPath, _countof(szPath))) //attempt to resolve the shortcut path
-            _tcscpy_s(szPath, argv[1]); //fall back to the origin full path
-
-        //append current working directory
+        // Construct the command line
         std::wstring cmdLine;
-        TCHAR szCurDir[MAX_PATH] = TEXT("");
-        GetCurrentDirectory(_countof(szCurDir), szCurDir);
-        cmdLine += L"-workingDir ";
-        ArgvQuote(szCurDir, cmdLine);
 
-        //append the path to the executable
-        cmdLine += L' ';
-        ArgvQuote(szPath, cmdLine);
-
-        if(argc > 2) //forward any commandline parameters
+        // Resolve the debuggee path
+        wchar_t szDebuggeePath[MAX_PATH] = L"";
+        auto debuggeeExtension = PathFindExtensionW(argv[1]);
+        if(debuggeeExtension != nullptr && _wcsicmp(debuggeeExtension, L".lnk") == 0)
         {
-            cmdLine += L" --";
-            for(auto i = 2; i < argc; i++)
+            // Get the path and arguments from the shortcut
+            std::wstring arguments;
+            if(ResolveShortcut(argv[1], szDebuggeePath, arguments))
             {
-                cmdLine += L' ';
-                ArgvQuote(argv[i], cmdLine);
+                ArgvQuote(szDebuggeePath, cmdLine);
+                if(!arguments.empty())
+                {
+                    cmdLine += L" -- ";
+                    cmdLine += arguments;
+                }
+            }
+            else
+            {
+                wcscpy_s(szDebuggeePath, argv[1]);
+            }
+        }
+        else
+        {
+            // Get the working directory
+            wchar_t szCurrentDirectory[MAX_PATH] = L"";
+            GetCurrentDirectory(_countof(szCurrentDirectory), szCurrentDirectory);
+
+            if(PathIsFileSpecW(argv[1]))
+            {
+                wcscpy_s(szDebuggeePath, argv[1]);
+                const wchar_t* otherDirs[] = { szCurrentDirectory, nullptr };
+                if(!PathFindOnPathW(szDebuggeePath, otherDirs) && _wcsicmp(debuggeeExtension, L".exe") != 0)
+                {
+                    // HACK: append .exe as a final recovery attempt
+                    wcscat_s(szDebuggeePath, L".exe");
+                    PathFindOnPathW(szDebuggeePath, otherDirs);
+                }
+            }
+            else if(PathIsRelativeW(argv[1]))
+            {
+                wcscpy_s(szDebuggeePath, szCurrentDirectory);
+                PathAppendW(szDebuggeePath, argv[1]);
+                if(!FileExists(szDebuggeePath) && _wcsicmp(debuggeeExtension, L".exe") != 0)
+                {
+                    // HACK: append .exe as a final recovery attempt
+                    wcscat_s(szDebuggeePath, L".exe");
+                }
+            }
+            else
+            {
+                wcscpy_s(szDebuggeePath, argv[1]);
+            }
+
+            ArgvQuote(szDebuggeePath, cmdLine);
+
+            // Forward any commandline parameters
+            if(argc > 2)
+            {
+                cmdLine += L" --";
+                for(auto i = 2; i < argc; i++)
+                {
+                    cmdLine += L' ';
+                    ArgvQuote(argv[i], cmdLine);
+                }
             }
         }
 
@@ -897,9 +935,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
         //MessageBoxW(0, cmdLine.c_str(), L"x96dbg", MB_SYSTEMMODAL);
         //MessageBoxW(0, GetCommandLineW(), L"GetCommandLineW", MB_SYSTEMMODAL);
-        //MessageBoxW(0, szCurDir, L"GetCurrentDirectory", MB_SYSTEMMODAL);
 
-        switch(GetPeArch(szPath))
+        switch(GetPeArch(szDebuggeePath))
         {
         case PeArch::Native86:
         case PeArch::Dotnet86:
@@ -917,7 +954,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
                 load32(cmdLine.c_str());
             break;
         case PeArch::Invalid:
-            if(FileExists(szPath))
+            if(FileExists(szDebuggeePath))
                 MessageBox(nullptr, LoadResString(IDS_INVDPE), argv[1], MB_ICONERROR);
             else
                 MessageBox(nullptr, LoadResString(IDS_FILEERR), argv[1], MB_ICONERROR);

@@ -697,7 +697,7 @@ class CommandlineArguments : public ArgumentParser
 public:
     String filename;
     std::vector<std::string> extraCmdline;
-    String currentDir;
+    String workingDir;
     String pid;
     String tid;
     String event;
@@ -710,7 +710,7 @@ public:
         addPositional("filename", filename, "Filename of program to debug");
         addExtra(extraCmdline);
 
-        addString("-workingDir", currentDir, "Current working directory of new process. Defaults to current working directory if not specified.");
+        addString("-workingDir", workingDir, "Current working directory of new process. Defaults to current working directory if not specified.");
         addString("-p", pid, "Process ID to attach to.");
         addString("-a", pid, "Alias for -p.");
         addString("-tid", tid, "Thread Identifier (TID) of the thread to resume after attaching.");
@@ -751,10 +751,10 @@ const char* parseArguments()
         return _strdup(args.helpStr().c_str());
     }
     // Default to current working directory if not specified otherwise
-    auto currentDir = args.currentDir;
-    if(currentDir.empty())
+    auto workingDir = args.workingDir;
+    if(workingDir.empty())
     {
-        currentDir = StringUtils::Utf16ToUtf8(BridgeWorkingDirectory());
+        workingDir = StringUtils::Utf16ToUtf8(BridgeWorkingDirectory());
     }
     if(!args.filename.empty())
     {
@@ -765,10 +765,10 @@ const char* parseArguments()
             {
                 cmdline += StringUtils::sprintf("\"%s\" ", escape(arg).c_str());
             }
-            if(!currentDir.empty())
+            if(!workingDir.empty())
             {
                 //3 arguments (init filename, cmdline, currentdir)
-                DbgCmdExec(StringUtils::sprintf("init \"%s\", \"%s\", \"%s\"", escape(args.filename).c_str(), escape(cmdline).c_str(), escape(currentDir).c_str()).c_str());
+                DbgCmdExec(StringUtils::sprintf("init \"%s\", \"%s\", \"%s\"", escape(args.filename).c_str(), escape(cmdline).c_str(), escape(workingDir).c_str()).c_str());
             }
             else
             {
@@ -812,7 +812,7 @@ const char* parseArguments()
         if(PathIsRelativeW(commandFilePath.c_str()))
         {
             wchar_t commandPath[MAX_PATH] = L"";
-            PathCombineW(commandPath, StringUtils::Utf8ToUtf16(currentDir).c_str(), commandFilePath.c_str());
+            PathCombineW(commandPath, StringUtils::Utf8ToUtf16(workingDir).c_str(), commandFilePath.c_str());
             commandFilePath = commandPath;
         }
         String commandFile = StringUtils::Utf16ToUtf8(commandFilePath);
