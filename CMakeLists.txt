@@ -221,6 +221,7 @@ set(dbg_SOURCES
 	"src/dbg/analysis/xrefsanalysis.h"
 	"src/dbg/animate.cpp"
 	"src/dbg/animate.h"
+	"src/dbg/args.h"
 	"src/dbg/argument.cpp"
 	"src/dbg/argument.h"
 	"src/dbg/assemble.cpp"

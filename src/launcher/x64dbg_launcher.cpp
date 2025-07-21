@@ -586,6 +586,84 @@ static void EnableHiDPI()
     }
 }
 
+/*
+Routine Description:
+    This routine appends the given argument to a command line such
+    that CommandLineToArgvW will return the argument string unchanged.
+    Arguments in a command line should be separated by spaces; this
+    function does not add these spaces.
+
+Arguments:
+    Argument - Supplies the argument to encode.
+    CommandLine - Supplies the command line to which we append the encoded argument string.
+    Force - Supplies an indication of whether we should quote
+            the argument even if it does not contain any characters that would
+            ordinarily require quoting.
+
+Source:
+    https://learn.microsoft.com/en-us/archive/blogs/twistylittlepassagesallalike/everyone-quotes-command-line-arguments-the-wrong-way
+*/
+static void ArgvQuote(const std::wstring & Argument, std::wstring & CommandLine, bool Force = false)
+{
+    //
+    // Unless we're told otherwise, don't quote unless we actually
+    // need to do so --- hopefully avoid problems if programs won't
+    // parse quotes properly
+    //
+    if(!Force && !Argument.empty() && Argument.find_first_of(L" \t\n\v\"") == Argument.npos)
+    {
+        CommandLine.append(Argument);
+    }
+    else
+    {
+        CommandLine.push_back(L'"');
+
+        for(auto It = Argument.begin() ; ; ++It)
+        {
+            unsigned NumberBackslashes = 0;
+
+            while(It != Argument.end() && *It == L'\\')
+            {
+                ++It;
+                ++NumberBackslashes;
+            }
+
+            if(It == Argument.end())
+            {
+                //
+                // Escape all backslashes, but let the terminating
+                // double quotation mark we add below be interpreted
+                // as a metacharacter.
+                //
+
+                CommandLine.append(NumberBackslashes * 2, L'\\');
+                break;
+            }
+            else if(*It == L'"')
+            {
+                //
+                // Escape all backslashes and the following
+                // double quotation mark.
+                //
+
+                CommandLine.append(NumberBackslashes * 2 + 1, L'\\');
+                CommandLine.push_back(*It);
+            }
+            else
+            {
+                //
+                // Backslashes aren't special here.
+                //
+
+                CommandLine.append(NumberBackslashes, L'\\');
+                CommandLine.push_back(*It);
+            }
+        }
+
+        CommandLine.push_back(L'"');
+    }
+}
+
 int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
     EnableHiDPI();
@@ -793,42 +871,26 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         else if(!ResolveShortcut(nullptr, argv[1], szPath, _countof(szPath))) //attempt to resolve the shortcut path
             _tcscpy_s(szPath, argv[1]); //fall back to the origin full path
 
-        std::wstring cmdLine, escaped;
-        cmdLine.push_back(L'\"');
-        cmdLine += szPath;
-        cmdLine.push_back(L'\"');
-        if(argc > 2) //forward any commandline parameters
-        {
-            cmdLine += L" \"";
-            for(auto i = 2; i < argc; i++)
-            {
-                if(i > 2)
-                    cmdLine.push_back(L' ');
-
-                escaped.clear();
-                auto len = wcslen(argv[i]);
-                for(size_t j = 0; j < len; j++)
-                {
-                    if(argv[i][j] == L'\"')
-                        escaped.push_back(L'\"');
-                    escaped.push_back(argv[i][j]);
-                }
-
-                cmdLine += escaped;
-            }
-            cmdLine += L"\"";
-        }
-        else //empty command line
-        {
-            cmdLine += L" \"\"";
-        }
-
         //append current working directory
+        std::wstring cmdLine;
         TCHAR szCurDir[MAX_PATH] = TEXT("");
         GetCurrentDirectory(_countof(szCurDir), szCurDir);
-        cmdLine += L" \"";
-        cmdLine += szCurDir;
-        cmdLine += L"\"";
+        cmdLine += L"-workingDir ";
+        ArgvQuote(szCurDir, cmdLine);
+
+        //append the path to the executable
+        cmdLine += L' ';
+        ArgvQuote(szPath, cmdLine);
+
+        if(argc > 2) //forward any commandline parameters
+        {
+            cmdLine += L" --";
+            for(auto i = 2; i < argc; i++)
+            {
+                cmdLine += L' ';
+                ArgvQuote(argv[i], cmdLine);
+            }
+        }
 
         if(canDisableRedirect)
             rWow.DisableRedirect();
