@@ -164,5 +164,6 @@ extern HANDLE mProcHandle;
 extern HANDLE mForegroundHandle;
 extern duint gRtrPreviousCSP;
 extern HANDLE hDebugLoopThread;
+extern std::atomic_bool bIsDebugging;
 
 #endif // _DEBUGGER_H

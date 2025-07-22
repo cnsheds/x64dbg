@@ -222,6 +222,7 @@ bool cbDebugStop(int argc, char* argv[])
                     DbSave(DbLoadSaveType::All);
                     TerminateThread(hDebugLoopThreadCopy, 1); // TODO: this will lose state and cause possible corruption if a critical section is still owned
                     CloseHandle(hDebugLoopThreadCopy);
+                    bIsDebugging = false;
                     return false;
                 }
             }
