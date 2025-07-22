@@ -1740,22 +1740,12 @@ static DWORD WINAPI cbInitializationScriptThread(void*)
     Memory<char*> script(MAX_SETTING_SIZE + 1);
     if(BridgeSettingGet("Engine", "InitializeScript", script())) // Global script file
     {
-        if(scriptLoadSync(script()))
-        {
-            if(scriptRunSync(0, true))
-                scriptunload();
-        }
-        else
+        if(!ScriptExecAwait(script()))
             dputs(QT_TRANSLATE_NOOP("DBG", "Error: Cannot load global initialization script."));
     }
     if(szDebuggeeInitializationScript[0] != 0)
     {
-        if(scriptLoadSync(szDebuggeeInitializationScript))
-        {
-            if(scriptRunSync(0, true))
-                scriptunload();
-        }
-        else
+        if(!ScriptExecAwait(szDebuggeeInitializationScript))
             dputs(QT_TRANSLATE_NOOP("DBG", "Error: Cannot load debuggee initialization script."));
     }
     return 0;

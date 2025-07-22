@@ -75,6 +75,8 @@ enum SectionLock
     LockFormatFunctions,
     LockDllBreakpoints,
     LockHandleCache,
+    LockScriptLineMap,
+    LockScriptBreakpoints,
 
     // Number of elements in this enumeration. Must always be the last index.
     LockLast

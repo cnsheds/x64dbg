@@ -924,67 +924,67 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
     {
     case DBG_SCRIPT_LOAD:
     {
-        scriptload((const char*)param1);
+        ScriptLoadAwait((const char*)param1);
     }
     break;
 
     case DBG_SCRIPT_UNLOAD:
     {
-        scriptunload();
+        ScriptUnloadAwait();
     }
     break;
 
     case DBG_SCRIPT_RUN:
     {
-        scriptrun((int)(duint)param1, param2 != nullptr);
+        ScriptRunAsync((int)(duint)param1, param2 != nullptr);
     }
     break;
 
     case DBG_SCRIPT_STEP:
     {
-        scriptstep();
+        ScriptStepAsync();
     }
     break;
 
     case DBG_SCRIPT_BPTOGGLE:
     {
-        return scriptbptoggle((int)(duint)param1);
+        return ScriptBpToggleLocked((int)(duint)param1);
     }
     break;
 
     case DBG_SCRIPT_BPGET:
     {
-        return scriptbpget((int)(duint)param1);
+        return ScriptBpGetLocked((int)(duint)param1);
     }
     break;
 
     case DBG_SCRIPT_CMDEXEC:
     {
-        return scriptcmdexec((const char*)param1);
+        return ScriptCmdExecAwait((const char*)param1);
     }
     break;
 
     case DBG_SCRIPT_ABORT:
     {
-        scriptabort();
+        ScriptAbortAwait();
     }
     break;
 
     case DBG_SCRIPT_GETLINETYPE:
     {
-        return (duint)scriptgetlinetype((int)(duint)param1);
+        return (duint)ScriptGetLineTypeLocked((int)(duint)param1);
     }
     break;
 
     case DBG_SCRIPT_SETIP:
     {
-        scriptsetip((int)(duint)param1);
+        ScriptSetIpAsync((int)(duint)param1);
     }
     break;
 
     case DBG_SCRIPT_GETBRANCHINFO:
     {
-        return (duint)scriptgetbranchinfo((int)(duint)param1, (SCRIPTBRANCH*)param2);
+        return (duint)ScriptGetBranchInfoLocked((int)(duint)param1, (SCRIPTBRANCH*)param2);
     }
     break;
 

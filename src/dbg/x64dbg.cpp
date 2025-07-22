@@ -433,6 +433,8 @@ static void registercommands()
     dbgcmdnew("htmllog", cbInstrHtmlLog, false); //command for testing
     dbgcmdnew("scriptdll,dllscript", cbScriptDll, false); //execute a script DLL
     dbgcmdnew("scriptcmd", cbScriptCmd, false); // execute a script command TODO: undocumented
+    dbgcmdnew("scriptrun", cbScriptRun, false); // run the currently-loaded script TODO: undocumented
+    dbgcmdnew("scriptexec", cbScriptExec, false); // run a script file TODO: undocumented
 
     //gui
 	dbgcmdnew("disasm,dis", cbDebugDisasm, true); //doDisasm
@@ -967,7 +969,7 @@ extern "C" DLL_EXPORT void _dbg_dbgexitsignal()
     dputs(QT_TRANSLATE_NOOP("DBG", "Stopping running debuggee..."));
     cbDebugStop(0, 0); //after this, debugging stopped
     dputs(QT_TRANSLATE_NOOP("DBG", "Aborting scripts..."));
-    scriptabort();
+    ScriptAbortAwait();
     dputs(QT_TRANSLATE_NOOP("DBG", "Unloading plugins..."));
     pluginunloadall();
     dputs(QT_TRANSLATE_NOOP("DBG", "Cleaning up allocated data..."));
