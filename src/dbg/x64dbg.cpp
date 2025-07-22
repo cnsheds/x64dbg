@@ -698,7 +698,7 @@ class CommandlineArguments : public ArgumentParser
 {
 public:
     String filename;
-    std::vector<std::string> extraCmdline;
+    std::vector<std::string> arguments;
     String workingDir;
     String pid;
     String tid;
@@ -707,22 +707,24 @@ public:
     String commandFile;
     bool help = false;
 
-    CommandlineArguments() : ArgumentParser("x64dbg")
+    CommandlineArguments() : ArgumentParser(ArchValue("x32dbg", "x64dbg"))
     {
-        addPositional("filename", filename, "Filename of program to debug");
-        addExtra(extraCmdline);
+        addPositional("filename", filename, "Filename of program to debug.");
+        addExtra(arguments);
 
         addString("-workingDir", workingDir, "Current working directory of new process. Defaults to current working directory if not specified.");
-        addString("-p", pid, "Process ID to attach to.");
-        addString("-a", pid, "Alias for -p.");
-        addString("-tid", tid, "Thread Identifier (TID) of the thread to resume after attaching.");
-        addString("-e", event, "Handle to an Event Object to signal on attach");
+        addString("-pid", pid, "Process ID to attach to.");
+        addString("-tid", tid, "Thread Identifier (TID) of the thread to resume after attaching (PLMDebug).");
+        addString("-event", event, "Handle to an Event Object to signal on attach (JIT).");
 
-        // TODO: Allow repeating multiple -c arguments
-        addString("-c", command, "Specifies the initial debugger command to run at start-up.");
+        addString("-c", command, "Command to execute Specifies the initial debugger command to run at start-up.");
         addString("-cf", commandFile, "Specifies the path and name of a script file. This script file is executed as soon as the debugger is started.");
 
-        addBool("-help", help, "Show this message");
+        addString("-p", pid, "Alias for -pid.");
+        addString("-a", pid, "Alias for -pid.");
+        addString("-e", event, "Alias for -event");
+
+        addBool("-help", help, "Show this message.");
     }
 };
 
@@ -752,82 +754,62 @@ const char* parseArguments()
     {
         return _strdup(args.helpStr().c_str());
     }
+
     // Default to current working directory if not specified otherwise
     auto workingDir = args.workingDir;
     if(workingDir.empty())
     {
         workingDir = StringUtils::Utf16ToUtf8(BridgeWorkingDirectory());
     }
+    else
+    {
+        while(!workingDir.empty() && workingDir.back() == '\\')
+            workingDir.pop_back();
+    }
+
+    // Start the debuggee if specified
+    bool hasDebuggee = true;
     if(!args.filename.empty())
     {
-        if(!args.extraCmdline.empty())
+        std::string cmdline;
+        for(const auto & arg : args.arguments)
         {
-            std::string cmdline;
-            for(const auto & arg : args.extraCmdline)
-            {
-                cmdline += StringUtils::sprintf("\"%s\" ", escape(arg).c_str());
-            }
-            if(!workingDir.empty())
-            {
-                //3 arguments (init filename, cmdline, currentdir)
-                DbgCmdExec(StringUtils::sprintf("init \"%s\", \"%s\", \"%s\"", escape(args.filename).c_str(), escape(cmdline).c_str(), escape(workingDir).c_str()).c_str());
-            }
-            else
-            {
-                //2 arguments (init filename, cmdline)
-                DbgCmdExec(StringUtils::sprintf("init \"%s\", \"%s\"", escape(args.filename).c_str(), escape(cmdline).c_str()).c_str());
-            }
+            cmdline += StringUtils::sprintf("\"%s\" ", escape(arg).c_str());
         }
-        else
-        {
-            //1 argument (init filename)
-            DbgCmdExec(StringUtils::sprintf("init \"%s\"", escape(args.filename).c_str()).c_str());
-        }
+        DbgCmdExec(StringUtils::sprintf(R"(scriptcmd init "%s", "%s", "%s")", escape(args.filename).c_str(), escape(cmdline).c_str(), escape(workingDir).c_str()).c_str());
     }
     else if(!args.pid.empty())
     {
-        if(!args.event.empty())
-        {
-            //4 arguments (JIT)
-            DbgCmdExec(StringUtils::sprintf("attach .%s, .%s", args.pid, args.event).c_str()); //attach pid, event
-        }
-        else if(!args.tid.empty())
-        {
-            //4 arguments (PLMDebug)
-            DbgCmdExec(StringUtils::sprintf("attach .%s, 0, .%s", args.pid, args.tid).c_str()); //attach pid, 0, tid
-        }
-        else
-        {
-            //2 arguments (-p PID)
-            DbgCmdExec(StringUtils::sprintf("attach .%s", args.pid).c_str()); //attach pid
-        }
+        auto event = args.event.empty() ? "0" : args.event;
+        auto tid = args.tid.empty() ? "0" : args.tid;
+        DbgCmdExec(StringUtils::sprintf("scriptcmd attach .%s, .%s, .%s", args.pid.c_str(), event.c_str(), tid.c_str()).c_str());
+    }
+    else
+    {
+        hasDebuggee = false;
     }
 
     if(!args.command.empty())
     {
-        DbgCmdExec(("scriptcmd " + args.command).c_str());
+        StringList commands;
+        cmdsplit(args.command.c_str(), commands);
+        for(const auto & command : commands)
+        {
+            DbgCmdExec(("scriptcmd " + command).c_str());
+        }
     }
 
     if(!args.commandFile.empty())
     {
-        WString commandFilePath = StringUtils::Utf8ToUtf16(args.commandFile);
-        if(PathIsRelativeW(commandFilePath.c_str()))
+        if(!PathIsRootW(StringUtils::Utf8ToUtf16(args.commandFile).c_str()))
         {
-            wchar_t commandPath[MAX_PATH] = L"";
-            PathCombineW(commandPath, StringUtils::Utf8ToUtf16(workingDir).c_str(), commandFilePath.c_str());
-            commandFilePath = commandPath;
+            args.commandFile = workingDir + "\\" + args.commandFile;
         }
-        String commandFile = StringUtils::Utf16ToUtf8(commandFilePath);
-        std::ifstream commandFileStream(commandFile);
-        if(!commandFileStream.is_open())
+        if(!FileExists(args.commandFile.c_str()))
         {
-            return _strdup(StringUtils::sprintf("Error: Command file \"%s\" couldn't be opened.\n", commandFile.c_str()).c_str());
+            return _strdup(StringUtils::sprintf("Error: Command file \"%s\" couldn't be opened.\n", args.commandFile.c_str()).c_str());
         }
-        if(dbggetdebuggeeinitscript()[0] != 0)
-        {
-            return _strdup(StringUtils::sprintf("Error: Command file \"%s\" cannot be set. There is a debuggee init script configured already to \"%s\".\n", commandFile.c_str(), dbggetdebuggeeinitscript()).c_str());
-        }
-        dbgsetdebuggeeinitscript(commandFile.c_str());
+        DbgCmdExec(StringUtils::sprintf("scriptexec \"%s\"", args.commandFile.c_str()).c_str());
     }
 
     return nullptr;
