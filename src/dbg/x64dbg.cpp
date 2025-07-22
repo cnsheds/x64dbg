@@ -33,7 +33,7 @@
 #include <shlwapi.h>
 #include <fstream>
 
-static MESSAGE_STACK* gMsgStack = 0;
+static MESSAGE_QUEUE* gMsgQueue = 0;
 static HANDLE hCommandLoopThread = 0;
 static bool bStopCommandLoopThread = false;
 static char alloctrace[MAX_PATH] = "";
@@ -509,7 +509,7 @@ static void registercommands()
 bool cbCommandProvider(char* cmd, int maxlen)
 {
     MESSAGE msg;
-    MsgWait(gMsgStack, &msg);
+    MsgWait(gMsgQueue, &msg);
     if(bStopCommandLoopThread)
         return false;
     char* newcmd = (char*)msg.param1;
@@ -531,7 +531,7 @@ extern "C" DLL_EXPORT bool _dbg_dbgcmdexec(const char* cmd)
     int len = (int)strlen(cmd);
     char* newcmd = (char*)emalloc((len + 1) * sizeof(char), "_dbg_dbgcmdexec:newcmd");
     strcpy_s(newcmd, len + 1, cmd);
-    return MsgSend(gMsgStack, 0, (duint)newcmd, 0);
+    return MsgSend(gMsgQueue, 0, (duint)newcmd, 0);
 }
 
 static DWORD WINAPI DbgCommandLoopThread(void* a)
@@ -911,8 +911,8 @@ extern "C" DLL_EXPORT const char* _dbg_dbginit()
     }
     dprintf(QT_TRANSLATE_NOOP("DBG", "Symbol Path: %s\n"), szSymbolCachePath);
     dputs(QT_TRANSLATE_NOOP("DBG", "Allocating message stack..."));
-    gMsgStack = MsgAllocStack();
-    if(!gMsgStack)
+    gMsgQueue = MsgAllocQueue();
+    if(!gMsgQueue)
         return "Could not allocate message stack!";
     dputs(QT_TRANSLATE_NOOP("DBG", "Initializing global script variables..."));
     varinit();
@@ -962,7 +962,7 @@ extern "C" DLL_EXPORT void _dbg_dbgexitsignal()
 {
     dputs(QT_TRANSLATE_NOOP("DBG", "Stopping command thread..."));
     bStopCommandLoopThread = true;
-    MsgFreeStack(gMsgStack);
+    MsgFreeQueue(gMsgQueue);
     WaitForThreadTermination(hCommandLoopThread);
     dputs(QT_TRANSLATE_NOOP("DBG", "Stopping running debuggee..."));
     cbDebugStop(0, 0); //after this, debugging stopped
