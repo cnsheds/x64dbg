@@ -1001,7 +1001,8 @@ void* Bridge::processMessage(GUIMSG type, void* param1, void* param2)
     break;
 
     case GUI_PROCESS_EVENTS:
-        QCoreApplication::processEvents();
+        if(GetCurrentThreadId() == mMainThreadId)
+            QCoreApplication::processEvents();
         break;
 
     case GUI_TYPE_ADDNODE:
