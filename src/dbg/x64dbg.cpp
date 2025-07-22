@@ -432,9 +432,9 @@ static void registercommands()
     dbgcmdnew("log", cbInstrLog, false); //log command with superawesome hax
     dbgcmdnew("htmllog", cbInstrHtmlLog, false); //command for testing
     dbgcmdnew("scriptdll,dllscript", cbScriptDll, false); //execute a script DLL
-    dbgcmdnew("scriptcmd", cbScriptCmd, false); // execute a script command TODO: undocumented
-    dbgcmdnew("scriptrun", cbScriptRun, false); // run the currently-loaded script TODO: undocumented
-    dbgcmdnew("scriptexec", cbScriptExec, false); // run a script file TODO: undocumented
+    dbgcmdnew("scriptcmd", cbScriptCmd, false); // execute a script command
+    dbgcmdnew("scriptrun", cbScriptRun, false); // run the currently-loaded script
+    dbgcmdnew("scriptexec", cbScriptExec, false); // run a script file
 
     //gui
 	dbgcmdnew("disasm,dis", cbDebugDisasm, true); //doDisasm

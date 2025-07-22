@@ -460,7 +460,7 @@ static CMDRESULT scriptInternalCmdExec(const char* cmd, bool silentRet)
     }
     if(scriptIsInternalCommand(cmd, "invalid")) //invalid command for testing
         return STATUS_ERROR;
-    if(bScriptRunning && scriptIsInternalCommand(cmd, "scriptrun"))  // do not allow recursive script runs
+    if(bScriptRunning && (scriptIsInternalCommand(cmd, "scriptrun") || scriptIsInternalCommand(cmd, "scriptexec")))  // do not allow recursive script runs
         return STATUS_ERROR;
     if(scriptIsInternalCommand(cmd, "pause")) //pause the script
         return STATUS_PAUSE;
