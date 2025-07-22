@@ -324,6 +324,7 @@ set(dbg_SOURCES
 	"src/dbg/jansson/jansson_x64dbg.h"
 	"src/dbg/jit.cpp"
 	"src/dbg/jit.h"
+	"src/dbg/jobqueue.h"
 	"src/dbg/label.cpp"
 	"src/dbg/label.h"
 	"src/dbg/loop.cpp"
