@@ -68,7 +68,7 @@ bool DirExists(const char* dir);
 bool GetFileNameFromHandle(HANDLE hFile, char* szFileName, size_t nCount);
 bool GetFileNameFromProcessHandle(HANDLE hProcess, char* szFileName, size_t nCount);
 bool GetFileNameFromModuleHandle(HANDLE hProcess, HMODULE hModule, char* szFileName, size_t nCount);
-bool settingboolget(const char* section, const char* name);
+bool settingboolget(const char* section, const char* name, bool defaultValue);
 bool IsWow64();
 bool ResolveShortcut(HWND hwnd, const wchar_t* szShortcutPath, std::wstring & executable, std::wstring & arguments, std::wstring & workingDir);
 void WaitForThreadTermination(HANDLE hThread, DWORD timeout = INFINITE);

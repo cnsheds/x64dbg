@@ -587,7 +587,7 @@ static bool scriptRun(int destline, bool silentRet)
         scriptIp--;
     scriptIp = scriptInternalStep(scriptIp);
     bool bContinue = true;
-    bool bIgnoreTimeout = settingboolget("Engine", "NoScriptTimeout");
+    bool bIgnoreTimeout = settingboolget("Engine", "NoScriptTimeout", false);
     auto start = GetTickCount();
     while(bContinue && !bScriptAbort) //run loop
     {

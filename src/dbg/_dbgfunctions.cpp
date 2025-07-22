@@ -51,7 +51,7 @@ static int SymAutoComplete(const char* Search, char** Buffer, int MaxSymbols)
 
     std::unordered_set<std::string> visited;
 
-    static const bool caseSensitiveAutoComplete = settingboolget("Gui", "CaseSensitiveAutoComplete");
+    static const bool caseSensitiveAutoComplete = settingboolget("Gui", "CaseSensitiveAutoComplete", false);
 
     int count = 0;
     std::string prefix(Search);

@@ -1050,25 +1050,25 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
 
     case DBG_SETTINGS_UPDATED:
     {
-        valuesetsignedcalc(!settingboolget("Engine", "CalculationType")); //0:signed, 1:unsigned
-        SetEngineVariable(UE_ENGINE_SET_DEBUG_PRIVILEGE, settingboolget("Engine", "EnableDebugPrivilege"));
-        SetEngineVariable(UE_ENGINE_SAFE_ATTACH, settingboolget("Engine", "SafeAttach"));
-        SetEngineVariable(UE_ENGINE_MEMBP_ALT, settingboolget("Engine", "MembpAlt"));
-        SetEngineVariable(UE_ENGINE_DISABLE_ASLR, settingboolget("Engine", "DisableAslr"));
-        bOnlyCipAutoComments = settingboolget("Disassembler", "OnlyCipAutoComments");
-        bNoSourceLineAutoComments = settingboolget("Disassembler", "NoSourceLineAutoComments");
-        bListAllPages = settingboolget("Engine", "ListAllPages");
-        bUndecorateSymbolNames = settingboolget("Engine", "UndecorateSymbolNames");
-        bEnableSourceDebugging = settingboolget("Engine", "EnableSourceDebugging");
-        bSkipInt3Stepping = settingboolget("Engine", "SkipInt3Stepping");
-        bBreakCalcConditionsFails = settingboolget("Engine", "BreakWhenCalcConditionsFails");
-        bIgnoreInconsistentBreakpoints = settingboolget("Engine", "IgnoreInconsistentBreakpoints");
-        bNoForegroundWindow = settingboolget("Gui", "NoForegroundWindow");
-        bVerboseExceptionLogging = settingboolget("Engine", "VerboseExceptionLogging");
-        bNoWow64SingleStepWorkaround = settingboolget("Engine", "NoWow64SingleStepWorkaround");
-        bQueryWorkingSet = settingboolget("Misc", "QueryWorkingSet");
-        bForceLoadSymbols = settingboolget("Misc", "ForceLoadSymbols");
-        bTruncateBreakpointLogs = settingboolget("Engine", "TruncateBreakpointLogs");
+        valuesetsignedcalc(!settingboolget("Engine", "CalculationType", false)); //0:signed, 1:unsigned
+        SetEngineVariable(UE_ENGINE_SET_DEBUG_PRIVILEGE, settingboolget("Engine", "EnableDebugPrivilege", true));
+        SetEngineVariable(UE_ENGINE_SAFE_ATTACH, settingboolget("Engine", "SafeAttach", false));
+        SetEngineVariable(UE_ENGINE_MEMBP_ALT, settingboolget("Engine", "MembpAlt", false));
+        SetEngineVariable(UE_ENGINE_DISABLE_ASLR, settingboolget("Engine", "DisableAslr", false));
+        bOnlyCipAutoComments = settingboolget("Disassembler", "OnlyCipAutoComments", false);
+        bNoSourceLineAutoComments = settingboolget("Disassembler", "NoSourceLineAutoComments", false);
+        bListAllPages = settingboolget("Engine", "ListAllPages", false);
+        bUndecorateSymbolNames = settingboolget("Engine", "UndecorateSymbolNames", true);
+        bEnableSourceDebugging = settingboolget("Engine", "EnableSourceDebugging", false);
+        bSkipInt3Stepping = settingboolget("Engine", "SkipInt3Stepping", false);
+        bBreakCalcConditionsFails = settingboolget("Engine", "BreakWhenCalcConditionsFails", true);
+        bIgnoreInconsistentBreakpoints = settingboolget("Engine", "IgnoreInconsistentBreakpoints", false);
+        bNoForegroundWindow = settingboolget("Gui", "NoForegroundWindow", true);
+        bVerboseExceptionLogging = settingboolget("Engine", "VerboseExceptionLogging", true);
+        bNoWow64SingleStepWorkaround = settingboolget("Engine", "NoWow64SingleStepWorkaround", false);
+        bQueryWorkingSet = settingboolget("Misc", "QueryWorkingSet", false);
+        bForceLoadSymbols = settingboolget("Misc", "ForceLoadSymbols", false);
+        bTruncateBreakpointLogs = settingboolget("Engine", "TruncateBreakpointLogs", false);
         stackupdatesettings();
 
         duint setting = 0;
@@ -1145,7 +1145,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
         }
 
         // check if we need to change the main window title
-        bool bNewWindowLongPath = settingboolget("Gui", "WindowLongPath");
+        bool bNewWindowLongPath = settingboolget("Gui", "WindowLongPath", false);
         if(bWindowLongPath != bNewWindowLongPath)
         {
             bWindowLongPath = bNewWindowLongPath;

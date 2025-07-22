@@ -268,7 +268,7 @@ void cbDebuggerPaused()
     stepRepeat = 0;
     // Trace record is not handled by this function currently.
     // Signal thread switch warning
-    if(settingboolget("Engine", "HardcoreThreadSwitchWarning"))
+    if(settingboolget("Engine", "HardcoreThreadSwitchWarning", false))
     {
         static DWORD PrevThreadId = 0;
         if(PrevThreadId == 0)
@@ -1518,7 +1518,7 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* CreateProcessInfo)
     {
         char command[deflen] = "";
 
-        if(settingboolget("Events", "TlsCallbacks"))
+        if(settingboolget("Events", "TlsCallbacks", true))
         {
             SHARED_ACQUIRE(LockModules);
             auto modInfo = ModInfoFromAddr(base);
@@ -1539,7 +1539,7 @@ static void cbCreateProcess(CREATE_PROCESS_DEBUG_INFO* CreateProcessInfo)
                 dprintf(QT_TRANSLATE_NOOP("DBG", "%d invalid TLS callback addresses...\n"), invalidCount);
         }
 
-        if(settingboolget("Events", "EntryBreakpoint") && !bEntryIsInMzHeader)
+        if(settingboolget("Events", "EntryBreakpoint", true) && !bEntryIsInMzHeader)
         {
             sprintf_s(command, "bp %p,\"%s\",ss", (void*)(pDebuggedBase + pDebuggedEntry), GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "entry breakpoint")));
             cmddirectexec(command);
@@ -1608,7 +1608,7 @@ static void cbExitProcess(EXIT_PROCESS_DEBUG_INFO* ExitProcess)
         dprintf(QT_TRANSLATE_NOOP("DBG", "Process stopped with exit code %s\n"), exitDescription.c_str());
     }
 
-    const bool breakHere = settingboolget("Events", "NtTerminateProcess");
+    const bool breakHere = settingboolget("Events", "NtTerminateProcess", false);
     if(breakHere)
     {
         // lock
@@ -1651,14 +1651,14 @@ static void cbCreateThread(CREATE_THREAD_DEBUG_INFO* CreateThread)
             SymGetSymbolicName(parameter).c_str()
            );
 
-    if(settingboolget("Events", "ThreadEntry"))
+    if(settingboolget("Events", "ThreadEntry", false))
     {
         String command;
         command = StringUtils::sprintf("bp %p,\"%s %X\",ss", entry, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Thread Entry")), dwThreadId);
         cmddirectexec(command.c_str());
     }
 
-    if(settingboolget("Events", "ThreadStart"))
+    if(settingboolget("Events", "ThreadStart", false))
     {
         HistoryClear();
         //update memory map
@@ -1720,7 +1720,7 @@ static void cbExitThread(EXIT_THREAD_DEBUG_INFO* ExitThread)
     ThreadExit(dwThreadId);
     dprintf(QT_TRANSLATE_NOOP("DBG", "Thread %s exit\n"), formatpidtid(dwThreadId).c_str());
 
-    if(settingboolget("Events", "ThreadEnd"))
+    if(settingboolget("Events", "ThreadEnd", false))
     {
         //update GUI
         DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), paused);
@@ -1776,7 +1776,7 @@ static void cbSystemBreakpoint(const void* ExceptionData) // TODO: System breakp
     plugincbcall(CB_SYSTEMBREAKPOINT, &callbackInfo);
 
     lock(WAITID_RUN); // Allow the user to run a script file now
-    bool systemBreakpoint = settingboolget("Events", "SystemBreakpoint");
+    bool systemBreakpoint = settingboolget("Events", "SystemBreakpoint", true);
     if(!systemBreakpoint && bEntryIsInMzHeader)
     {
         dputs(QT_TRANSLATE_NOOP("DBG", "It has been detected that the debuggee entry point is in the MZ header of the executable. This will cause strange behavior, so the system breakpoint has been enabled regardless of your setting. Be careful!"));
@@ -1832,7 +1832,7 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
         bIsDebuggingThis = true;
         pDebuggedBase = (duint)base;
         DbCheckHash(ModContentHashFromAddr(pDebuggedBase)); //Check hash mismatch
-        if(settingboolget("Events", "EntryBreakpoint"))
+        if(settingboolget("Events", "EntryBreakpoint", true))
         {
             bAlreadySetEntry = true;
             sprintf_s(command, "bp %p,\"%s\",ss", (void*)(pDebuggedBase + pDebuggedEntry), GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "entry breakpoint")));
@@ -1843,7 +1843,7 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
 
     int party = ModGetParty(duint(base));
 
-    if(settingboolget("Events", "TlsCallbacks") && party != mod_system || settingboolget("Events", "TlsCallbacksSystem") && party == mod_system)
+    if(settingboolget("Events", "TlsCallbacks", true) && party != mod_system || settingboolget("Events", "TlsCallbacksSystem", false) && party == mod_system)
     {
         SHARED_ACQUIRE(LockModules);
         auto modInfo = ModInfoFromAddr(duint(base));
@@ -1868,7 +1868,7 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
 
     auto shouldBreakOnDll = dbghandledllbreakpoint(modname, true);
     auto dllEntrySetting = party == mod_system ? "DllEntrySystem" : "DllEntry";
-    if(!bAlreadySetEntry && (shouldBreakOnDll || settingboolget("Events", dllEntrySetting)))
+    if(!bAlreadySetEntry && (shouldBreakOnDll || settingboolget("Events", dllEntrySetting, false)))
     {
         auto entry = ModEntryFromAddr(duint(base));
         if(entry)
@@ -1881,9 +1881,9 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
     auto isNtdll = ModNameFromAddr(duint(base), modname, true) && scmp(modname, "ntdll.dll");
     if(isNtdll)
     {
-        if(settingboolget("Misc", "QueryProcessCookie"))
+        if(settingboolget("Misc", "QueryProcessCookie", false))
             cookie.HandleNtdllLoad(bIsAttached);
-        if(settingboolget("Misc", "TransparentExceptionStepping"))
+        if(settingboolget("Misc", "TransparentExceptionStepping", true))
             exceptionDispatchAddr = DbgValFromString("ntdll:KiUserExceptionDispatcher");
         //set debug flags
         if(dwDebugFlags != 0)
@@ -1953,7 +1953,7 @@ static void cbLoadDll(LOAD_DLL_DEBUG_INFO* LoadDll)
     {
         cbGenericBreakpoint(BPDLL, DLLDebugFileName);
     }
-    else if(!isNtdll && settingboolget("Events", dllLoadSetting))
+    else if(!isNtdll && settingboolget("Events", dllLoadSetting, false))
     {
         //update GUI
         DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), paused);
@@ -1988,7 +1988,7 @@ static void cbUnloadDll(UNLOAD_DLL_DEBUG_INFO* UnloadDll)
     {
         cbGenericBreakpoint(BPDLL, modname);
     }
-    else if(settingboolget("Events", dllUnloadSetting))
+    else if(settingboolget("Events", dllUnloadSetting, false))
     {
         //update GUI
         DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), paused);
@@ -2036,7 +2036,7 @@ static void cbOutputDebugString(OUTPUT_DEBUG_STRING_INFO* DebugString)
         //TODO: implement Windows 10 unicode debug string
     }
 
-    if(settingboolget("Events", "DebugStrings"))
+    if(settingboolget("Events", "DebugStrings", false))
     {
         //update GUI
         DebugUpdateGuiSetStateAsync(GetContextDataEx(hActiveThread, UE_CIP), paused);
@@ -2099,7 +2099,7 @@ static void cbException(EXCEPTION_DEBUG_INFO* ExceptionData)
                 String ThreadNameEscaped = StringUtils::Escape(ThreadName());
                 dprintf(QT_TRANSLATE_NOOP("DBG", "SetThreadName exception on %p (%X, \"%s\")\n"), addr, nameInfo.dwThreadID, ThreadNameEscaped.c_str());
                 ThreadSetName(nameInfo.dwThreadID, ThreadNameEscaped.c_str());
-                if(!settingboolget("Events", "ThreadNameSet"))
+                if(!settingboolget("Events", "ThreadNameSet", false))
                     return;
             }
         }
@@ -3030,7 +3030,7 @@ void dbgsetforeground()
 
 void dbgcreatedebugthread(INIT_STRUCT* init)
 {
-    if(settingboolget("Misc", "CheckForAntiCheatDrivers"))
+    if(settingboolget("Misc", "CheckForAntiCheatDrivers", true))
     {
         auto loadedDrivers = LoadedAntiCheatDrivers();
         if(!loadedDrivers.empty())

@@ -234,27 +234,6 @@ BRIDGE_IMPEXP const wchar_t* BridgeInit(BRIDGE_CONFIG* config)
     LOADEXPORT(_dbg_getbranchdestination);
     LOADEXPORT(_dbg_sendmessage);
 
-    // Imported DLLs (GUI)
-    LOADLIBRARY(L"ldconvert.dll");
-    loadIfExists(L"Qt5Core.dll");
-    loadIfExists(L"Qt5Gui.dll");
-    loadIfExists(L"Qt5WinExtras.dll");
-    loadIfExists(L"Qt5Widgets.dll");
-    loadIfExists(L"platforms\\qwindows.dll");
-    loadIfExists(L"imageformats\\qgif.dll");
-    loadIfExists(L"imageformats\\qicns.dll");
-    loadIfExists(L"imageformats\\qico.dll");
-    loadIfExists(L"imageformats\\qjpeg.dll");
-    loadIfExists(L"Qt5Svg.dll");
-    loadIfExists(L"imageformats\\qsvg.dll");
-    loadIfExists(L"imageformats\\qtga.dll");
-    loadIfExists(L"imageformats\\qtiff.dll");
-    loadIfExists(L"imageformats\\qwbmp.dll");
-    loadIfExists(L"imageformats\\qwebp.dll");
-    loadIfExists(L"bearer\\qgenericbearer.dll");
-    loadIfExists(L"bearer\\qnativewifibearer.dll");
-    loadIfExists(L"iconengines\\qsvgicon.dll");
-
     // GUI
     if(config->hGuiModule != nullptr)
     {
@@ -263,6 +242,26 @@ BRIDGE_IMPEXP const wchar_t* BridgeInit(BRIDGE_CONFIG* config)
     }
     else
     {
+        // Imported DLLs (GUI)
+        LOADLIBRARY(L"ldconvert.dll");
+        loadIfExists(L"Qt5Core.dll");
+        loadIfExists(L"Qt5Gui.dll");
+        loadIfExists(L"Qt5WinExtras.dll");
+        loadIfExists(L"Qt5Widgets.dll");
+        loadIfExists(L"platforms\\qwindows.dll");
+        loadIfExists(L"imageformats\\qgif.dll");
+        loadIfExists(L"imageformats\\qicns.dll");
+        loadIfExists(L"imageformats\\qico.dll");
+        loadIfExists(L"imageformats\\qjpeg.dll");
+        loadIfExists(L"Qt5Svg.dll");
+        loadIfExists(L"imageformats\\qsvg.dll");
+        loadIfExists(L"imageformats\\qtga.dll");
+        loadIfExists(L"imageformats\\qtiff.dll");
+        loadIfExists(L"imageformats\\qwbmp.dll");
+        loadIfExists(L"imageformats\\qwebp.dll");
+        loadIfExists(L"bearer\\qgenericbearer.dll");
+        loadIfExists(L"bearer\\qnativewifibearer.dll");
+        loadIfExists(L"iconengines\\qsvgicon.dll");
         LOADLIBRARY(gui_lib);
     }
     LOADEXPORT(_gui_guiinit);
@@ -703,7 +702,12 @@ BRIDGE_IMPEXP void DbgClearBookmarkRange(duint start, duint end)
 // FIXME return on success?
 BRIDGE_IMPEXP const char* DbgInit()
 {
-    return _dbg_dbginit();
+    return _dbg_dbginit(false);
+}
+
+BRIDGE_IMPEXP const char* DbgInitBlocking()
+{
+    return _dbg_dbginit(true);
 }
 
 BRIDGE_IMPEXP void DbgExit()

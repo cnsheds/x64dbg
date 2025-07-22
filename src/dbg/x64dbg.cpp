@@ -815,7 +815,7 @@ const char* parseArguments()
     return nullptr;
 }
 
-extern "C" DLL_EXPORT const char* _dbg_dbginit()
+extern "C" DLL_EXPORT const char* _dbg_dbginit(bool blocking)
 {
     if(!EngineCheckStructAlignment(UE_STRUCT_TITAN_ENGINE_CONTEXT, sizeof(TITAN_ENGINE_CONTEXT_t)))
         return "Invalid TITAN_ENGINE_CONTEXT_t alignment!";
@@ -848,15 +848,6 @@ extern "C" DLL_EXPORT const char* _dbg_dbginit()
     strcpy_s(scriptDllDir, szUserDir);
     strcat_s(scriptDllDir, "\\scripts\\");
     initDataInstMap();
-
-    dputs(QT_TRANSLATE_NOOP("DBG", "Start file read thread..."));
-    {
-        auto hEvent = CreateEventW(nullptr, false, FALSE, nullptr);
-        CloseHandle(CreateThread(nullptr, 0, loadDbThread, hEvent, 0, nullptr));
-        // Wait until the loadDbThread signals it's finished
-        WaitForSingleObject(hEvent, INFINITE);
-        CloseHandle(hEvent);
-    }
 
     // Create database directory in the local debugger folder
     DbSetPath(StringUtils::sprintf("%s\\db", szUserDir).c_str(), nullptr);
@@ -894,6 +885,19 @@ extern "C" DLL_EXPORT const char* _dbg_dbginit()
         }
     }
     dprintf(QT_TRANSLATE_NOOP("DBG", "Symbol Path: %s\n"), szSymbolCachePath);
+
+    dputs(QT_TRANSLATE_NOOP("DBG", "Start file read thread..."));
+    {
+        auto hEvent = CreateEventW(nullptr, false, FALSE, nullptr);
+        auto hThread = CreateThread(nullptr, 0, loadDbThread, hEvent, 0, nullptr);
+        // Wait until the loadDbThread signals it has started
+        WaitForSingleObject(hEvent, INFINITE);
+        CloseHandle(hEvent);
+        if(blocking)
+            WaitForSingleObject(hThread, INFINITE);
+        CloseHandle(hThread);
+    }
+
     dputs(QT_TRANSLATE_NOOP("DBG", "Allocating message stack..."));
     gMsgQueue = MsgAllocQueue();
     if(!gMsgQueue)

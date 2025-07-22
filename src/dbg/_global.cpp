@@ -288,16 +288,18 @@ bool GetFileNameFromModuleHandle(HANDLE hProcess, HMODULE hModule, char* szFileN
 \brief Get a boolean setting from the configuration file.
 \param section The section of the setting (UTF-8).
 \param name The name of the setting (UTF-8).
-\return true if the setting was set and equals to true, otherwise returns false.
+\param defaultValue The default value if the setting is not set.
+\return The value of the setting.
 */
-bool settingboolget(const char* section, const char* name)
+bool settingboolget(const char* section, const char* name, bool defaultValue)
 {
     duint setting;
     if(!BridgeSettingGetUint(section, name, &setting))
-        return false;
-    if(setting)
-        return true;
-    return false;
+    {
+        BridgeSettingSetUint(section, name, defaultValue ? 1 : 0);
+        return defaultValue;
+    }
+    return setting != 0;
 }
 
 /**

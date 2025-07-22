@@ -1103,6 +1103,7 @@ typedef struct _TYPEDESCRIPTOR
 
 //Debugger functions
 BRIDGE_IMPEXP const char* DbgInit();
+BRIDGE_IMPEXP const char* DbgInitBlocking();
 BRIDGE_IMPEXP void DbgExit();
 BRIDGE_IMPEXP bool DbgMemRead(duint va, void* dest, duint size);
 BRIDGE_IMPEXP bool DbgMemWrite(duint va, const void* src, duint size);
