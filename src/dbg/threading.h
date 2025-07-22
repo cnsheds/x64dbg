@@ -255,6 +255,12 @@ private:
     using Internal = SectionLockerGlobal;
 };
 
+template <SectionLock LockIndex, bool ProcessGuiEvents = false>
+using SharedSectionLocker = SectionLocker<LockIndex, true, ProcessGuiEvents>;
+
+template <SectionLock LockIndex, bool ProcessGuiEvents = false>
+using ExclusiveSectionLocker = SectionLocker<LockIndex, false, ProcessGuiEvents>;
+
 struct TLSData
 {
     String moduleHashLower;
