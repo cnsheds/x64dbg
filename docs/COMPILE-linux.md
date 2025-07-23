@@ -20,3 +20,8 @@ export QT_BIN_DIR=~/src/x64dbg/build32/_deps/qt5-src/bin
 cmake -B build32 -DCMAKE_TOOLCHAIN_FILE=cmake/msvc-wine.cmake -G Ninja
 cmake --build build32 -j4
 ```
+
+## Issues
+```LINK : fatal error LNK1158: cannot run 'rc.exe'```
+Fix: winecfg -> Drives -> Remove non default drives (stay only: C and Z drives).
+
