@@ -1877,6 +1877,12 @@ void RegistersView::keyPressEvent(QKeyEvent* event)
     QScrollArea::keyPressEvent(event);
 }
 
+void RegistersView::wheelEvent(QWheelEvent* event)
+{
+    if(event->modifiers() == Qt::ControlModifier)  // Zoom
+        Config()->zoomFont("Registers", event);
+}
+
 //QSize RegistersView::sizeHint() const
 //{
 //    // 32 character width
