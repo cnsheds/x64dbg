@@ -1592,6 +1592,11 @@ BRIDGE_IMPEXP bool DbgTypeVisit(const TYPEVISITDATA* data)
     return !!_dbg_sendmessage(DBG_TYPE_VISIT, (void*)data, nullptr);
 }
 
+BRIDGE_IMPEXP void DbgUpdateGui(duint disasm_addr, bool stack)
+{
+    _dbg_sendmessage(DBG_UPDATE_GUI, (void*)disasm_addr, (void*)stack);
+}
+
 BRIDGE_IMPEXP const char* GuiTranslateText(const char* Source)
 {
     EnterCriticalSection(&csTranslate);
@@ -1649,7 +1654,10 @@ BRIDGE_IMPEXP void GuiUpdateEnable(bool updateNow)
 {
     bDisableGUIUpdate = false;
     if(updateNow)
+    {
+        DbgUpdateGui(0, false);
         GuiUpdateAllViews();
+    }
 }
 
 BRIDGE_IMPEXP void GuiUpdateDisable()

@@ -519,8 +519,26 @@ static void DebugUpdateTitle(duint disasm_addr, bool analyzeThreadSwitch)
 
 void DebugUpdateGui(duint disasm_addr, bool stack)
 {
+    // Handle disabled GUI updates.
+    static duint hiddenDisasmAddr = 0;
+    static bool hiddenStack = false;
+
     if(GuiIsUpdateDisabled())
+    {
+        hiddenDisasmAddr = disasm_addr;
+        hiddenStack = stack;
         return;
+    }
+
+    // Allow passing 0 to use the last hidden call.
+    if(disasm_addr == 0 && hiddenDisasmAddr != 0)
+    {
+        DebugUpdateGui(hiddenDisasmAddr, hiddenStack);
+        hiddenDisasmAddr = 0;
+        hiddenStack = false;
+        return;
+    }
+
     duint cip = GetContextDataEx(hActiveThread, UE_CIP);
     //Check if the addresses are in the memory map and force update if they are not
     if(!MemIsValidReadPtr(disasm_addr, true) || !MemIsValidReadPtr(cip, true))
