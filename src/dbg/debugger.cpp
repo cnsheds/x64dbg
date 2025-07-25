@@ -817,7 +817,7 @@ void cbPauseBreakpoint()
     wait(WAITID_RUN);
 }
 
-static void handleBreakCondition(const BREAKPOINT & bp, const void* ExceptionAddress, duint CIP)
+static void handleBreakCondition(const BREAKPOINT & bp, const void* ExceptionAddress, duint CIP, bool forceSilent)
 {
     if(bp.singleshoot)
     {
@@ -828,7 +828,7 @@ static void handleBreakCondition(const BREAKPOINT & bp, const void* ExceptionAdd
                 dprintf(QT_TRANSLATE_NOOP("DBG", "Delete hardware breakpoint failed: %p (DeleteHardwareBreakPoint)\n"), bp.addr);
         }
     }
-    if(!bp.silent)
+    if(!forceSilent && !bp.silent)
     {
         switch(bp.type)
         {
@@ -1045,7 +1045,7 @@ static void cbGenericBreakpoint(BP_TYPE bptype, const void* ExceptionAddress = n
     }
     if(breakCondition != 0) //break the debugger
     {
-        handleBreakCondition(bp, ExceptionAddress, CIP);
+        handleBreakCondition(bp, ExceptionAddress, CIP, breakCondition == -1);
         dbgsetforeground();
         dbgsetskipexceptions(false);
     }
