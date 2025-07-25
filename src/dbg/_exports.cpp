@@ -924,7 +924,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
     {
     case DBG_SCRIPT_LOAD:
     {
-        ScriptLoadAwait((const char*)param1);
+        ScriptLoadAwait((const char*)param1, true);
     }
     break;
 
@@ -936,13 +936,13 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
 
     case DBG_SCRIPT_RUN:
     {
-        ScriptRunAsync((int)(duint)param1, param2 != nullptr);
+        ScriptRunAsync((int)(duint)param1, true);
     }
     break;
 
     case DBG_SCRIPT_STEP:
     {
-        ScriptStepAsync();
+        ScriptStepAsync(true);
     }
     break;
 
@@ -960,7 +960,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
 
     case DBG_SCRIPT_CMDEXEC:
     {
-        return ScriptCmdExecAwait((const char*)param1);
+        return ScriptCmdExecAwait((const char*)param1, true);
     }
     break;
 

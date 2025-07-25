@@ -17,17 +17,17 @@ static JobQueue scriptQueue;
 
 enum CMDRESULT
 {
-    STATUS_ERROR = false,
-    STATUS_CONTINUE = true,
-    STATUS_EXIT = 2,
-    STATUS_PAUSE = 3,
-    STATUS_CONTINUE_BRANCH = 4
+    STATUS_ERROR = 0,
+    STATUS_CONTINUE,
+    STATUS_EXIT,
+    STATUS_PAUSE,
+    STATUS_CONTINUE_BRANCH,
 };
 
 struct SCRIPTBP
 {
-    int line;
-    bool silent; //do not show in GUI
+    int line = 0;
+    bool silent = false; //do not show in GUI
 };
 
 struct LINEMAPENTRY
@@ -43,15 +43,29 @@ struct LINEMAPENTRY
     } u;
 };
 
-static std::vector<LINEMAPENTRY> linemap;
-static std::vector<SCRIPTBP> scriptbplist;
-static std::vector<int> scriptstack;
+enum SCRIPTSTATE
+{
+    STATE_PAUSED = 0,
+    STATE_STEPPING,
+    STATE_RUNNING,
+};
+
+struct SCRIPTFRAME
+{
+    int ip = 0;
+    SCRIPTSTATE state = STATE_PAUSED;
+};
+
+static std::vector<LINEMAPENTRY> scriptLineMap;
+static std::vector<SCRIPTBP> scriptBpList;
+static std::vector<SCRIPTFRAME> scriptStack;
 static int scriptIp = 0;
 static int scriptIpOld = 0;
-static std::atomic_bool bScriptAbort = false;
-static std::atomic_bool bScriptRunning = false;
-static std::atomic_bool bScriptLogEnabled = false;
+static std::atomic<SCRIPTSTATE> scriptState;
+static std::atomic_bool bScriptAbort;
+static std::atomic_bool bScriptLogEnabled;
 static CMDRESULT scriptLastError = STATUS_ERROR;
+static bool bRunGui = false;
 
 static SCRIPTBRANCHTYPE scriptGetBranchType(const char* text)
 {
@@ -81,9 +95,9 @@ static SCRIPTBRANCHTYPE scriptGetBranchType(const char* text)
 static int scriptLabelFind(const char* labelname)
 {
     SHARED_ACQUIRE(LockScriptLineMap);
-    int linecount = (int)linemap.size();
+    int linecount = (int)scriptLineMap.size();
     for(int i = 0; i < linecount; i++)
-        if(linemap.at(i).type == linelabel && !strcmp(linemap.at(i).u.label, labelname))
+        if(scriptLineMap.at(i).type == linelabel && !strcmp(scriptLineMap.at(i).u.label, labelname))
             return i + 1;
     return 0;
 }
@@ -93,13 +107,13 @@ static bool isEmptyLine(SCRIPTLINETYPE type)
     return type == lineempty || type == linecomment || type == linelabel;
 }
 
-static int scriptInternalStep(int fromIp) //internal step routine
+static int scriptNextIp(int fromIp) //internal step routine
 {
     SHARED_ACQUIRE(LockScriptLineMap);
-    int maxIp = (int)linemap.size(); //maximum ip
+    int maxIp = (int)scriptLineMap.size(); //maximum ip
     if(fromIp >= maxIp) //script end
         return fromIp;
-    while(isEmptyLine(linemap.at(fromIp).type) && fromIp < maxIp) //skip empty lines
+    while(isEmptyLine(scriptLineMap.at(fromIp).type) && fromIp < maxIp) //skip empty lines
         fromIp++;
     fromIp++;
     return fromIp;
@@ -111,26 +125,33 @@ static bool scriptIsInternalCommand(const char* text, const char* cmd)
     int cmdlen = (int)strlen(cmd);
     if(cmdlen > len)
         return false;
-    else if(cmdlen == len)
+    if(cmdlen == len)
         return scmp(text, cmd);
-    else if(text[cmdlen] == ' ')
-        return (!_strnicmp(text, cmd, cmdlen));
+    if(text[cmdlen] == ' ')
+        return _strnicmp(text, cmd, cmdlen) == 0;
     return false;
 }
 
-static bool scriptCreateLineMap(const char* filename)
+static void scriptError(int line, const char* error, bool gui)
+{
+    if(gui)
+        GuiScriptError(line, error);
+    else
+        dputs_untranslated(error);
+}
+
+static bool scriptCreateLineMap(const char* filename, bool gui)
 {
     String filedata;
     if(!FileHelper::ReadAllText(filename, filedata))
     {
-        String TranslatedString = GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "FileHelper::ReadAllText failed..."));
-        GuiScriptError(0, TranslatedString.c_str());
+        scriptError(0, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "FileHelper::ReadAllText failed...")), gui);
         return false;
     }
     auto len = filedata.length();
     char temp[256] = "";
     LINEMAPENTRY entry = {};
-    linemap.clear();
+    scriptLineMap.clear();
     for(size_t i = 0, j = 0; i < len; i++) //make raw line map
     {
         if(filedata[i] == '\r' && filedata[i + 1] == '\n') //windows file
@@ -143,7 +164,7 @@ static bool scriptCreateLineMap(const char* filename)
             *temp = 0;
             j = 0;
             i++;
-            linemap.push_back(entry);
+            scriptLineMap.push_back(entry);
         }
         else if(filedata[i] == '\n') //other file
         {
@@ -154,7 +175,7 @@ static bool scriptCreateLineMap(const char* filename)
             strcpy_s(entry.raw, temp + add);
             *temp = 0;
             j = 0;
-            linemap.push_back(entry);
+            scriptLineMap.push_back(entry);
         }
         else if(j >= 254)
         {
@@ -165,7 +186,7 @@ static bool scriptCreateLineMap(const char* filename)
             strcpy_s(entry.raw, temp + add);
             *temp = 0;
             j = 0;
-            linemap.push_back(entry);
+            scriptLineMap.push_back(entry);
         }
         else
             j += sprintf_s(temp + j, sizeof(temp) - j, "%c", filedata[i]);
@@ -174,17 +195,17 @@ static bool scriptCreateLineMap(const char* filename)
     {
         entry = {};
         strcpy_s(entry.raw, temp);
-        linemap.push_back(entry);
+        scriptLineMap.push_back(entry);
     }
-    int linemapsize = (int)linemap.size();
-    while(linemapsize && !*linemap.at(linemapsize - 1).raw) //remove empty lines from the end
+    int linemapsize = (int)scriptLineMap.size();
+    while(linemapsize && !*scriptLineMap.at(linemapsize - 1).raw) //remove empty lines from the end
     {
         linemapsize--;
-        linemap.pop_back();
+        scriptLineMap.pop_back();
     }
     for(int i = 0; i < linemapsize; i++)
     {
-        LINEMAPENTRY cur = linemap.at(i);
+        LINEMAPENTRY cur = scriptLineMap.at(i);
 
         //temp. remove comments from the raw line
         char line_comment[256] = "";
@@ -257,8 +278,8 @@ static bool scriptCreateLineMap(const char* filename)
             {
                 char message[256] = "";
                 sprintf_s(message, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Empty label detected on line %d!")), i + 1);
-                GuiScriptError(0, message);
-                linemap.clear();
+                scriptError(0, message, gui);
+                scriptLineMap.clear();
                 return false;
             }
             int foundlabel = scriptLabelFind(cur.u.label);
@@ -266,8 +287,8 @@ static bool scriptCreateLineMap(const char* filename)
             {
                 char message[256] = "";
                 sprintf_s(message, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Duplicate label \"%s\" detected on lines %d and %d!")), cur.u.label, foundlabel, i + 1);
-                GuiScriptError(0, message);
-                linemap.clear();
+                scriptError(0, message, gui);
+                scriptLineMap.clear();
                 return false;
             }
         }
@@ -294,12 +315,12 @@ static bool scriptCreateLineMap(const char* filename)
         //append the comment to the raw line again
         if(*line_comment)
             sprintf_s(cur.raw + rawlen, sizeof(cur.raw) - rawlen, "\1%s", line_comment);
-        linemap.at(i) = cur;
+        scriptLineMap.at(i) = cur;
     }
-    linemapsize = (int)linemap.size();
+    linemapsize = (int)scriptLineMap.size();
     for(int i = 0; i < linemapsize; i++)
     {
-        auto & currentLine = linemap.at(i);
+        auto & currentLine = scriptLineMap.at(i);
         if(currentLine.type == linebranch) //invalid branch label
         {
             int labelline = scriptLabelFind(currentLine.u.branch.branchlabel);
@@ -307,23 +328,23 @@ static bool scriptCreateLineMap(const char* filename)
             {
                 char message[256] = "";
                 sprintf_s(message, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Invalid branch label \"%s\" detected on line %d!")), currentLine.u.branch.branchlabel, i + 1);
-                GuiScriptError(0, message);
-                linemap.clear();
+                scriptError(0, message, gui);
+                scriptLineMap.clear();
                 return false;
             }
             else //set the branch destination line
-                currentLine.u.branch.dest = scriptInternalStep(labelline);
+                currentLine.u.branch.dest = scriptNextIp(labelline);
         }
     }
     // append a ret instruction at the end of the script when appropriate
-    if(!linemap.empty())
+    if(!scriptLineMap.empty())
     {
         entry = {};
         entry.type = linecommand;
         strcpy_s(entry.raw, "ret");
         strcpy_s(entry.u.command, "ret");
 
-        const auto & lastline = linemap.back();
+        const auto & lastline = scriptLineMap.back();
         switch(lastline.type)
         {
         case linecommand:
@@ -335,7 +356,7 @@ static bool scriptCreateLineMap(const char* filename)
             }
             else
             {
-                linemap.push_back(entry);
+                scriptLineMap.push_back(entry);
             }
             break;
         case linebranch:
@@ -346,7 +367,7 @@ static bool scriptCreateLineMap(const char* filename)
         case linelabel:
         case linecomment:
         case lineempty:
-            linemap.push_back(entry);
+            scriptLineMap.push_back(entry);
             break;
         }
     }
@@ -356,9 +377,9 @@ static bool scriptCreateLineMap(const char* filename)
 static bool scriptInternalBpGet(int line) //internal bpget routine
 {
     SHARED_ACQUIRE(LockScriptBreakpoints);
-    int bpcount = (int)scriptbplist.size();
+    int bpcount = (int)scriptBpList.size();
     for(int i = 0; i < bpcount; i++)
-        if(scriptbplist.at(i).line == line)
+        if(scriptBpList.at(i).line == line)
             return true;
     return false;
 }
@@ -368,17 +389,17 @@ static bool scriptInternalBpToggle(int line) //internal breakpoint
     SHARED_ACQUIRE(LockScriptLineMap);
     EXCLUSIVE_ACQUIRE(LockScriptBreakpoints);
 
-    if(!line || line > (int)linemap.size()) //invalid line
+    if(!line || line > (int)scriptLineMap.size()) //invalid line
         return false;
-    line = scriptInternalStep(line - 1); //no breakpoints on non-executable locations
+    line = scriptNextIp(line - 1); //no breakpoints on non-executable locations
 
     if(scriptInternalBpGet(line)) //remove breakpoint
     {
-        int bpcount = (int)scriptbplist.size();
+        int bpcount = (int)scriptBpList.size();
         for(int i = 0; i < bpcount; i++)
-            if(scriptbplist.at(i).line == line)
+            if(scriptBpList.at(i).line == line)
             {
-                scriptbplist.erase(scriptbplist.begin() + i);
+                scriptBpList.erase(scriptBpList.begin() + i);
                 break;
             }
     }
@@ -387,85 +408,95 @@ static bool scriptInternalBpToggle(int line) //internal breakpoint
         SCRIPTBP newbp = {};
         newbp.silent = true;
         newbp.line = line;
-        scriptbplist.push_back(newbp);
+        scriptBpList.push_back(newbp);
     }
     return true;
 }
 
-static bool scriptInternalBranch(SCRIPTBRANCHTYPE type) //determine if we should jump
+static bool scriptBranchTaken(SCRIPTBRANCHTYPE type) //determine if we should jump
 {
     duint ezflag = 0;
     duint bsflag = 0;
     varget("$_EZ_FLAG", &ezflag, nullptr, nullptr);
     varget("$_BS_FLAG", &bsflag, nullptr, nullptr);
-    bool bJump = false;
     switch(type)
     {
     case scriptcall:
     case scriptjmp:
-        bJump = true;
-        break;
+        return true;
     case scriptjnejnz: //$_EZ_FLAG=0
-        if(!ezflag)
-            bJump = true;
-        break;
+        return !ezflag;
     case scriptjejz: //$_EZ_FLAG=1
-        if(ezflag)
-            bJump = true;
-        break;
+        return ezflag;
     case scriptjbjl: //$_BS_FLAG=0 and $_EZ_FLAG=0 //below, not equal
-        if(!bsflag && !ezflag)
-            bJump = true;
-        break;
+        return !bsflag && !ezflag;
     case scriptjajg: //$_BS_FLAG=1 and $_EZ_FLAG=0 //above, not equal
-        if(bsflag && !ezflag)
-            bJump = true;
-        break;
+        return bsflag && !ezflag;
     case scriptjbejle: //$_BS_FLAG=0 or $_EZ_FLAG=1
-        if(!bsflag || ezflag)
-            bJump = true;
-        break;
+        return !bsflag || ezflag;
     case scriptjaejge: //$_BS_FLAG=1 or $_EZ_FLAG=1
-        if(bsflag || ezflag)
-            bJump = true;
-        break;
+        return bsflag || ezflag;
     default:
-        bJump = false;
-        break;
+        return false;
     }
-    return bJump;
 }
 
-static CMDRESULT scriptInternalCmdExec(const char* cmd, bool silentRet)
+static CMDRESULT scriptInternalCmdExec(const char* cmd, bool gui, SCRIPTSTATE state)
 {
     if(scriptIsInternalCommand(cmd, "ret")) //script finished
     {
-        if(scriptstack.empty()) //nothing on the stack
+        if(scriptStack.empty()) //nothing on the stack
         {
-            if(!silentRet)
-            {
-                String TranslatedString = GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Script finished!"));
-                GuiScriptMessage(TranslatedString.c_str());
-            }
+            scriptIp = scriptNextIp(0);
+            GuiScriptSetIp(scriptIp);
+
+            auto message = GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Script finished!"));
+            if(gui)
+                GuiScriptMessage(message);
+            else
+                dputs_untranslated(message);
             return STATUS_EXIT;
         }
-        scriptIp = scriptstack.back();
-        scriptstack.pop_back(); //remove last stack entry
-        return STATUS_CONTINUE_BRANCH;
+        auto frame = scriptStack.back();
+        scriptIp = frame.ip;
+        scriptStack.pop_back();
+
+        // Pause if we were stepping, regardless of the frame state
+        // Scenario:
+        // - Run a script
+        // - Set a script breakpoint inside 'mylabel'
+        // - Hit a breakpoint triggers 'scriptcmd call mylabel'
+        // - Script breakpoint hits
+        // - Step over the 'ret'
+        if(state == STATE_STEPPING)
+            return STATUS_PAUSE;
+
+        // Pause if we were not running when the frame was pushed
+        // Scenario:
+        // - Step over an 'erun'
+        // - Hit breakpoint triggers 'scriptcmd call'
+        // - You will pause at the label
+        // - Resume script running
+        // - You will pause again after the 'erun'
+        return frame.state != STATE_RUNNING ? STATUS_PAUSE : STATUS_CONTINUE_BRANCH;
     }
     if(scriptIsInternalCommand(cmd, "error")) //show an error and end the script
     {
-        GuiScriptError(0, StringUtils::Trim(cmd + strlen("error"), " \"'").c_str());
+        scriptIp = scriptNextIp(0);
+        GuiScriptSetIp(scriptIp);
+
+        auto message = StringUtils::Trim(cmd + strlen("error"), " \"'");
+        scriptError(scriptIpOld, message.c_str(), gui);
         return STATUS_EXIT;
     }
     if(scriptIsInternalCommand(cmd, "invalid")) //invalid command for testing
         return STATUS_ERROR;
-    if(bScriptRunning && (scriptIsInternalCommand(cmd, "scriptrun") || scriptIsInternalCommand(cmd, "scriptexec")))  // do not allow recursive script runs
+    if(state != STATE_PAUSED && (scriptIsInternalCommand(cmd, "scriptrun") || scriptIsInternalCommand(cmd, "scriptexec")))  // do not allow recursive script runs
         return STATUS_ERROR;
     if(scriptIsInternalCommand(cmd, "pause")) //pause the script
         return STATUS_PAUSE;
     if(scriptIsInternalCommand(cmd, "nop")) //do nothing
-        return STATUS_CONTINUE;
+        return state == STATE_RUNNING ? STATUS_CONTINUE : STATUS_PAUSE;
     if(scriptIsInternalCommand(cmd, "log"))
         bScriptLogEnabled = true;
     //super disgusting hack(s) to support branches in the GUI
@@ -480,144 +511,135 @@ static CMDRESULT scriptInternalCmdExec(const char* cmd, bool silentRet)
             {
                 char message[256] = "";
                 sprintf_s(message, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Invalid branch label \"%s\" detected on line %d!")), branchlabel.c_str(), 0);
-                GuiScriptError(0, message);
+                scriptError(0, message, gui);
                 return STATUS_ERROR;
             }
-            if(scriptInternalBranch(branchtype))
+            if(scriptBranchTaken(branchtype))
             {
                 if(branchtype == scriptcall) //calls have a special meaning
-                    scriptstack.push_back(scriptIp);
-                scriptIp = scriptInternalStep(labelIp); //go to the first command after the label
+                    scriptStack.push_back({scriptIp, state});
+                scriptIp = scriptNextIp(labelIp); //go to the first command after the label
                 GuiScriptSetIp(scriptIp);
             }
-            return STATUS_CONTINUE_BRANCH;
+            return state == STATE_STEPPING ? STATUS_PAUSE : STATUS_CONTINUE_BRANCH;
         }
     }
     auto res = cmddirectexec(cmd);
+    // Wait for the debuggee to pause
     while(bIsDebugging && dbgisrunning() && !bScriptAbort)
     {
         Sleep(1);
     }
     bScriptLogEnabled = false;
-    return res ? STATUS_CONTINUE : STATUS_ERROR;
+    if(!res)
+        return STATUS_ERROR;
+    return state == STATE_RUNNING ? STATUS_CONTINUE : STATUS_PAUSE;
 }
 
-static bool scriptInternalCmd(bool silentRet)
+static bool scriptInternalCmd(bool gui, SCRIPTSTATE state)
 {
     SHARED_ACQUIRE(LockScriptLineMap);
     bool bContinue = true;
-    if(size_t(scriptIp - 1) >= linemap.size())
+    if(size_t(scriptIp - 1) >= scriptLineMap.size())
         return false;
-    const LINEMAPENTRY & cur = linemap.at(scriptIp - 1);
+    const LINEMAPENTRY & cur = scriptLineMap.at(scriptIp - 1);
     scriptIpOld = scriptIp;
-    scriptIp = scriptInternalStep(scriptIp);
+    scriptIp = scriptNextIp(scriptIp);
     if(cur.type == linecommand)
     {
-        scriptLastError = scriptInternalCmdExec(cur.u.command, silentRet);
+        scriptLastError = scriptInternalCmdExec(cur.u.command, gui, state);
         switch(scriptLastError)
         {
         case STATUS_CONTINUE:
         case STATUS_CONTINUE_BRANCH:
-            if(scriptIp == scriptIpOld)
-            {
-                bContinue = false;
-                scriptIp = scriptInternalStep(0);
-            }
             break;
         case STATUS_ERROR:
-            bContinue = false;
             scriptIp = scriptIpOld;
-            GuiScriptError(scriptIp, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Error executing command!")));
-            break;
+            scriptError(scriptIp, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Error executing command!")), gui);
+            return false;
         case STATUS_EXIT:
-            bContinue = false;
-            scriptIp = scriptInternalStep(0);
-            GuiScriptSetIp(scriptIp);
-            break;
+            return false;
         case STATUS_PAUSE:
-            bContinue = false; //stop running the script
             GuiScriptSetIp(scriptIp);
-            break;
+            return false;
         }
     }
     else if(cur.type == linebranch)
     {
-        if(scriptInternalBranch(cur.u.branch.type))
+        if(scriptBranchTaken(cur.u.branch.type))
         {
             if(cur.u.branch.type == scriptcall) //calls have a special meaning
-                scriptstack.push_back(scriptIp);
+                scriptStack.push_back({scriptIp, state});
             scriptIp = scriptLabelFind(cur.u.branch.branchlabel);
-            scriptIp = scriptInternalStep(scriptIp); //go to the first command after the label
+            scriptIp = scriptNextIp(scriptIp); //go to the first command after the label
         }
     }
-    return bContinue;
+    return true;
 }
 
-static bool scriptRun(int destline, bool silentRet)
+static bool scriptRun(int destline, bool gui)
 {
     if(bIsDebugging && dbgisrunning())
     {
-        if(!silentRet)
-            GuiScriptError(0, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Debugger must be paused to run a script!")));
-        else
-            dputs(QT_TRANSLATE_NOOP("DBG", "Debugger must be paused to run a script!"));
+        scriptError(0, GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "Debugger must be paused to run a script!")), gui);
         return false;
     }
 
+    bRunGui = gui;
+
     // Use atomic compare_exchange to atomically check and set running state
-    bool expected = false;
-    if(!bScriptRunning.compare_exchange_strong(expected, true))
-        return false; // Script was already running
+    SCRIPTSTATE expectedState = STATE_PAUSED;
+    if(!scriptState.compare_exchange_strong(expectedState, STATE_RUNNING))
+        return false;
 
     // disable GUI updates
-    auto guiUpdateWasDisabled = GuiIsUpdateDisabled();
-    if(!guiUpdateWasDisabled)
+    auto disabledGuiUpdates = !GuiIsUpdateDisabled();
+    if(disabledGuiUpdates)
         GuiUpdateDisable();
     SHARED_ACQUIRE(LockScriptLineMap);
-    if(destline == 0 || destline > (int)linemap.size()) //invalid line
+    if(destline == 0 || destline > (int)scriptLineMap.size()) //invalid line
         destline = 0;
     if(destline)
     {
-        destline = scriptInternalStep(destline - 1); //no breakpoints on non-executable locations
+        destline = scriptNextIp(destline - 1); //no breakpoints on non-executable locations
         if(!scriptInternalBpGet(destline)) //no breakpoint set
             scriptInternalBpToggle(destline);
     }
     bScriptAbort = false;
     if(scriptIp)
         scriptIp--;
-    scriptIp = scriptInternalStep(scriptIp);
+    scriptIp = scriptNextIp(scriptIp);
     bool bContinue = true;
     bool bIgnoreTimeout = settingboolget("Engine", "NoScriptTimeout", false);
     auto start = GetTickCount();
     while(bContinue && !bScriptAbort) //run loop
     {
-        bContinue = scriptInternalCmd(silentRet);
+        bContinue = scriptInternalCmd(gui, STATE_RUNNING);
         if(scriptInternalBpGet(scriptIp)) //breakpoint=stop run loop
             bContinue = false;
         if(bContinue && !bIgnoreTimeout)
         {
-            if(GetTickCount() - start >= 30000) // time out in 30 seconds (TODO: remove this?)
+            if(GetTickCount() - start >= 30000) // time out in 30 seconds
             {
-                if(GuiScriptMsgyn(GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "The script is too busy. Would you like to terminate it now?"))) != 0)
+                if(GuiScriptMsgyn(GuiTranslateText(QT_TRANSLATE_NOOP("DBG", "The script has been running for a while. Would you like to terminate it now?"))) != 0)
                 {
                     dputs(QT_TRANSLATE_NOOP("DBG", "Script is terminated by user."));
                     break;
                 }
-                else
-                    bIgnoreTimeout = true;
+                start = GetTickCount();
             }
         }
     }
-    bScriptRunning = false; //not running anymore
+    scriptState = STATE_PAUSED; // set the script state to paused
     // re-enable GUI updates when appropriate
-    if(!guiUpdateWasDisabled)
+    if(disabledGuiUpdates)
         GuiUpdateEnable(true);
     GuiScriptSetIp(scriptIp);
     // the script fully executed (which means scriptIp is reset to the first line), without any errors
-    return scriptIp == scriptInternalStep(0) && (scriptLastError == STATUS_EXIT || scriptLastError == STATUS_CONTINUE || scriptLastError == STATUS_CONTINUE_BRANCH);
+    return scriptIp == scriptNextIp(0) && (scriptLastError == STATUS_EXIT || scriptLastError == STATUS_CONTINUE || scriptLastError == STATUS_CONTINUE_BRANCH);
 }
 
-static bool scriptLoad(const char* filename)
+static bool scriptLoad(const char* filename, bool gui)
 {
     ExclusiveSectionLocker<LockScriptLineMap> lockLineMap;
     ExclusiveSectionLocker<LockScriptBreakpoints> lockBreakpoints;
@@ -625,26 +647,26 @@ static bool scriptLoad(const char* filename)
     GuiScriptEnableHighlighting(true); //enable default script syntax highlighting
     scriptIp = 0;
     scriptIpOld = 0;
-    scriptbplist.clear();
-    scriptstack.clear();
+    scriptBpList.clear();
+    scriptStack.clear();
     bScriptAbort = false;
-    if(!scriptCreateLineMap(filename))
+    if(!scriptCreateLineMap(filename, gui))
         return false; // Script load failed
-    int lines = (int)linemap.size();
+    int lines = (int)scriptLineMap.size();
     auto script = (const char**)BridgeAlloc(lines * sizeof(const char*));
     for(int i = 0; i < lines; i++) //add script lines
-        script[i] = linemap.at(i).raw;
+        script[i] = scriptLineMap.at(i).raw;
     GuiScriptAdd(lines, script);
-    scriptIp = scriptInternalStep(0);
+    scriptIp = scriptNextIp(0);
     GuiScriptSetIp(scriptIp);
     return true;
 }
 
-bool ScriptLoadAwait(const char* filename)
+bool ScriptLoadAwait(const char* filename, bool gui)
 {
-    return scriptQueue.await([filename]()
+    return scriptQueue.await([filename, gui]()
     {
-        return scriptLoad(filename);
+        return scriptLoad(filename, gui);
     });
 }
 
@@ -655,38 +677,40 @@ void ScriptUnloadAwait()
         ExclusiveSectionLocker<LockScriptLineMap> lockLineMap;
         ExclusiveSectionLocker<LockScriptBreakpoints> lockBreakpoints;
         GuiScriptClear();
-        linemap.clear();
-        scriptbplist.clear();
-        scriptstack.clear();
+        scriptLineMap.clear();
+        scriptBpList.clear();
+        scriptStack.clear();
         scriptIp = 0;
         scriptIpOld = 0;
         bScriptAbort = false;
     });
 }
 
-void ScriptRunAsync(int destline, bool silentRet)
+void ScriptRunAsync(int destline, bool gui)
 {
-    scriptQueue.async([destline, silentRet]()
+    scriptQueue.async([destline, gui]()
     {
-        scriptRun(destline, silentRet);
+        scriptRun(destline, gui);
     });
 }
 
-bool ScriptRunAwait(int destline, bool silentRet)
+bool ScriptRunAwait(int destline, bool gui)
 {
-    return scriptQueue.await([destline, silentRet]()
+    return scriptQueue.await([destline, gui]()
     {
-        return scriptRun(destline, silentRet);
+        return scriptRun(destline, gui);
     });
 }
 
-void ScriptStepAsync()
+void ScriptStepAsync(bool gui)
 {
-    scriptQueue.async([]()
+    scriptQueue.async([gui]()
     {
-        if(!bScriptRunning) //only step when not running
+        if(scriptState == STATE_PAUSED)  // only step when the script is paused
         {
-            scriptInternalCmd(false);
+            scriptState = STATE_STEPPING;
+            scriptInternalCmd(gui, STATE_STEPPING);
+            scriptState = STATE_PAUSED;
             GuiScriptSetIp(scriptIp);
         }
     });
@@ -695,9 +719,9 @@ void ScriptStepAsync()
 bool ScriptBpGetLocked(int line)
 {
     SHARED_ACQUIRE(LockScriptBreakpoints);
-    int bpcount = (int)scriptbplist.size();
+    int bpcount = (int)scriptBpList.size();
     for(int i = 0; i < bpcount; i++)
-        if(scriptbplist.at(i).line == line && !scriptbplist.at(i).silent)
+        if(scriptBpList.at(i).line == line && !scriptBpList.at(i).silent)
             return true;
     return false;
 }
@@ -706,16 +730,16 @@ bool ScriptBpToggleLocked(int line)
 {
     SHARED_ACQUIRE(LockScriptLineMap);
     EXCLUSIVE_ACQUIRE(LockScriptBreakpoints);
-    if(!line || line > (int)linemap.size()) //invalid line
+    if(!line || line > (int)scriptLineMap.size()) //invalid line
         return false;
-    auto bpline = scriptInternalStep(line - 1); //no breakpoints on non-executable locations
+    auto bpline = scriptNextIp(line - 1); //no breakpoints on non-executable locations
     if(ScriptBpGetLocked(bpline)) //remove breakpoint
     {
-        int bpcount = (int)scriptbplist.size();
+        int bpcount = (int)scriptBpList.size();
         for(int i = 0; i < bpcount; i++)
-            if(scriptbplist.at(i).line == bpline && !scriptbplist.at(i).silent)
+            if(scriptBpList.at(i).line == bpline && !scriptBpList.at(i).silent)
             {
-                scriptbplist.erase(scriptbplist.begin() + i);
+                scriptBpList.erase(scriptBpList.begin() + i);
                 break;
             }
     }
@@ -724,33 +748,55 @@ bool ScriptBpToggleLocked(int line)
         SCRIPTBP newbp = {};
         newbp.silent = false;
         newbp.line = bpline;
-        scriptbplist.push_back(newbp);
+        scriptBpList.push_back(newbp);
     }
     return true;
 }
 
-bool ScriptCmdExecAwait(const char* command)
+bool ScriptCmdExecAwait(const char* command, bool gui)
 {
-    return scriptQueue.await([command]()
+    // Capture the current script now, because this function might be called
+    // through 'dbgcmdexecdirect("scriptcmd")' from a breakpoint command.
+    // If we did not capture the script state it will be reset by the queue.
+    // NOTE: Relevant if you step over 'erun' and a breakpoint with 'scriptcmd' is hit.
+    auto state = scriptState.load();
+    auto triggeredAbort = false;
+    if(state == STATE_RUNNING)
+    {
+        // If we execute scriptcmd while the script is running, we need to pause it.
+        // The script thread will be waiting for erun to finish, detect the abort
+        // and eventually set the script state to STATE_PAUSED.
+        bScriptAbort = true;
+        triggeredAbort = true;
+        // Finish waiting for the debuggee to pause
+        while(bIsDebugging && dbgisrunning())
+        {
+            Sleep(1);
+        }
+    }
+    return scriptQueue.await([command, gui, state, triggeredAbort]()
     {
         scriptIpOld = scriptIp;
-        scriptLastError = scriptInternalCmdExec(command, false);
+        scriptLastError = scriptInternalCmdExec(command, triggeredAbort ? bRunGui : gui, state);
         switch(scriptLastError)
         {
         case STATUS_ERROR:
             return false;
         case STATUS_EXIT:
-            scriptIp = scriptInternalStep(0);
-            GuiScriptSetIp(scriptIp);
-            break;
         case STATUS_PAUSE:
+            break;
         case STATUS_CONTINUE:
+            // If we triggered an abort, resume the run we aborted.
+            if(triggeredAbort)
+            {
+                ScriptRunAsync(scriptIp, bRunGui);
+            }
             break;
         case STATUS_CONTINUE_BRANCH:
-            if(!bScriptRunning)
+            // If the user executes `scriptcmd call xxx`, start running.
+            if(scriptState == STATE_PAUSED)
             {
-                // TODO: is this actually correct?
-                ScriptRunAsync(scriptIp, true);
+                ScriptRunAsync(scriptIp, bRunGui);
             }
             break;
         }
@@ -763,16 +809,16 @@ void ScriptSetIpAsync(int line)
     scriptQueue.async([line]()
     {
         if(line)
-            scriptIp = scriptInternalStep(line - 1);
+            scriptIp = scriptNextIp(line - 1);
         else
-            scriptIp = scriptInternalStep(0);
+            scriptIp = scriptNextIp(0);
         GuiScriptSetIp(scriptIp);
     });
 }
 
 void ScriptAbortAwait()
 {
-    if(bScriptRunning)
+    if(scriptState != STATE_PAUSED)
     {
         bScriptAbort = true;
         scriptQueue.await([]()
@@ -787,19 +833,19 @@ void ScriptAbortAwait()
 SCRIPTLINETYPE ScriptGetLineTypeLocked(int line)
 {
     SHARED_ACQUIRE(LockScriptLineMap);
-    if(line > (int)linemap.size())
+    if(line > (int)scriptLineMap.size())
         return lineempty;
-    return linemap.at(line - 1).type;
+    return scriptLineMap.at(line - 1).type;
 }
 
 bool ScriptGetBranchInfoLocked(int line, SCRIPTBRANCH* info)
 {
     SHARED_ACQUIRE(LockScriptLineMap);
-    if(!info || !line || line > (int)linemap.size()) //invalid line
+    if(!info || !line || line > (int)scriptLineMap.size()) //invalid line
         return false;
-    if(linemap.at(line - 1).type != linebranch) //no branch
+    if(scriptLineMap.at(line - 1).type != linebranch) //no branch
         return false;
-    memcpy(info, &linemap.at(line - 1).u.branch, sizeof(SCRIPTBRANCH));
+    memcpy(info, &scriptLineMap.at(line - 1).u.branch, sizeof(SCRIPTBRANCH));
     return true;
 }
 
@@ -810,13 +856,13 @@ void ScriptLogLocked(const char* msg)
     GuiScriptSetInfoLine(scriptIpOld, msg);
 }
 
-bool ScriptExecAwait(const char* filename)
+bool ScriptExecAwait(const char* filename, bool gui)
 {
-    return scriptQueue.await([filename]()
+    return scriptQueue.await([filename, gui]()
     {
-        if(!scriptLoad(filename))
+        if(!scriptLoad(filename, gui))
             return false;
-        if(!scriptRun(0, true))
+        if(!scriptRun(0, gui))
             return false;
         ScriptUnloadAwait();
         return true;

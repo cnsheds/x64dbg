@@ -975,6 +975,7 @@ static void cbGenericBreakpoint(BP_TYPE bptype, const void* ExceptionAddress = n
             commandCondition = 0; // Don't execute any command if an error occurs
     }
 
+    // Pause debugger before a potential scriptcmd, which would race otherwise.
     lock(WAITID_RUN);
 
     PLUG_CB_BREAKPOINT bpInfo;
@@ -1758,12 +1759,12 @@ static DWORD WINAPI cbInitializationScriptThread(void*)
     Memory<char*> script(MAX_SETTING_SIZE + 1);
     if(BridgeSettingGet("Engine", "InitializeScript", script())) // Global script file
     {
-        if(!ScriptExecAwait(script()))
+        if(!ScriptExecAwait(script(), false))
             dputs(QT_TRANSLATE_NOOP("DBG", "Error: Cannot load global initialization script."));
     }
     if(szDebuggeeInitializationScript[0] != 0)
     {
-        if(!ScriptExecAwait(szDebuggeeInitializationScript))
+        if(!ScriptExecAwait(szDebuggeeInitializationScript, false))
             dputs(QT_TRANSLATE_NOOP("DBG", "Error: Cannot load debuggee initialization script."));
     }
     return 0;
