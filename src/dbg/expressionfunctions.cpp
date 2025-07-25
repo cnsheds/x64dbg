@@ -181,6 +181,7 @@ void ExpressionFunctions::Init()
     ExpressionFunctions::Register("strreplace_last", ValueTypeString, { ValueTypeString, ValueTypeString, ValueTypeString }, Exprfunc::strreplace_last);
     ExpressionFunctions::Register("streval", ValueTypeNumber, { ValueTypeString }, Exprfunc::streval);
     ExpressionFunctions::Register("strtrim", ValueTypeString, { ValueTypeString }, Exprfunc::strtrim);
+    // str.endswith, str.startswith, str.find, str.rfind
 
     ExpressionFunctions::Register("syscall.name", ValueTypeString, { ValueTypeNumber }, Exprfunc::syscall_name);
     ExpressionFunctions::Register("syscall.id", ValueTypeNumber, { ValueTypeString }, Exprfunc::syscall_id);
