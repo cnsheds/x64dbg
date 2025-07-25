@@ -25,6 +25,11 @@ public:
     JobQueue(JobQueue &&) = delete;
     JobQueue & operator=(JobQueue &&) = delete;
 
+    bool on_worker_thread() const
+    {
+        return std::this_thread::get_id() == mThread.get_id();
+    }
+
     void start()
     {
         if(mThread.joinable())
@@ -60,8 +65,15 @@ public:
         mThread.join();
     }
 
-    bool async(std::function<void()> job)
+    bool async(std::function<void()> job, bool always_queue = true)
     {
+        // Directly call the job if we're on the worker thread and we are not forced to queue.
+        if(!always_queue && on_worker_thread())
+        {
+            job();
+            return true;
+        }
+
         return mQueue.enqueue([job = std::move(job)]()
         {
             job();
@@ -76,7 +88,7 @@ public:
     R await(F && job)
     {
         R result = {};
-        impl_await([job = std::move(job), &result]()
+        impl_await([job = std::forward<F>(job), &result]()
         {
             result = job();
         });
@@ -96,8 +108,15 @@ private:
     template<class Func>
     void impl_await(Func && job)
     {
+        // Calling await from another job would deadlock, so we execute it directly instead.
+        if(on_worker_thread())
+        {
+            job();
+            return;
+        }
+
         auto event = CreateEventW(nullptr, false, false, nullptr);
-        auto func = [job = std::move(job), event]()
+        auto func = [job = std::forward<Func>(job), event]()
         {
             job();
             SetEvent(event);
@@ -114,6 +133,5 @@ private:
             GuiProcessEvents();
         }
         CloseHandle(event);
-        return;
     }
 };
