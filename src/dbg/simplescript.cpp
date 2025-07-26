@@ -43,17 +43,10 @@ struct LINEMAPENTRY
     } u;
 };
 
-enum SCRIPTSTATE
-{
-    STATE_PAUSED = 0,
-    STATE_STEPPING,
-    STATE_RUNNING,
-};
-
 struct SCRIPTFRAME
 {
     int ip = 0;
-    SCRIPTSTATE state = STATE_PAUSED;
+    SCRIPTSTATE state = SCRIPT_PAUSED;
 };
 
 static std::vector<LINEMAPENTRY> scriptLineMap;
@@ -468,7 +461,7 @@ static CMDRESULT scriptInternalCmdExec(const char* cmd, bool gui, SCRIPTSTATE st
         // - Hit a breakpoint triggers 'scriptcmd call mylabel'
         // - Script breakpoint hits
         // - Step over the 'ret'
-        if(state == STATE_STEPPING)
+        if(state == SCRIPT_STEPPING)
             return STATUS_PAUSE;
 
         // Pause if we were not running when the frame was pushed
@@ -478,7 +471,7 @@ static CMDRESULT scriptInternalCmdExec(const char* cmd, bool gui, SCRIPTSTATE st
         // - You will pause at the label
         // - Resume script running
         // - You will pause again after the 'erun'
-        return frame.state != STATE_RUNNING ? STATUS_PAUSE : STATUS_CONTINUE_BRANCH;
+        return frame.state != SCRIPT_RUNNING ? STATUS_PAUSE : STATUS_CONTINUE_BRANCH;
     }
     if(scriptIsInternalCommand(cmd, "error")) //show an error and end the script
     {
@@ -491,12 +484,12 @@ static CMDRESULT scriptInternalCmdExec(const char* cmd, bool gui, SCRIPTSTATE st
     }
     if(scriptIsInternalCommand(cmd, "invalid")) //invalid command for testing
         return STATUS_ERROR;
-    if(state != STATE_PAUSED && (scriptIsInternalCommand(cmd, "scriptrun") || scriptIsInternalCommand(cmd, "scriptexec")))  // do not allow recursive script runs
+    if(state != SCRIPT_PAUSED && (scriptIsInternalCommand(cmd, "scriptrun") || scriptIsInternalCommand(cmd, "scriptexec")))  // do not allow recursive script runs
         return STATUS_ERROR;
     if(scriptIsInternalCommand(cmd, "pause")) //pause the script
         return STATUS_PAUSE;
     if(scriptIsInternalCommand(cmd, "nop")) //do nothing
-        return state == STATE_RUNNING ? STATUS_CONTINUE : STATUS_PAUSE;
+        return state == SCRIPT_RUNNING ? STATUS_CONTINUE : STATUS_PAUSE;
     if(scriptIsInternalCommand(cmd, "log"))
         bScriptLogEnabled = true;
     //super disgusting hack(s) to support branches in the GUI
@@ -521,7 +514,7 @@ static CMDRESULT scriptInternalCmdExec(const char* cmd, bool gui, SCRIPTSTATE st
                 scriptIp = scriptNextIp(labelIp); //go to the first command after the label
                 GuiScriptSetIp(scriptIp);
             }
-            return state == STATE_STEPPING ? STATUS_PAUSE : STATUS_CONTINUE_BRANCH;
+            return state == SCRIPT_STEPPING ? STATUS_PAUSE : STATUS_CONTINUE_BRANCH;
         }
     }
     auto res = cmddirectexec(cmd);
@@ -533,7 +526,7 @@ static CMDRESULT scriptInternalCmdExec(const char* cmd, bool gui, SCRIPTSTATE st
     bScriptLogEnabled = false;
     if(!res)
         return STATUS_ERROR;
-    return state == STATE_RUNNING ? STATUS_CONTINUE : STATUS_PAUSE;
+    return state == SCRIPT_RUNNING ? STATUS_CONTINUE : STATUS_PAUSE;
 }
 
 static bool scriptInternalCmd(bool gui, SCRIPTSTATE state)
@@ -585,12 +578,12 @@ static bool scriptRun(int destline, bool gui)
         return false;
     }
 
-    bRunGui = gui;
-
     // Use atomic compare_exchange to atomically check and set running state
-    SCRIPTSTATE expectedState = STATE_PAUSED;
-    if(!scriptState.compare_exchange_strong(expectedState, STATE_RUNNING))
+    SCRIPTSTATE expectedState = SCRIPT_PAUSED;
+    if(!scriptState.compare_exchange_strong(expectedState, SCRIPT_RUNNING))
         return false;
+
+    bRunGui = gui;
 
     // disable GUI updates
     auto disabledGuiUpdates = !GuiIsUpdateDisabled();
@@ -614,7 +607,7 @@ static bool scriptRun(int destline, bool gui)
     auto start = GetTickCount();
     while(bContinue && !bScriptAbort) //run loop
     {
-        bContinue = scriptInternalCmd(gui, STATE_RUNNING);
+        bContinue = scriptInternalCmd(gui, SCRIPT_RUNNING);
         if(scriptInternalBpGet(scriptIp)) //breakpoint=stop run loop
             bContinue = false;
         if(bContinue && !bIgnoreTimeout)
@@ -630,7 +623,7 @@ static bool scriptRun(int destline, bool gui)
             }
         }
     }
-    scriptState = STATE_PAUSED; // set the script state to paused
+    scriptState = SCRIPT_PAUSED; // set the script state to paused
     // re-enable GUI updates when appropriate
     if(disabledGuiUpdates)
         GuiUpdateEnable(true);
@@ -706,11 +699,12 @@ void ScriptStepAsync(bool gui)
 {
     scriptQueue.async([gui]()
     {
-        if(scriptState == STATE_PAUSED)  // only step when the script is paused
+        if(scriptState == SCRIPT_PAUSED)  // only step when the script is paused
         {
-            scriptState = STATE_STEPPING;
-            scriptInternalCmd(gui, STATE_STEPPING);
-            scriptState = STATE_PAUSED;
+            scriptState = SCRIPT_STEPPING;
+            bRunGui = gui;
+            scriptInternalCmd(gui, SCRIPT_STEPPING);
+            scriptState = SCRIPT_PAUSED;
             GuiScriptSetIp(scriptIp);
         }
     });
@@ -753,50 +747,30 @@ bool ScriptBpToggleLocked(int line)
     return true;
 }
 
-bool ScriptCmdExecAwait(const char* command, bool gui)
+bool ScriptCmdExecAwait(const char* command, bool gui, const SCRIPTSTATE* abortState)
 {
     // Capture the current script now, because this function might be called
     // through 'dbgcmdexecdirect("scriptcmd")' from a breakpoint command.
     // If we did not capture the script state it will be reset by the queue.
     // NOTE: Relevant if you step over 'erun' and a breakpoint with 'scriptcmd' is hit.
-    auto state = scriptState.load();
-    auto triggeredAbort = false;
-    if(state == STATE_RUNNING)
-    {
-        // If we execute scriptcmd while the script is running, we need to pause it.
-        // The script thread will be waiting for erun to finish, detect the abort
-        // and eventually set the script state to STATE_PAUSED.
-        bScriptAbort = true;
-        triggeredAbort = true;
-        // Finish waiting for the debuggee to pause
-        while(bIsDebugging && dbgisrunning())
-        {
-            Sleep(1);
-        }
-    }
-    return scriptQueue.await([command, gui, state, triggeredAbort]()
+    auto state = abortState != nullptr ? *abortState : scriptState.load();
+    return scriptQueue.await([command, state, gui]()
     {
         scriptIpOld = scriptIp;
-        scriptLastError = scriptInternalCmdExec(command, triggeredAbort ? bRunGui : gui, state);
+        scriptLastError = scriptInternalCmdExec(command, gui, state);
         switch(scriptLastError)
         {
         case STATUS_ERROR:
             return false;
         case STATUS_EXIT:
         case STATUS_PAUSE:
-            break;
         case STATUS_CONTINUE:
-            // If we triggered an abort, resume the run we aborted.
-            if(triggeredAbort)
-            {
-                ScriptRunAsync(scriptIp, bRunGui);
-            }
             break;
         case STATUS_CONTINUE_BRANCH:
             // If the user executes `scriptcmd call xxx`, start running.
-            if(scriptState == STATE_PAUSED)
+            if(state == SCRIPT_PAUSED)
             {
-                ScriptRunAsync(scriptIp, bRunGui);
+                ScriptRunAsync(scriptIp, gui);
             }
             break;
         }
@@ -804,9 +778,9 @@ bool ScriptCmdExecAwait(const char* command, bool gui)
     });
 }
 
-void ScriptSetIpAsync(int line)
+void ScriptSetIpAwait(int line)
 {
-    scriptQueue.async([line]()
+    scriptQueue.await([line]()
     {
         if(line)
             scriptIp = scriptNextIp(line - 1);
@@ -816,9 +790,10 @@ void ScriptSetIpAsync(int line)
     });
 }
 
-void ScriptAbortAwait()
+SCRIPTABORTSTATE ScriptAbortAwait()
 {
-    if(scriptState != STATE_PAUSED)
+    auto state = scriptState.load();
+    if(state != SCRIPT_PAUSED)
     {
         bScriptAbort = true;
         scriptQueue.await([]()
@@ -826,8 +801,7 @@ void ScriptAbortAwait()
             // Empty lambda just to wait for queue completion
         });
     }
-    else //reset the script
-        ScriptSetIpAsync(0);
+    return { state, bRunGui };
 }
 
 SCRIPTLINETYPE ScriptGetLineTypeLocked(int line)

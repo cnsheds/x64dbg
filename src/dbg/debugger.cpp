@@ -941,8 +941,10 @@ static void cbGenericBreakpoint(BP_TYPE bptype, const void* ExceptionAddress = n
     }
     else
         breakCondition = 1; //break if no condition is set
+
     if(bp.fastResume && breakCondition == 0) // fast resume: ignore GUI/Script/Plugin/Other if the debugger would not break
         return;
+
     if(!bp.logCondition.empty())
     {
         logCondition = getConditionValue(bp.logCondition);
@@ -956,6 +958,7 @@ static void cbGenericBreakpoint(BP_TYPE bptype, const void* ExceptionAddress = n
     }
     else
         logCondition = 1; //log if no condition is set
+
     if(!bp.commandCondition.empty())
     {
         commandCondition = getConditionValue(bp.commandCondition);
@@ -974,6 +977,9 @@ static void cbGenericBreakpoint(BP_TYPE bptype, const void* ExceptionAddress = n
         else
             commandCondition = 0; // Don't execute any command if an error occurs
     }
+
+    // Any script loaded right now is either paused or spinning until this lock gets set.
+    auto scriptState = ScriptAbortAwait();
 
     // Pause debugger before a potential scriptcmd, which would race otherwise.
     lock(WAITID_RUN);
@@ -1026,32 +1032,60 @@ static void cbGenericBreakpoint(BP_TYPE bptype, const void* ExceptionAddress = n
             dputs_untranslated(formattedText.c_str());
         }
     }
+
     if(!bp.commandText.empty() && commandCondition) //command
     {
         //TODO: commands like run/step etc will fuck up your shit
         varset("$breakpointcondition", (breakCondition != 0) ? 1 : 0, false);
         varset("$breakpointlogcondition", (logCondition != 0) ? 1 : 0, true);
         duint script_breakcondition;
-        if(!cmddirectexec(bp.commandText.c_str()))
+
+        bool commandSuccess = false;
+        if(StringUtils::StartsWith(bp.commandText, "scriptcmd "))
+            commandSuccess = ScriptCmdExecAwait(bp.commandText.substr(10).c_str(), scriptState.gui, &scriptState.state);
+        else
+            commandSuccess = cmddirectexec(bp.commandText.c_str());
+
+        if(!commandSuccess)
         {
             breakCondition = -1; // Error executing the command (The error message is probably already printed)
         }
         else if(varget("$breakpointcondition", &script_breakcondition, nullptr, nullptr))
         {
+            // TODO: You cannot execute multiple commands to set $breakpointcondition, why does this variable exist?
             if(script_breakcondition != 0)
                 breakCondition = 1;
             else
                 breakCondition = 0; // It is safe to clear break condition here because when an error occurs, no command can be executed
         }
     }
+
+    if(dbgisrunning())
+    {
+        // TODO: handle the case where the plugin callback/command has changed the running state
+    }
+
     if(breakCondition != 0) //break the debugger
     {
         handleBreakCondition(bp, ExceptionAddress, CIP, breakCondition == -1);
         dbgsetforeground();
         dbgsetskipexceptions(false);
+
+        // Resume script if it was running
+        if(scriptState.state == SCRIPT_RUNNING)
+        {
+            ScriptRunAsync(0, scriptState.gui);
+        }
     }
     else //resume immediately
+    {
         unlock(WAITID_RUN);
+
+        if(scriptState.state == SCRIPT_RUNNING)
+        {
+            // TODO: we cannot resume running the script here (they can only be started while paused). How to handle this?
+        }
+    }
 
     // Make sure the log file error is displayed last
     if(logFileError != ERROR_SUCCESS)
