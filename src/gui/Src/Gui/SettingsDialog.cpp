@@ -60,7 +60,6 @@ void SettingsDialog::LoadSettings()
     settings.disasmOnlyCipAutoComments = false;
     settings.disasmTabBetweenMnemonicAndArguments = false;
     settings.disasmNoCurrentModuleText = false;
-    settings.disasm0xPrefixValues = false;
     settings.disasmNoBranchDisasmPreview = false;
     settings.disasmNoSourceLineAutoComments = false;
     settings.disasmAssembleOnDoubleClick = false;

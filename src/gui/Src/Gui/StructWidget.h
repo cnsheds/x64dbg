@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TypeWidget.h"
+#include "Bridge.h"
 #include "ActionHelpers.h"
 
 class GotoDialog;
@@ -12,27 +13,16 @@ class StructWidget : public TypeWidget, public ActionHelper<StructWidget>
 public:
     explicit StructWidget(QWidget* parent = nullptr);
 
-public slots:
-    void colorsUpdatedSlot();
-    void fontsUpdatedSlot();
-    void shortcutsUpdatedSlot();
-
-    void typeAddNode(void* parent, const TYPEDESCRIPTOR* type);
-    void typeClear();
-    void typeUpdateWidget();
-    void dbgStateChangedSlot(DBGSTATE state);
-    void registerAutoComplete(SCRIPTTYPEINFO* info);
-
 private:
     MenuBuilder* mMenuBuilder = nullptr;
     GotoDialog* mGotoDialog = nullptr;
     SCRIPTTYPEINFO* mAutoCompleteInfo;
-    QColor mTextColor;
 
     duint selectedValue() const;
     void setupContextMenu();
 
 private slots:
+    void registerAutoComplete(SCRIPTTYPEINFO* info);
     void typeAddNodeSlot(void* parent, const TYPEDESCRIPTOR* type);
     void typeClearSlot();
     void typeVisitSlot(QString typeName, duint addr);

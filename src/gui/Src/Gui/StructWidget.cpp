@@ -10,32 +10,15 @@
 #include "StructWidget.h"
 
 StructWidget::StructWidget(QWidget* parent)
-    : TypeWidget(parent)
+    : TypeWidget(parent), mAutoCompleteInfo(nullptr)
 {
-    TYPEDESCRIPTOR type;
-    QString name;
-};
-Q_DECLARE_METATYPE(TypeDescriptor)
-
-StructWidget::StructWidget(QWidget* parent) :
-    QWidget(parent),
-    ui(new Ui::StructWidget),
-    mAutoCompleteInfo(nullptr)
-{
-    ui->setupUi(this);
-    ui->treeWidget->setStyleSheet("QTreeWidget { background-color: #FFF8F0; alternate-background-color: #DCD9CF; }");
-    ui->treeWidget->setItemDelegate(new RichTextItemDelegate(&mTextColor, ui->treeWidget));
-    connect(Bridge::getBridge(), SIGNAL(typeAddNode(void*, const TYPEDESCRIPTOR*)), this, SLOT(typeAddNode(void*, const TYPEDESCRIPTOR*)));
-    connect(Bridge::getBridge(), SIGNAL(typeClear()), this, SLOT(typeClear()));
-    connect(Bridge::getBridge(), SIGNAL(typeUpdateWidget()), this, SLOT(typeUpdateWidget()));
-    connect(Bridge::getBridge(), SIGNAL(dbgStateChanged(DBGSTATE)), this, SLOT(dbgStateChangedSlot(DBGSTATE)));
-    connect(Config(), SIGNAL(colorsUpdated()), this, SLOT(colorsUpdatedSlot()));
-    connect(Config(), SIGNAL(fontsUpdated()), this, SLOT(fontsUpdatedSlot()));
-    connect(Config(), SIGNAL(shortcutsUpdated()), this, SLOT(shortcutsUpdatedSlot()));
+    connect(Bridge::getBridge(), &Bridge::typeAddNode, this, &StructWidget::typeAddNodeSlot);
+    connect(Bridge::getBridge(), &Bridge::typeClear, this, &StructWidget::typeClearSlot);
+    connect(Bridge::getBridge(), &Bridge::typeUpdateWidget, this, &TypeWidget::updateValuesSlot);
+    connect(Bridge::getBridge(), &Bridge::typeVisit, this, &StructWidget::typeVisitSlot);
+    connect(Bridge::getBridge(), &Bridge::dbgStateChanged, this, &StructWidget::dbgStateChangedSlot);
+    connect(this, &QTreeWidget::customContextMenuRequested, this, &StructWidget::contextMenuRequestedSlot);
     connect(Bridge::getBridge(), SIGNAL(registerAutoComplete(SCRIPTTYPEINFO*)), this, SLOT(registerAutoComplete(SCRIPTTYPEINFO*)));
-    colorsUpdatedSlot();
-    fontsUpdatedSlot();
-    setupColumns();
     setupContextMenu();
 }
 
@@ -123,12 +106,12 @@ void StructWidget::typeVisitSlot(QString typeName, duint addr)
     data.callback = [](void* parent, const TYPEDESCRIPTOR * type, void* userdata) -> void*
     {
         return ((StructWidget*)userdata)->typeAddNode((QTreeWidgetItem*)parent, type);
-        };
+    };
     data.userdata = this;
     if(!DbgTypeVisit(&data))
-        {
+    {
         SimpleErrorBox(this, tr("Error"), tr("Failed to visit type..."));
-        }
+    }
     updateValuesSlot();
     GuiUpdateAllViews();
 }

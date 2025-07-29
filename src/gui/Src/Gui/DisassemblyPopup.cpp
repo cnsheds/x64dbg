@@ -125,7 +125,7 @@ bool DisassemblyPopup::eventFilter(QObject* object, QEvent* event)
                 auto addr = mParent->getAddressForPosition(x, y);
                 if(getAddress() != addr)
                 {
-                    if(DbgFunctions()->MemIsCodePage(addr, false))
+                    if(DbgFunctions()->MemIsCodePage(addr, true))
                     {
                         move(mParent->mapToGlobal(QPoint(x + 20, y + fontMetrics().height() * 2)));
                         setAddress(addr);

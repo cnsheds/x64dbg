@@ -32,6 +32,7 @@
 #include "types.h"
 #include <shlwapi.h>
 #include <fstream>
+#include "types.h"
 
 static MESSAGE_QUEUE* gMsgQueue = 0;
 static HANDLE hCommandLoopThread = 0;

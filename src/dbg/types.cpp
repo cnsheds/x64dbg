@@ -499,7 +499,7 @@ void TypeManager::Enum(std::string& kind, std::vector<Summary>& typeList) const
         enumType(functions, typeList);
 }
 
-std::string Types::TypeManager::StructUnionPtrType(const std::string & pointto) const
+std::string Types::TypeManager::StructUnionPtrType(const std::string & alias) const
 {
     auto itr = structs.find(alias);
     if(itr == structs.end())
