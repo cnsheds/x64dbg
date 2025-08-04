@@ -438,9 +438,9 @@ static void registercommands()
     dbgcmdnew("scriptexec", cbScriptExec, false); // run a script file
 
     //gui
+    dbgcmdnew("showthreadid", cbShowThreadId, false); // show given thread in threads
 	dbgcmdnew("disasm,dis", cbDebugDisasm, true); //doDisasm
     dbgcmdnew("dump,d", cbDebugDump, true); //dump at address
-	dbgcmdnew("showthreadid", cbShowThreadId, false); // show given thread in threads
     dbgcmdnew("sdump", cbDebugStackDump, true); //dump at stack address
     dbgcmdnew("memmapdump", cbDebugMemmapdump, true);
     dbgcmdnew("graph", cbInstrGraph, true); //graph function

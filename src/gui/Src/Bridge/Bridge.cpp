@@ -817,7 +817,7 @@ void* Bridge::processMessage(GUIMSG type, void* param1, void* param2)
         else
             emit executeOnGuiThread(param1, param2);
     }
-        break;
+    break;
 
     case GUI_SET_GLOBAL_NOTES:
     {

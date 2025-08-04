@@ -17,10 +17,10 @@ bool AbstractTableScrollBar::event(QEvent* event)
     switch(event->type())
     {
     case QEvent::Enter:
-    QApplication::setOverrideCursor(Qt::ArrowCursor);
+        QApplication::setOverrideCursor(Qt::ArrowCursor);
         break;
     case QEvent::Leave:
-    QApplication::restoreOverrideCursor();
+        QApplication::restoreOverrideCursor();
         break;
     default:
         break;
@@ -279,7 +279,7 @@ void AbstractTableView::paintEvent(QPaintEvent* event)
             continue;
         for(duint i = 0; i < viewableRowsCount; i++)
         {
-            //  Paints cell contents
+            // Paints cell contents
             if(i < mNbrOfLineToPrint)
             {
                 // Don't draw cells if the flag is set, and no process is running
@@ -355,8 +355,8 @@ void AbstractTableView::mouseMoveEvent(QMouseEvent* event)
                 mColResizeData.splitHandle = false;
                 mGuiState = AbstractTableView::NoState;
             }
-            }
         }
+    }
     break;
 
     case AbstractTableView::ReadyToResize:
@@ -606,19 +606,19 @@ void AbstractTableView::wheelEvent(QWheelEvent* event)
                 if(stepsY > 0)
                 {
                     for(int i = 0; i < stepsY; i++)
-                    verticalScrollBar()->triggerAction(QAbstractSlider::SliderSingleStepSub);
-        }
+                        verticalScrollBar()->triggerAction(QAbstractSlider::SliderSingleStepSub);
+                }
                 else
-        {
+                {
                     for(int i = 0; i < -stepsY; i++)
-                    verticalScrollBar()->triggerAction(QAbstractSlider::SliderSingleStepAdd);
-        }
+                        verticalScrollBar()->triggerAction(QAbstractSlider::SliderSingleStepAdd);
+                }
             }
 
             auto deltaX = mPixelScrollDelta.x();
             const auto tickX = getRowHeight();
             if(mPixelScrollDirection == ScrollUnknown && (deltaX / tickX) != 0)
-        {
+            {
                 mPixelScrollDirection = ScrollHorizontal;
             }
 
@@ -627,15 +627,15 @@ void AbstractTableView::wheelEvent(QWheelEvent* event)
                 if(deltaX > 0)
                 {
                     for(int i = 0; i < deltaX; i++)
-                horizontalScrollBar()->triggerAction(QAbstractSlider::SliderSingleStepSub);
-        }
+                        horizontalScrollBar()->triggerAction(QAbstractSlider::SliderSingleStepSub);
+                }
                 else
-        {
+                {
                     for(int i = 0; i < -deltaX; i++)
-                horizontalScrollBar()->triggerAction(QAbstractSlider::SliderSingleStepAdd);
-        }
+                        horizontalScrollBar()->triggerAction(QAbstractSlider::SliderSingleStepAdd);
+                }
                 mPixelScrollDelta = QPoint(0, 0);
-    }
+            }
         }
         else
         {
@@ -803,7 +803,7 @@ void AbstractTableView::vertSliderActionSlot(int action)
  *
  * @param[in]   action              Type of action (Refer to the QAbstractSlider::SliderAction enum)
  * @param[in]   prevTableOffset     Previous table offset
- * @param[in]   delta     Scrollbar value delta compared to the previous state
+ * @param[in]   delta               Scrollbar value delta compared to the previous state
  *
  * @return      Return the value of the new table offset.
  */
@@ -846,7 +846,7 @@ int AbstractTableView::scaleFromUint64ToScrollBarRange(duint value)
             if(valueMax == 0)
             {
                 printf("valueMax: %lli, value: %llu, rightShiftCount: %d\n", valueMax, value, mScrollBarAttributes.rightShiftCount);
-    }
+            }
             // TODO: division by zero
             return (int)((dsint)((dsint)verticalScrollBar()->maximum() * (dsint)value) / (dsint)valueMax);
         }
@@ -973,7 +973,7 @@ duint AbstractTableView::getColumnIndexFromX(int x) const
         {
             return mColumnOrder[colIndex];
         }
-        }
+    }
 
     return getColumnCount() > 0 ? mColumnOrder[getColumnCount() - 1] : - 1;
 }
@@ -1012,7 +1012,7 @@ void AbstractTableView::updateLastColumnWidth()
 {
     // Make sure the last column is never smaller than the viewport
     if(getColumnCount())
-        {
+    {
         int totalWidth = 0;
         int lastWidth = totalWidth;
         int last = 0;

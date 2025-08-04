@@ -217,7 +217,7 @@ void AppearanceDialog::on_editBackgroundColor_textChanged(const QString & arg1)
                 ui->exampleText->setStyleSheet(QString("color: %1; background-color: %2").arg(ui->editColor->text()).arg(arg1));
             else
                 ui->exampleText->setStyleSheet(QString("color: black; background-color: %1").arg(arg1));
-    }
+        }
         else
         {
             if(QColor(ui->editColor->text()).isValid())

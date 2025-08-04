@@ -75,7 +75,7 @@ bool TypeManager::AddType(const std::string & owner, const std::string & type, c
     if(type == "void")
         return addType(owner, Void, name);
 
-        return false;
+    return false;
 }
 
 bool TypeManager::AddStruct(const std::string & owner, const std::string & name, int constantSize)
@@ -197,10 +197,10 @@ bool TypeManager::AddStructMember(const std::string & parent, const std::string 
     }
 
     if(s.isUnion)
-        {
+    {
         if(typeSize > s.sizeBits)
             s.sizeBits = typeSize;
-        }
+    }
     else
     {
         s.sizeBits += m.sizeBits;
@@ -1062,7 +1062,7 @@ int LoadModel(const std::string & owner, Model & model)
     //Add struct/union members
     for(auto & su : model.structUnions)
     {
-        if(su.name.empty()) //skip error-signalled structs/unions
+        if(su.name.empty())  //skip error-signalled structs/unions
             continue;
 
         const auto suggestedSize = su.sizeBits;
@@ -1101,7 +1101,7 @@ int LoadModel(const std::string & owner, Model & model)
     //Add function arguments
     for(auto & function : model.functions)
     {
-        if(function.name.empty()) //skip error-signalled functions
+        if(function.name.empty())  //skip error-signalled functions
             continue;
 
         bool status = typeManager.AddFunctionReturn(function.name, function.returnType);

@@ -130,7 +130,7 @@ namespace Types
         };
 
         TypeManager();
-        bool        AddType(const std::string & owner, const std::string & type, const std::string & name);
+        bool AddType(const std::string & owner, const std::string & type, const std::string & name);
         bool AddStruct(const std::string & owner, const std::string & name, int constantSize = -1);
         bool AddUnion(const std::string & owner, const std::string & name, int constantSize = -1);
         bool AddEnum(const std::string & owner, const std::string & name, bool isFlags, uint8_t size);
@@ -141,18 +141,18 @@ namespace Types
         bool AddFunction(const std::string & owner, const std::string & name, CallingConvention callconv = Cdecl,
                          bool noreturn = false);
         bool AddFunctionReturn(const std::string & name, const std::string & returnType);
-        bool        AddArg(const std::string & function, const std::string & type, const std::string & name);
-        bool        AppendArg(const std::string & type, const std::string & name);
+        bool AddArg(const std::string & function, const std::string & type, const std::string & name);
+        bool AppendArg(const std::string & type, const std::string & name);
         int Sizeof(const std::string & type,
                    std::string* underlyingType = nullptr);
         TypeBase* LookupTypeById(uint32_t typeId);
         TypeBase* LookupTypeByName(const std::string & typeName);
-        bool        Visit(const std::string & type, const std::string & name, Visitor & visitor) const;
-        void        Clear(const std::string & owner = "");
-        bool        RemoveType(const std::string & type);
-        void        Enum(std::vector<Summary> & typeList) const;
-        void        Enum(std::string& kind, std::vector<Summary>& typeList) const;
-        std::string StructUnionPtrType(const std::string & pointto) const;
+        bool Visit(const std::string & type, const std::string & name, Visitor & visitor) const;
+        void Clear(const std::string & owner = "");
+        bool RemoveType(const std::string & type);
+        void Enum(std::vector<Summary> & typeList) const;
+        void Enum(std::string& kind, std::vector<Summary>& typeList) const;
+        std::string StructUnionPtrType(const std::string & alias) const;
 
     private:
         uint32_t currentTypeId = 100;

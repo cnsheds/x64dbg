@@ -502,7 +502,7 @@ void AbstractStdTable::keyPressEvent(QKeyEvent* event)
             if(modifiers == Qt::ControlModifier) //Ctrl+C -> copy
             {
                 copyLineSlot();
-        }
+            }
             break;
         }
 
