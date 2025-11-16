@@ -938,7 +938,7 @@ bool ModLoad(duint Base, duint Size, const char* FullPath, bool loadSymbols)
 
             GetModuleInfo(info, info.fileMapVA);
 
-            Size = GetPE32DataFromMappedFile(info.fileMapVA, 0, UE_SIZEOFIMAGE);
+            Size = HEADER_FIELD(info.headers, SizeOfImage);
             info.size = Size;
         }
         else

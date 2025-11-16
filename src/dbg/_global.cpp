@@ -403,27 +403,14 @@ void WaitForMultipleThreadsTermination(const HANDLE* hThread, int count, DWORD t
 duint GetThreadCount()
 {
     duint threadCount = std::thread::hardware_concurrency();
-
-    typedef BOOL(WINAPI * GetLogicalProcessorInformationEx_t)(
-        LOGICAL_PROCESSOR_RELATIONSHIP,
-        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX,
-        PDWORD
-    );
-
-    static auto p_GetLogicalProcessorInformationEx = (GetLogicalProcessorInformationEx_t)GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "GetLogicalProcessorInformationEx");
-    if(p_GetLogicalProcessorInformationEx == nullptr)
-    {
-        return threadCount;
-    }
-
     DWORD length = 0;
-    if(p_GetLogicalProcessorInformationEx(RelationAll, nullptr, &length) || GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+    if(GetLogicalProcessorInformationEx(RelationAll, nullptr, &length) || GetLastError() != ERROR_INSUFFICIENT_BUFFER)
     {
         return threadCount;
     }
 
     std::vector<uint8_t> buffer(length);
-    if(!p_GetLogicalProcessorInformationEx(RelationAll, (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)buffer.data(), &length))
+    if(!GetLogicalProcessorInformationEx(RelationAll, (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)buffer.data(), &length))
     {
         return threadCount;
     }

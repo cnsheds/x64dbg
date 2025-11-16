@@ -230,6 +230,7 @@ void CPUDump::setupContextMenu()
     integerMenu->addAction(makeAction(DIcon("word"), tr("Unsigned short (16-bit)"), SLOT(integerUnsignedShortSlot())));
     integerMenu->addAction(makeAction(DIcon("dword"), tr("Unsigned long (32-bit)"), SLOT(integerUnsignedLongSlot())));
     integerMenu->addAction(makeAction(DIcon("qword"), tr("Unsigned long long (64-bit)"), SLOT(integerUnsignedLongLongSlot())));
+    integerMenu->addAction(makeAction(DIcon("byte"), tr("Hex byte (8-bit)"), SLOT(integerHexByteSlot())));
     integerMenu->addAction(makeAction(DIcon("word"), tr("Hex short (16-bit)"), SLOT(integerHexShortSlot())));
     integerMenu->addAction(makeAction(DIcon("dword"), tr("Hex long (32-bit)"), SLOT(integerHexLongSlot())));
     integerMenu->addAction(makeAction(DIcon("qword"), tr("Hex long long (64-bit)"), SLOT(integerHexLongLongSlot())));
@@ -1076,6 +1077,31 @@ void CPUDump::integerUnsignedLongLongSlot()
     reloadData();
 }
 
+void CPUDump::integerHexByteSlot()
+{
+    Config()->setUint("HexDump", "DefaultView", (duint)ViewIntegerHexByte);
+    int charwidth = getCharWidth();
+    ColumnDescriptor colDesc;
+    DataDescriptor dDesc;
+
+    colDesc.isData = true; //hex char
+    colDesc.itemCount = 16;
+    colDesc.separator = 0;
+    colDesc.data.itemSize = Byte;
+    colDesc.data.wordMode = HexWord;
+    appendResetDescriptor(8 + charwidth * 47, tr("Hex"), false, colDesc);
+
+    colDesc.isData = false; //empty column
+    colDesc.itemCount = 0;
+    colDesc.separator = 0;
+    dDesc.itemSize = Byte;
+    dDesc.byteMode = AsciiByte;
+    colDesc.data = dDesc;
+    appendDescriptor(0, "", false, colDesc);
+
+    reloadData();
+}
+
 void CPUDump::integerHexShortSlot()
 {
     Config()->setUint("HexDump", "DefaultView", (duint)ViewIntegerHexShort);
@@ -1264,11 +1290,13 @@ void CPUDump::addressAsciiSlot()
 #ifdef _WIN64
     colDesc.data.itemSize = Qword;
     colDesc.data.qwordMode = HexQword;
+    auto title = tr("Address (QWORD)");
 #else
     colDesc.data.itemSize = Dword;
     colDesc.data.dwordMode = HexDword;
+    auto title = tr("Address (DWORD)");
 #endif
-    appendResetDescriptor(8 + charwidth * 2 * sizeof(duint), tr("Value"), false, colDesc);
+    appendResetDescriptor(8 + charwidth * 2 * sizeof(duint), title, false, colDesc);
 
     colDesc.isData = true;
     colDesc.separator = 0;
@@ -1309,11 +1337,13 @@ void CPUDump::addressUnicodeSlot()
 #ifdef _WIN64
     colDesc.data.itemSize = Qword;
     colDesc.data.qwordMode = HexQword;
+    auto title = tr("Address (QWORD)");
 #else
     colDesc.data.itemSize = Dword;
     colDesc.data.dwordMode = HexDword;
+    auto title = tr("Address (DWORD)");
 #endif
-    appendResetDescriptor(8 + charwidth * 2 * sizeof(duint), tr("Value"), false, colDesc);
+    appendResetDescriptor(8 + charwidth * 2 * sizeof(duint), title, false, colDesc);
 
     colDesc.isData = true;
     colDesc.separator = 0;
@@ -1625,6 +1655,9 @@ void CPUDump::setView(ViewEnum_t view)
     case ViewIntegerUnsignedLongLong:
         integerUnsignedLongLongSlot();
         break;
+    case ViewIntegerHexByte:
+        integerHexByteSlot();
+        break;
     case ViewIntegerHexShort:
         integerHexShortSlot();
         break;
@@ -1643,6 +1676,9 @@ void CPUDump::setView(ViewEnum_t view)
     case ViewFloatLongDouble:
         floatLongDoubleSlot();
         break;
+    case ViewFloatHalf:
+        floatHalfSlot();
+        break;
     case ViewAddress:
     case ViewAddressAscii:
         addressAsciiSlot();
@@ -1655,9 +1691,6 @@ void CPUDump::setView(ViewEnum_t view)
         break;
     case ViewTextCodepage:
         textLastCodepageSlot();
-        break;
-    default:
-        hexAsciiSlot();
         break;
     }
 }

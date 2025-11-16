@@ -1,9 +1,9 @@
 #pragma once
 
 #include "AbstractTableView.h"
-#include "QZydis.h"
+#include <Disassembler/QZydis.h>
 #include <QTextLayout>
-#include "Architecture.h"
+#include <Disassembler/Architecture.h>
 
 class CodeFoldingHelper;
 class MemoryPage;
@@ -160,6 +160,10 @@ private:
     QList<HistoryData> mVaHistory;
     int mCurrentVa;
 
+    DisassemblyPopup* mDisassemblyPopup = nullptr;
+
+protected:
+
     enum
     {
         ColAddress,
@@ -169,9 +173,6 @@ private:
         ColComment,
     };
 
-    DisassemblyPopup* mDisassemblyPopup = nullptr;
-
-protected:
     // Jumps Graphic
     int paintJumpsGraphic(QPainter* painter, int x, int y, const Instruction_t & instruction);
 

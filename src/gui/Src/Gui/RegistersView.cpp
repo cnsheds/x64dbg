@@ -1442,6 +1442,7 @@ RegistersView::RegistersView(QWidget* parent) : QScrollArea(parent), mVScrollOff
     connect(wCM_CopySymbolToClipboard, SIGNAL(triggered()), this, SLOT(onCopySymbolToClipboardAction()));
     connect(wCM_CopyAll, SIGNAL(triggered()), this, SLOT(onCopyAllAction()));
     connect(wCM_ChangeFPUView, SIGNAL(triggered()), this, SLOT(onChangeFPUViewAction()));
+    connect(Config(), SIGNAL(shortcutsUpdated()), this, SLOT(refreshShortcutsSlot()));
 
     memset(&mRegDumpStruct, 0, sizeof(REGDUMP));
     memset(&mCipRegDumpStruct, 0, sizeof(REGDUMP));
@@ -1599,10 +1600,10 @@ QString RegistersView::helpRegister(REGISTER_NAME reg)
 
         QString headerRow = QString("<tr><th>%1</th><th>%2</th><th>%3</th></tr>")
                             .arg(tr("Bit #"), tr("Mask"), tr("Flag"));
-        return tr("<table cellspacing='7'>"
-                  " <thead>%1</thead>"
-                  " <tbody>%2</tbody>"
-                  "</table>").arg(headerRow).arg(bodyRows);
+        return QString("<table cellspacing='7'>"
+                       " <thead>%1</thead>"
+                       " <tbody>%2</tbody>"
+                       "</table>").arg(headerRow).arg(bodyRows);
     }
     case CF:
         return tr("CF (bit 0) : Carry flag - Set if an arithmetic operation generates a carry or a borrow out of the most-significant bit of the result; cleared otherwise.\n"

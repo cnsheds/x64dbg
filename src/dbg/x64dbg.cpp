@@ -29,7 +29,6 @@
 #include "stringformat.h"
 #include "dbghelp_safe.h"
 #include <shellapi.h>
-#include "types.h"
 #include <shlwapi.h>
 #include <fstream>
 #include "types.h"

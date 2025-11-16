@@ -64,7 +64,7 @@ void StructWidget::setupContextMenu()
         return hasSelection && !selectedItem->parent();
     });
     mMenuBuilder->addAction(makeAction(DIcon("eraser"), tr("Remove all"), SLOT(clearSlot())));
-    mMenuBuilder->addAction(makeShortcutDescAction(DIcon("sync"), tr("&Refresh values"), tr("Quickly refresh the values, without reloading the type."), SLOT(typeUpdateWidgetSlot()), "ActionRefresh"));
+    mMenuBuilder->addAction(makeShortcutDescAction(DIcon("sync"), tr("&Refresh values"), tr("Quickly refresh the values, without reloading the type."), SLOT(updateValuesSlot()), "ActionRefresh"));
 
     auto copyMenu = new MenuBuilder(this);
     for(int column = 0; column < columnCount(); column++)
@@ -209,6 +209,7 @@ void StructWidget::reloadTypeSlot()
 }
 
 void StructWidget::copyColumnSlot()
+void StructWidget::copyColumnSlot()
 {
     QAction* action = qobject_cast<QAction*>(sender());
     if(action == nullptr || !hasSelection)
@@ -233,3 +234,7 @@ void StructWidget::registerAutoComplete(SCRIPTTYPEINFO* info)
 
     Bridge::getBridge()->setResult(BridgeResult::RegisterScriptLang, 1);
 }
+
+#undef hasSelection
+#undef selectedItem
+#undef selectedType

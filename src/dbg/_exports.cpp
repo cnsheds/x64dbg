@@ -710,14 +710,14 @@ static void TranslateTitanFpuRegisters(const x87FPURegister_t titanFpu[8], X87FP
 
 extern "C" DLL_EXPORT bool _dbg_getregdump(REGDUMP_AVX512* regdump)
 {
-    if(!DbgIsDebugging())
+    if(!DbgIsDebugging() || !hActiveThread)
     {
         memset(regdump, 0, sizeof(REGDUMP_AVX512));
         return true;
     }
 
-    TITAN_ENGINE_CONTEXT_t titcontext;
-    TITAN_ENGINE_CONTEXT_AVX512_t titcontext_AVX512;
+    TITAN_ENGINE_CONTEXT_t titcontext = {};
+    TITAN_ENGINE_CONTEXT_AVX512_t titcontext_AVX512 = {};
     if(!GetFullContextDataEx(hActiveThread, &titcontext))
         return false;
     memset(&titcontext_AVX512, 0, sizeof(titcontext_AVX512));
@@ -1061,7 +1061,7 @@ extern "C" DLL_EXPORT duint _dbg_sendmessage(DBGMSG type, void* param1, void* pa
         bUndecorateSymbolNames = settingboolget("Engine", "UndecorateSymbolNames", true);
         bEnableSourceDebugging = settingboolget("Engine", "EnableSourceDebugging", false);
         bSkipInt3Stepping = settingboolget("Engine", "SkipInt3Stepping", false);
-        bBreakCalcConditionsFails = settingboolget("Engine", "BreakWhenCalcConditionsFails", true);
+		bBreakCalcConditionsFails = settingboolget("Engine", "BreakWhenCalcConditionsFails", true);
         bIgnoreInconsistentBreakpoints = settingboolget("Engine", "IgnoreInconsistentBreakpoints", false);
         bNoForegroundWindow = settingboolget("Gui", "NoForegroundWindow", true);
         bVerboseExceptionLogging = settingboolget("Engine", "VerboseExceptionLogging", true);
