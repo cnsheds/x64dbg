@@ -1,4 +1,4 @@
-#include <QFileDialog>
+﻿#include <QFileDialog>
 #include <QTextDocumentFragment>
 
 #include "Configuration.h"
@@ -208,7 +208,6 @@ void StructWidget::reloadTypeSlot()
     typeVisitSlot(type.typeName, address);
 }
 
-void StructWidget::copyColumnSlot()
 void StructWidget::copyColumnSlot()
 {
     QAction* action = qobject_cast<QAction*>(sender());

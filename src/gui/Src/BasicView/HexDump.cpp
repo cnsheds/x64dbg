@@ -1,4 +1,4 @@
-#include "HexDump.h"
+﻿#include "HexDump.h"
 #include "Configuration.h"
 #include "Bridge.h"
 #include "StringUtil.h"
@@ -924,7 +924,12 @@ void HexDump::getColumnRichText(duint col, duint rva, RichTextPainter::List & ri
         }
         else if(desc.data.byteMode == AsciiByte && desc.data.itemSize == Byte)
         {
-            QTextCodec* tCodec = QTextCodec::codecForName("System");
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            auto tCodec = QStringDecoder("System");
+#else
+            auto tCodec = QTextCodec::codecForName("System");
+#endif // QT_VERSION
+
             wchar_t wstr[4] = {0};
             int len = 0;
             for(int i = 0; i < bufferByteCount; i++)
@@ -934,7 +939,11 @@ void HexDump::getColumnRichText(duint col, duint rva, RichTextPainter::List & ri
                 else if(data[i] > 0x7F)
                 {
                     wstr[0] = 0;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                    QString strtmp = tCodec.decode(QByteArrayView((const char*)data + i, 2));
+#else
                     QString strtmp = tCodec->toUnicode(QByteArray((const char*)data+i, 2));
+#endif // QT_VERSION
                     len = strtmp.toWCharArray(wstr);
                     wstr[len] = 0;
                     if (wstr[0] != 0)
@@ -943,7 +952,12 @@ void HexDump::getColumnRichText(duint col, duint rva, RichTextPainter::List & ri
                         data[i] = mNullReplace.toLatin1();
                 }
             }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            curData.text = tCodec.decode(QByteArrayView((const char*)data, bufferByteCount));
+#else
             curData.text = tCodec->toUnicode(QByteArray((const char*)data, bufferByteCount));
+#endif // QT_VERSION
+
             richText.push_back(curData);
         }
         else

@@ -1,4 +1,4 @@
-/**
+﻿/**
  @file stackinfo.cpp
 
  @brief Implements the stackinfo class.
@@ -65,7 +65,7 @@ static void getSymAddrName(duint addr, char(& str)[_Count])
     if (base)
     {
         char mod_rva_buf[16] = { 0 };
-        _snprintf_s(mod_rva_buf, _TRUNCATE, " [+%X]", addr - base);
+        _snprintf_s(mod_rva_buf, _TRUNCATE, " [+%llX]", addr - base);
         strncat_s(str, mod_rva_buf, _TRUNCATE);
     }
 }
